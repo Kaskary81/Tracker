@@ -7004,13 +7004,32 @@ async function apiEmptyTable(tbl,pid){
 async function apiDelete(tbl,id){if(!sb)return;setSync('saving');
   const {error}=await sb.from(tbl).delete().eq('id',id);
   if(error)syncErr(error);else setSync('ok');}
+/* PostgREST caps how many rows one request may return - 1000 by default.
+   A bill of quantities with a few hundred lines priced by a few vendors goes
+   past that easily, and the rows beyond the cap simply never arrive: prices
+   save correctly and then look as though they vanished. So read every table
+   a page at a time until a short page says we have reached the end. */
+const PAGE=1000;
+async function selectAll(tbl){
+  let from=0,out=[];
+  for(;;){
+    const q=sb.from(tbl).select('*').order('id');
+    /* older clients have no range(); one plain request is then the best we can do */
+    if(typeof q.range!=='function')return await q;
+    const {data,error}=await q.range(from,from+PAGE-1);
+    if(error)return {data:null,error};
+    out=out.concat(data||[]);
+    if(!data||data.length<PAGE)return {data:out,error:null};
+    from+=PAGE;
+    if(from>500000)return {data:out,error:null};   /* never loop for ever */
+  }}
 async function loadAll(){if(!sb)return;setSync('saving');
   const T=DB_TABLES;
-  const res=await Promise.all([sb.from('projects').select('*').order('id'),...T.map(t=>sb.from(t).select('*').order('id'))]);
+  const res=await Promise.all([selectAll('projects'),...T.map(t=>selectAll(t))]);
   const bad=res.find(r=>r.error);
   if(bad){syncErr(bad.error);return;}
   PROJECTS=(res[0].data&&res[0].data.length)?res[0].data:[{id:1,name:'Project 1',subtitle:''}];
-  {const ur=await sb.from('users').select('*').order('id');
+  {const ur=await selectAll('users');
    if(!ur.error&&ur.data&&ur.data.length)USERS=ur.data;else if(!USERS.length)USERS=defaultUsers();}
   ALLDATA={};PROJECTS.forEach(p=>ALLDATA[p.id]=_blankDB());
   T.forEach((t,i)=>{(res[i+1].data||[]).forEach(r=>{
