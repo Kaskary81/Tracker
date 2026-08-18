@@ -4298,6 +4298,28 @@ function effRate2(linkId,itemId){const v=rate2Of(linkId,itemId);
   return l?rateOf(linkId,itemId,_rid(lastPricedRev(l))):null;}
 function amount2Of(l,i){const q=qtyOf(i),r=effRate2(l.id,i.id);
   return (q==null||r==null)?null:Math.round(q*r*100)/100;}
+/* The same figures, but for one named revision. The tab that shows the revised
+   offers lists the lines of the revision you are looking at, so its totals must
+   be worked out over exactly those lines - otherwise the rows and the total
+   below them describe two different bills. */
+function goodsRevisedForRev(l,rev,opt){
+  const its=boqOf(l.materialId,_rid(rev),opt);
+  if(!its.some(i=>rate2Of(l.id,i.id)!=null))return null;
+  let any=false,t=0;
+  its.forEach(i=>{const q=qtyOf(i);
+    let r=rate2Of(l.id,i.id); if(r==null)r=rateOf(l.id,i.id,_rid(rev));
+    if(q!=null&&r!=null){any=true;t+=q*r;}});
+  return any?Math.round(t*100)/100:null;}
+function revisedTotalForRev(l,rev,opt){
+  const g=goodsRevisedForRev(l,rev,opt);if(g==null)return null;
+  return Math.round((g*fxOf(l)+chargesSAR(l,g))*100)/100;}
+function amount2ForRev(l,i,rev){
+  const q=qtyOf(i);let r=rate2Of(l.id,i.id);if(r==null)r=rateOf(l.id,i.id,_rid(rev));
+  return (q==null||r==null)?null:Math.round(q*r*100)/100;}
+function lowestRevisedForRev(mid,rev,opt){
+  const ts=(DB.links||[]).filter(x=>x.materialId===mid).map(l=>revisedTotalForRev(l,rev,opt))
+    .filter(t=>t!=null&&t>0);
+  return ts.length?Math.min(...ts):null;}
 function goodsRevised(l){
   const its=boqOf(l.materialId,_rid(lastPricedRev(l)));
   if(!its.some(i=>rate2Of(l.id,i.id)!=null))return null;
@@ -4485,7 +4507,7 @@ function renderCmpWin(w){
   const ti=Math.min(w.state.tab||0,3);
   const cw=Math.max(96,Math.min(360,w.state.cw||190));
   if(ti===3){renderDraftsTab(w,m,ls);return;}
-  if(ti===2){renderTargetTab(w,m,boqOf(m.id,_rid(lastPricedRev(ls[0]||{}))||rev),ls,low);return;}
+  if(ti===2){renderTargetTab(w,m,its,ls,low,rev,copt,revs);return;}
   if(ti===1){renderTermsTab(w,m,ls,low);return;}
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
@@ -4783,9 +4805,10 @@ function renderDraftsTab(w,m,ls){
      </tbody>
    </table></div>
    <div class="statusbar"><span>${short.length} vendor(s) · ${tot.n} comment(s) · ${tot.ag} agreed · ${tot.open} open</span><span class="spacer"></span><span>open a review to enter the comments, the replies and what was agreed</span></div>`}`;}
-function renderTargetTab(w,m,its,ls,low){
+function renderTargetTab(w,m,its,ls,low,rev,copt,revs){
+  rev=String(rev==null?currentRevId(m.id):rev);copt=copt||'';revs=revs||rfqRevsFor(m);
   const shortls=ls.filter(l=>isYes(l.priceShortlisted));
-  const tgt=targetOf(m),lowRev=lowestRevised(m.id);
+  const tgt=targetOf(m),lowRev=lowestRevisedForRev(m.id,rev,copt);
   const F=[['targetPrice','Target price ('+CUR+', delivered to site)'],['targetDate','Target sent on'],['targetNotes','Target price notes / letter ref']];
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
@@ -4801,7 +4824,12 @@ function renderTargetTab(w,m,its,ls,low){
    <div class="pickrow">
      <button class="btn" title="Copy the revised offers with their headings — then paste into Excel" onclick="copyTable('${w.id}',1)">⧉ Copy table</button>
      <button class="btn" onclick="exportTableXLSX('${w.id}',1,'Revised offers — ${esc(String(m.desc||'').replace(/[^\w -]/g,''))}')">⭳ Excel</button>
-     <span class="hint">the revised rates are a range of cells like any other — Ctrl+C, Ctrl+V from the vendor's sheet, Ctrl+D to fill down</span>
+     ${(optsOf(m.id).length)?`<select onchange="cmpOpt('${w.id}',this.value)" title="Each option is a scope of its own">${
+        optsOf(m.id).map(o=>`<option value="${o.id}" ${String(o.id)===copt?'selected':''}>Option ${esc(o.code)}${o.name?' — '+esc(o.name):''}${String(o.id)===optInForce(m.id)?' (in force)':''}</option>`).join('')}</select>`:''}
+     ${revs.length?`<select onchange="cmpRev('${w.id}',this.value)" title="The bill and the revised prices both belong to an RFQ revision">
+        ${revs.map(r=>`<option value="${r.id}" ${String(r.id)===rev?'selected':''}>RFQ ${esc(r.rev)}${r.issued?' · '+esc(fmtDate(r.issued)):''}${String(r.id)===currentRevId(m.id)?' (current)':''}</option>`).join('')}
+        <option value="" ${rev===''?'selected':''}>Before any revision</option></select>`:''}
+     <span class="hint">the bill and the rates below are RFQ ${esc(revLabel(m.id,rev))} — the revised rates are a range of cells like any other: Ctrl+C, Ctrl+V from the vendor's sheet, Ctrl+D to fill down</span>
    </div>
    <div class="tabbody">
    <div class="gridwrap" style="flex:none;margin-bottom:9px"><table class="grid" style="width:100%">
@@ -4821,36 +4849,36 @@ function renderTargetTab(w,m,its,ls,low){
        <td class="wrap">${esc(i.description)}</td>
        <td class="num">${esc(i.unit)}</td>
        <td class="num">${esc(i.qty)}</td>
-       ${shortls.map(l=>{const r0=rateOf(l.id,i.id,_rid(lastPricedRev(l))),r1=rate2Of(l.id,i.id),a=amount2Of(l,i);
+       ${shortls.map(l=>{const r0=rateOf(l.id,i.id,rev),r1=rate2Of(l.id,i.id),a=amount2ForRev(l,i,rev);
          return `<td class="num editable" data-rate2="${l.id}|${i.id}" title="Revised rate after the target price — double-click to enter, or paste a column from Excel" ondblclick="beginRate2Edit(this,${l.id},${i.id})">${
            r0==null?'<span class="hint">—</span>':'<span class="hint">'+esc(money(r0))+'</span>'} ${
            r1==null?'<span class="hint">·</span>':'<b>'+esc(money(r1))+'</b>'}${a!=null&&r1!=null?` <span class="hint">${esc(money(a))}</span>`:''}</td>`;}).join('')}
      </tr>`).join('')}
        <tr>
          <td></td><td style="color:var(--muted);font-weight:600">Goods — revised</td><td></td><td></td>
-         ${shortls.map(l=>{const g0=goodsForRev(l,_rid(lastPricedRev(l))),g1=goodsRevised(l);
+         ${shortls.map(l=>{const g0=goodsForRev(l,rev,copt),g1=goodsRevisedForRev(l,rev,copt);
            return `<td class="num" style="border-top:2px solid var(--ring)">${g0==null?'<span class="hint">—</span>':'<span class="hint">'+esc(money(g0))+'</span>'} ${
              g1==null?'<span class="hint">·</span>':'<b>'+esc(money(g1))+'</b>'} <span class="hint">${esc(curOf(l))}</span></td>`;}).join('')}
        </tr>
        <tr>
          <td></td><td style="color:var(--muted);font-weight:600">＋ Charges to site<div class="hint">the percentage follows the revised price; the lump sum stays as agreed</div></td><td></td><td></td>
-         ${shortls.map(l=>{const g1=goodsRevised(l),c1=chargesSAR(l,g1==null?goodsForRev(l,_rid(lastPricedRev(l))):g1);
+         ${shortls.map(l=>{const g1=goodsRevisedForRev(l,rev,copt),c1=chargesSAR(l,g1==null?goodsForRev(l,rev,copt):g1);
            return `<td class="num"><span class="linkchip" title="Set the delivery term and the charges" onclick="openTerms(${m.id})">${
              c1?`<b>${esc(money(c1))}</b> <span class="hint">${CUR} · ${esc(chargeText(l))}</span>`:'<span class="hint">—</span>'}</span></td>`;}).join('')}
        </tr>
        <tr style="font-weight:700">
          <td></td><td><b>GRAND TOTAL (${CUR})</b><div class="hint" style="font-weight:400">delivered to site — measured against the target</div></td><td></td><td></td>
-         ${shortls.map(l=>{const t0=vendorTotal(l),t1=revisedTotal(l);
+         ${shortls.map(l=>{const t0=totalForRev(l,rev,copt),t1=revisedTotalForRev(l,rev,copt);
            const cut=(t0!=null&&t1!=null&&t0>0)?Math.round(((t0-t1)/t0)*1000)/10:null;
            const best=(t1!=null&&lowRev!=null&&t1===lowRev);
            return `<td class="num" style="border-top:2px solid var(--ring)">${t0==null?'<span class="hint">—</span>':'<span class="hint">'+esc(money(t0))+'</span>'} ${
              t1==null?'<span class="hint">awaiting</span>':`<b>${esc(money(t1))}</b>${best?' <span class="chip">best</span>':''}${cut?` <span class="hint">−${cut}%</span>`:''}${
-               isFx(l)?`<div class="hint" style="font-weight:400">${esc(moneyC(goodsRevised(l),curOf(l)))} @ ${fxOf(l)}</div>`:''}${
+               isFx(l)?`<div class="hint" style="font-weight:400">${esc(moneyC(goodsRevisedForRev(l,rev,copt),curOf(l)))} @ ${fxOf(l)}</div>`:''}${
                tgt!=null?(t1<=tgt?' <span class="chip">meets target</span>':` <span class="hint">+${Math.round(((t1-tgt)/tgt)*1000)/10}% vs target</span>`):''}`}</td>`;}).join('')}
        </tr>
      </tbody>
    </table></div>
-   <div class="statusbar"><span>${shortls.length} shortlisted vendor(s) · saving so far ${(()=>{const s=shortls.reduce((a,l)=>{const t0=vendorTotal(l),t1=revisedTotal(l);return a+((t0!=null&&t1!=null)?(t0-t1):0);},0);return esc(money(s))+' '+CUR;})()}</span><span class="spacer"></span><span>revised rates are entered in the vendor’s own currency · the target is compared on the delivered ${CUR} total</span></div>`)}
+   <div class="statusbar"><span>${shortls.length} shortlisted vendor(s) · saving so far ${(()=>{const s=shortls.reduce((a,l)=>{const t0=totalForRev(l,rev,copt),t1=revisedTotalForRev(l,rev,copt);return a+((t0!=null&&t1!=null)?(t0-t1):0);},0);return esc(money(s))+' '+CUR;})()}</span><span class="spacer"></span><span>revised rates are entered in the vendor’s own currency · the target is compared on the delivered ${CUR} total</span></div>`)}
    </div>`;
 }
 async function setRate2(linkId,itemId,val){
