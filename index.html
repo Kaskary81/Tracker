@@ -7031,10 +7031,13 @@ function subscribeRT(){if(!sb)return;
 /* Someone else's change must never pull the rug from under someone who is
    mid-edit: reloading rebuilds every grid, which used to close the open cell
    editor, re-fire its commit and write the same figure again. Wait instead. */
+let _rtWaits=0;
 function rtRefresh(){
   const busy=(typeof _rateBusy!=='undefined'&&_rateBusy.size)||document.querySelector('.celledit,input.celledit,textarea.celledit');
-  if(busy){clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,1200);return;}
-  loadAll();}
+  /* wait for the typing to finish - but never wait for ever, or a cell left
+     open in a forgotten tab would freeze this copy of the app out of date */
+  if(busy&&_rtWaits<8){_rtWaits++;clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,1200);return;}
+  _rtWaits=0;loadAll();}
 async function signOut(){try{if(sb)await sb.auth.signOut();}catch(e){}location.reload();}
 function exportJSON(){dl(new Blob([JSON.stringify({projects:PROJECTS,data:ALLDATA},null,2)],{type:'application/json'}),'trackers_backup.json');}
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
