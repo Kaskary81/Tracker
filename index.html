@@ -4867,7 +4867,10 @@ async function setRate2(linkId,itemId,val){
   const base={linkId,itemId,revId:rev,rate:'',rate2:v,notes:''};
   let r;
   try{
-    if(_isLive()){r=await apiInsert('crates',base);if(!r)return;
+    if(_isLive()){r=await apiInsert('crates',base,true);
+      if(!r){const cur=await _serverRate(linkId,itemId,rev);
+        if(cur){commitEdit('crates',cur.id,'rate2',v);return;}
+        await loadAll();refreshData();return;}
       const again=rateRow(linkId,itemId,rev);
       if(again){commitEdit('crates',again.id,'rate2',v);return;}}
     else r={id:nextId('crates'),...base};
@@ -4942,7 +4945,10 @@ async function setRate(linkId,itemId,val,rev){
   const base={linkId,itemId,revId:rev,rate:v,notes:''};
   let r;
   try{
-    if(_isLive()){r=await apiInsert('crates',base);if(!r)return;
+    if(_isLive()){r=await apiInsert('crates',base,true);
+      if(!r){const cur=await _serverRate(linkId,itemId,rev);
+        if(cur){commitEdit('crates',cur.id,'rate',v);return;}
+        await loadAll();refreshData();return;}
       const again=rateRow(linkId,itemId,rev);
       if(again){commitEdit('crates',again.id,'rate',v);return;}}
     else r={id:nextId('crates'),...base};
@@ -6969,11 +6975,23 @@ async function apiUpdate(tbl,row,fields){if(!sb)return;setSync('saving');
   const patch={};(fields||Object.keys(row).filter(k=>k!=='id')).forEach(k=>patch[k]=row[k]);
   const {error}=await sb.from(tbl).update(patch).eq('id',row.id);
   if(error)syncErr(error);else setSync('ok');}
-async function apiInsert(tbl,obj){if(!sb)return null;setSync('saving');
+async function apiInsert(tbl,obj,quiet){if(!sb)return null;setSync('saving');
   const payload=GLOBAL_TABLES.includes(tbl)?obj:{...obj,projectId:PROJ};
   const {data,error}=await sb.from(tbl).insert(payload).select().single();
-  if(error){syncErr(error);return null;}
+  /* quiet: the caller knows how to recover and should not be interrupted */
+  if(error){if(quiet)setSync('ok');else syncErr(error);return null;}
   setSync('ok');return data;}
+/* The row already exists on the server - usually because another tab, another
+   person, or a stale copy of this page got there first. Take it and carry on. */
+async function _serverRate(linkId,itemId,rev){
+  if(!sb)return null;
+  const {data}=await sb.from('crates').select('*').eq('projectId',PROJ)
+    .eq('linkId',linkId).eq('itemId',itemId).eq('revId',_rid(rev)).limit(1);
+  if(!data||!data.length)return null;
+  const cur=data[0];
+  DB.crates=DB.crates||[];
+  if(!DB.crates.some(x=>x.id===cur.id))DB.crates.push(cur);
+  return cur;}
 /* empty one table for one project in a single request, and wait for it */
 async function apiEmptyTable(tbl,pid){
   if(!sb)return true;
