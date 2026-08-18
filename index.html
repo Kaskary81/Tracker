@@ -4048,7 +4048,11 @@ function currentRevId(mid){const rs=revListOf(mid);return rs.length?String(rs[rs
 function revOrder(mid,rev){
   const rs=revListOf(mid);const i=rs.findIndex(x=>String(x.id)===_rid(rev));
   return i<0?-1:i;}
-function rateRow(linkId,itemId,rev){return (DB.crates||[]).find(r=>r.linkId===linkId&&r.itemId===itemId&&_rid(r.revId)===_rid(rev));}
+/* the newest row wins: if an older duplicate ever survives, it must not
+   shadow the figure somebody just typed */
+const _rateBusy=new Set();
+function rateRow(linkId,itemId,rev){const a=(DB.crates||[]).filter(r=>r.linkId===linkId&&r.itemId===itemId&&_rid(r.revId)===_rid(rev));
+  return a.length?a[a.length-1]:undefined;}
 function rateOf(linkId,itemId,rev){const r=rateRow(linkId,itemId,rev);
   if(!r||r.rate===''||r.rate==null)return null;
   const n=parseFloat(String(r.rate).replace(/,/g,''));return isNaN(n)?null:n;}
@@ -4857,10 +4861,17 @@ async function setRate2(linkId,itemId,val){
   const row=rateRow(linkId,itemId,rev);
   if(row){commitEdit('crates',row.id,'rate2',v);return;}
   if(v===''){refreshData();return;}
+  const _k='r2|'+linkId+'|'+itemId+'|'+_rid(rev);
+  if(_rateBusy.has(_k))return;
+  _rateBusy.add(_k);
   const base={linkId,itemId,revId:rev,rate:'',rate2:v,notes:''};
   let r;
-  if(_isLive()){r=await apiInsert('crates',base);if(!r)return;}
-  else r={id:nextId('crates'),...base};
+  try{
+    if(_isLive()){r=await apiInsert('crates',base);if(!r)return;
+      const again=rateRow(linkId,itemId,rev);
+      if(again){commitEdit('crates',again.id,'rate2',v);return;}}
+    else r={id:nextId('crates'),...base};
+  }finally{_rateBusy.delete(_k);}
   DB.crates=DB.crates||[];DB.crates.push(r);
   txPush({t:'ins',tbl:'crates',row:_rowCopy(r)},'Revised rate');
   logAct('Revised','crates',r.id,'rate2','',v);
@@ -4923,10 +4934,19 @@ async function setRate(linkId,itemId,val,rev){
   const row=rateRow(linkId,itemId,rev);
   if(row){commitEdit('crates',row.id,'rate',v);return;}
   if(v===''){refreshData();return;}
+  /* one insert per cell at a time - a second commit while the first is still
+     in flight used to create a duplicate row, and the older one then showed */
+  const _k=linkId+'|'+itemId+'|'+_rid(rev);
+  if(_rateBusy.has(_k))return;
+  _rateBusy.add(_k);
   const base={linkId,itemId,revId:rev,rate:v,notes:''};
   let r;
-  if(_isLive()){r=await apiInsert('crates',base);if(!r)return;}
-  else r={id:nextId('crates'),...base};
+  try{
+    if(_isLive()){r=await apiInsert('crates',base);if(!r)return;
+      const again=rateRow(linkId,itemId,rev);
+      if(again){commitEdit('crates',again.id,'rate',v);return;}}
+    else r={id:nextId('crates'),...base};
+  }finally{_rateBusy.delete(_k);}
   DB.crates=DB.crates||[];DB.crates.push(r);
   txPush({t:'ins',tbl:'crates',row:_rowCopy(r)},'Rate');
   logAct('Priced','crates',r.id,'rate','',v);
@@ -6989,7 +7009,14 @@ async function loadAll(){if(!sb)return;setSync('saving');
 function reloadAll(){loadAll();}
 let rtTimer=null;
 function subscribeRT(){if(!sb)return;
-  sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},()=>{clearTimeout(rtTimer);rtTimer=setTimeout(loadAll,500);}).subscribe();}
+  sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},()=>{clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,500);}).subscribe();}
+/* Someone else's change must never pull the rug from under someone who is
+   mid-edit: reloading rebuilds every grid, which used to close the open cell
+   editor, re-fire its commit and write the same figure again. Wait instead. */
+function rtRefresh(){
+  const busy=(typeof _rateBusy!=='undefined'&&_rateBusy.size)||document.querySelector('.celledit,input.celledit,textarea.celledit');
+  if(busy){clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,1200);return;}
+  loadAll();}
 async function signOut(){try{if(sb)await sb.auth.signOut();}catch(e){}location.reload();}
 function exportJSON(){dl(new Blob([JSON.stringify({projects:PROJECTS,data:ALLDATA},null,2)],{type:'application/json'}),'trackers_backup.json');}
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
