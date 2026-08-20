@@ -103,6 +103,11 @@ table.grid td.wrap{white-space:normal;min-width:250px}
 table.grid td.num{font-variant-numeric:tabular-nums}
 table.grid tbody tr:hover td{background:var(--accent-soft)}
 table.grid tbody tr.priced td{background:var(--priced)}
+.tbltools{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin:0 0 4px;opacity:.35;transition:opacity .12s}
+.tbltools:hover,.gridwrap:hover+.tbltools,.tbltools:focus-within{opacity:1}
+.win:hover .tbltools{opacity:.75}.win:hover .tbltools:hover{opacity:1}
+.tbltools .linkchip{font-size:11px}
+@media print{.tbltools{display:none}}
 table.grid tbody tr.priced:hover td{background:var(--priced2)}
 table.grid tr.sel td{background:var(--accent-soft2);box-shadow:inset 2.5px 0 0 var(--accent)}
 table.grid tbody tr.priced.sel td{background:var(--accent-soft2)}
@@ -979,6 +984,40 @@ async function addLink(vid,mid){if(getLink(vid,mid))return;
     _techWhy='';}
   if(_autoTx)txEnd();
   refreshData();}
+/* Which vendor rows are ticked. Kept outside the record so it never reaches
+   the database, and cleared whenever the selection is acted on. */
+const LKSEL=new Set();
+function lkSel(id,on){on?LKSEL.add(id):LKSEL.delete(id);refreshData();}
+function lkSelAll(mid,on){
+  const m=DB.materials.find(x=>x.id===mid);if(!m)return;
+  linksForMaterial(m).forEach(l=>{on?LKSEL.add(l.id):LKSEL.delete(l.id);});
+  refreshData();}
+function lkDeleteSelected(mid){
+  const m=DB.materials.find(x=>x.id===mid);if(!m)return;
+  const picked=linksForMaterial(m).filter(l=>LKSEL.has(l.id));
+  if(!picked.length){toast('Tick the vendors you want to unassign first');return;}
+  /* say plainly what goes with them, then do it as one undoable step */
+  const cnt=(arr,f)=>(arr||[]).filter(f).length;
+  const ids=new Set(picked.map(l=>l.id));
+  const bits=[
+    [cnt(DB.crates,r=>ids.has(r.linkId)),'price','prices'],
+    [cnt(DB.scores,r=>ids.has(r.linkId)),'evaluation score','evaluation scores'],
+    [cnt(DB.compliance,r=>ids.has(r.linkId)),'compliance point','compliance points'],
+    [cnt(DB.pocmts,r=>ids.has(r.linkId)),'draft PO comment','draft PO comments']]
+    .filter(x=>x[0]).map(x=>x[0]+' '+(x[0]===1?x[1]:x[2]));
+  const names=picked.map(l=>venName(l.vendorId));
+  msgBox('Unassign '+picked.length+' vendor'+(picked.length===1?'':'s')+'?','🗑',
+    '<b>'+names.map(esc).join('<br>')+'</b><br><br>'+
+    (bits.length?'This also removes '+esc(bits.join(', '))+' recorded against them for this material.'
+                :'Nothing else is recorded against them for this material.')+
+    '<br><br><span class="hint">The vendors themselves stay in the register — only their assignment to this material goes. One undo puts it all back.</span>',
+    [['Unassign',()=>{
+        const auto=txBegin('Unassign '+picked.length+' vendor(s) from '+matName(mid));
+        picked.forEach(l=>removeLink(l.vendorId,mid));
+        LKSEL.clear();
+        if(auto)txEnd();
+        toast('Unassigned '+picked.length+' vendor(s)');
+        refreshData();},'danger'],['Cancel',null,'']]);}
 function removeLink(vid,mid){const l=getLink(vid,mid);if(!l)return;
   const auto=txBegin('Unassign '+venName(vid)+' from '+matName(mid));
   const _mid=mid;
@@ -1385,11 +1424,30 @@ async function trReorder(w,t,tbl,dragId,targetId,before){
 
 /* every table in a record window gets the same drag-to-resize handles as the
    registers; sizes are kept per window, per tab, per table                */
+/* pdfOnly: the registers already carry Copy and Excel of their own */
+function addTableTools(w,t,pdfOnly){
+  if(!t||!t.tHead||!t.tHead.rows[0])return;
+  const host=t.closest('.gridwrap')||t;
+  if(!host.parentNode)return;
+  if(host.previousElementSibling&&host.previousElementSibling.classList&&
+     host.previousElementSibling.classList.contains('tbltools'))return;
+  const title=tblTitle(w,t);
+  const bar=document.createElement('div');
+  bar.className='tbltools';
+  bar.innerHTML=(pdfOnly?'':
+      '<span class="linkchip" data-x="copy" title="Copy this table with its headings — paste straight into Excel">⧉ Copy</span>'+
+      '<span class="linkchip" data-x="xlsx" title="Download this table as an Excel file">⭳ Excel</span>')+
+      '<span class="linkchip" data-x="pdf" title="Open a print view of this table — choose Save as PDF">⭳ PDF</span>';
+  bar.addEventListener('click',e=>{const btn=e.target.closest('[data-x]');if(!btn)return;
+    e.preventDefault();e.stopPropagation();tableExport(t,btn.dataset.x,title);});
+  host.parentNode.insertBefore(bar,host);}
 function enhanceTables(w){
   if(!w||!w.el)return;
   const tables=[...w.el.querySelectorAll('table.grid')];
   tables.forEach((t,ti)=>{
-    if(String(w.kind).indexOf('grid')===0&&ti===0)return;   /* registers have their own */
+    const ownToolbar=(String(w.kind).indexOf('grid')===0&&ti===0);
+    addTableTools(w,t,ownToolbar);
+    if(ownToolbar)return;                                    /* registers have their own */
     if(!t.tHead||!t.tHead.rows[0])return;
     const S=(w.state.tsize=w.state.tsize||{});
     const key='t'+(w.state.tab==null?0:w.state.tab)+'_'+ti;
@@ -1850,6 +1908,66 @@ function tableAOA(t){
     if(empty)drop.push(c);}
   return out.map(r=>r.filter((v,c)=>!drop.includes(c)));}
 function winTable(wid,ti){return _winTables(wid)[ti||0]||null;}
+/* Every table gets the same three ways out: copy for a paste into Excel, a
+   real .xlsx file, and a print view the browser can save as PDF. They all read
+   the table on screen, so what you export is what you are looking at - the
+   columns in the order you put them, hidden ones left out. */
+function tblTitle(w,t){
+  const wt=w&&w.el&&w.el.querySelector('.wintitle');
+  let base=wt?String(wt.innerText||'').trim():'Table';
+  const host=t.closest('.gridwrap'), prev=host&&host.previousElementSibling;
+  let sub='';
+  if(prev&&prev.innerText){const first=String(prev.innerText).trim().split('\n')[0];
+    if(first&&first.length<=60&&!/^\s*$/.test(first))sub=first;}
+  return (base+(sub?' — '+sub:'')).replace(/\s+/g,' ').trim();}
+function tblFileName(title){
+  return String(title||'table').replace(/[^\w\- ]+/g,' ').replace(/\s+/g,'_').replace(/^_|_$/g,'').slice(0,80)||'table';}
+function tableExport(t,how,title){
+  if(!t||!t.tHead||!t.tHead.rows[0]){toast('Nothing to export in this table');return;}
+  const aoa=tableAOA(t);
+  if(aoa.length<2){toast('This table has no rows yet');return;}
+  if(how==='copy'){
+    copyText(aoa.map(r=>r.map(v=>/[\t\n"]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join('\t')).join('\n'),
+      'Copied '+(aoa.length-1)+' row(s) with headings — paste into Excel');return;}
+  if(how==='pdf')return tablePDF(t,title);
+  const fn=tblFileName(title);
+  ensureXLSX().then(()=>{
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=aoa[0].map((h,c)=>({wch:Math.min(46,Math.max(10,...aoa.map(r=>String(r[c]||'').length)))}));
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,String(title||'Sheet1').replace(/[\\\/?*\[\]:]/g,' ').slice(0,31)||'Sheet1');
+    XLSX.writeFile(wb,fn+'.xlsx');
+    toast('Exported '+(aoa.length-1)+' row(s) to Excel');
+  }).catch(()=>{
+    const csv='\ufeff'+aoa.map(r=>r.map(v=>{v=String(v==null?'':v);
+      return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\r\n');
+    dl(new Blob([csv],{type:'text/csv;charset=utf-8'}),fn+'.csv');
+    toast('No internet for the Excel writer — saved a CSV instead, which opens straight in Excel');});}
+/* No PDF library: the browser already makes very good PDFs. This opens a clean
+   print view of just this table and asks for the print dialog, where "Save as
+   PDF" is the usual destination. */
+function tablePDF(t,title){
+  const c=t.cloneNode(true);
+  c.querySelectorAll('.dragrip,.colgrip,.rowgrip,.tbltools,button,select,input').forEach(e=>e.remove());
+  c.querySelectorAll('[style]').forEach(e=>{e.style.width='';e.style.minWidth='';e.style.maxWidth='';e.style.height='';});
+  c.querySelectorAll('tr').forEach(tr=>{if(!tr.innerText.replace(/\s/g,''))tr.remove();});
+  const cols=t.tHead.rows[0].cells.length;
+  const win=window.open('','_blank');
+  if(!win){toast('Allow pop-ups for this site and press PDF again');return;}
+  const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
+  const head=[proj.name,proj.subtitle].filter(Boolean).join(' · ');
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Table')+'</title><style>'+
+   '@page{size:A4 '+(cols>7?'landscape':'portrait')+';margin:12mm}'+
+   'body{font:11px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0}'+
+   'h1{font-size:15px;margin:0 0 2px}.sub{color:#666;font-size:10px;margin:0 0 10px}'+
+   'table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top;word-break:break-word}'+
+   'th{background:#eef1f5;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.02em}'+
+   'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
+   '.hint{color:#666}.chip,.badge{border:1px solid #ccc;border-radius:8px;padding:0 4px;font-size:9px}'+
+   '</style></head><body><h1>'+esc(title||'Table')+'</h1><div class="sub">'+esc(head)+
+   ' · printed '+esc(new Date().toLocaleString())+'</div>'+c.outerHTML+
+   '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},120);}<\/scr'+'ipt></body></html>');
+  win.document.close();}
 function copyTable(wid,ti){
   const t=winTable(wid,ti);if(!t){toast('No table to copy here');return;}
   const aoa=tableAOA(t);
@@ -2612,12 +2730,16 @@ function renderMatWin(w){
        <select id="lk-${w.id}"><option value="">Assign an existing vendor…</option>${options.map(r=>`<option value="${r.id}">${esc(r.manufacturer)}</option>`).join('')}</select>
        <button class="btn" onclick="const s=document.getElementById('lk-${w.id}');if(s.value)addLink(+s.value,${m.id})">Assign</button>
        <button class="btn" onclick="newRecord('rfqs',{__linkTo:${m.id}})">＋ New vendor for this material</button>
-       <span class="hint">double-click any status cell to edit it — each vendor's status is independent</span>
+       ${(()=>{const k=ls.filter(l=>LKSEL.has(l.id)).length;
+          return k?`<button class="btn danger" onclick="lkDeleteSelected(${m.id})">🗑 Unassign ${k} selected</button>
+                    <span class="linkchip" onclick="lkSelAll(${m.id},false)">clear the selection</span>`:'';})()}
+       <span class="hint">double-click any status cell to edit it — tick the boxes to unassign several at once</span>
      </div>
      ${ls.length?`<div class="gridwrap"><table class="grid">
-       <thead><tr><th>Vendor</th><th>Offer received 📅</th><th>Delivery time</th><th>Spec compliance 🔗</th><th>Technical ranking 🔗</th><th>Total price 💰</th><th>vs budget 🎯</th><th>Shortlisted</th><th>Offer after target 🎯</th><th>Draft PO 📄</th><th>Selected ★</th><th>Mat. approval 🔗</th><th>Notes</th><th></th></tr></thead>
+       <thead><tr><th style="width:34px"><input type="checkbox" title="Select every vendor" onclick="lkSelAll(${m.id},this.checked)"></th><th>Vendor</th><th>Offer received 📅</th><th>Delivery time</th><th>Spec compliance 🔗</th><th>Technical ranking 🔗</th><th>Total price 💰</th><th>vs budget 🎯</th><th>Shortlisted</th><th>Offer after target 🎯</th><th>Draft PO 📄</th><th>Selected ★</th><th>Mat. approval 🔗</th><th>Notes</th><th></th></tr></thead>
        <tbody>${ls.map(l=>{const v=DB.rfqs.find(x=>x.id===l.vendorId);if(!v)return '';
          return `<tr>
+           <td class="num"><input type="checkbox" class="lksel" value="${l.id}" ${LKSEL.has(l.id)?'checked':''} onclick="event.stopPropagation();lkSel(${l.id},this.checked)"></td>
            <td><span class="linkchip" onclick="openVendor(${v.id})"><b>${esc(v.manufacturer)}</b></span></td>
            ${offerCell(l)}
            ${durCell(l)}
