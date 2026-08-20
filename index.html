@@ -103,10 +103,10 @@ table.grid td.wrap{white-space:normal;min-width:250px}
 table.grid td.num{font-variant-numeric:tabular-nums}
 table.grid tbody tr:hover td{background:var(--accent-soft)}
 table.grid tbody tr.priced td{background:var(--priced)}
-.tbltools{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin:0 0 4px;opacity:.35;transition:opacity .12s}
-.tbltools:hover,.gridwrap:hover+.tbltools,.tbltools:focus-within{opacity:1}
-.win:hover .tbltools{opacity:.75}.win:hover .tbltools:hover{opacity:1}
-.tbltools .linkchip{font-size:11px}
+.tbltools{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin:0 0 6px;opacity:1}
+.tbltools .linkchip{font-size:11px;border:1px solid var(--ring);background:var(--field);border-radius:7px;padding:3px 9px;line-height:1.5;color:var(--ink);opacity:.9;transition:background .12s,opacity .12s}
+.tbltools .linkchip:hover{background:var(--hover,rgba(127,127,127,.14));opacity:1}
+.tbltoolslbl{font-size:11px;color:var(--dim,#888);margin-right:2px}
 @media print{.tbltools{display:none}}
 table.grid tbody tr.priced:hover td{background:var(--priced2)}
 table.grid tr.sel td{background:var(--accent-soft2);box-shadow:inset 2.5px 0 0 var(--accent)}
@@ -1434,7 +1434,7 @@ function addTableTools(w,t,pdfOnly){
   const title=tblTitle(w,t);
   const bar=document.createElement('div');
   bar.className='tbltools';
-  bar.innerHTML=(pdfOnly?'':
+  bar.innerHTML='<span class="tbltoolslbl">Export this table</span>'+(pdfOnly?'':
       '<span class="linkchip" data-x="copy" title="Copy this table with its headings — paste straight into Excel">⧉ Copy</span>'+
       '<span class="linkchip" data-x="xlsx" title="Download this table as an Excel file">⭳ Excel</span>')+
       '<span class="linkchip" data-x="pdf" title="Open a print view of this table — choose Save as PDF">⭳ PDF</span>';
