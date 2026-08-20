@@ -2009,6 +2009,8 @@ function tblStats(t,keep){
                      :Number(Math.round(x*100)/100).toLocaleString())+(u?' '+u:'');
     /* every figure is labelled - a bare headline invites the wrong reading,
        and the sum of six competing offers is not a project total */
+    /* a column where every row reads the same says nothing worth a card */
+    if(lo===hi)return;
     const lines=[['lowest',f(lo)],['average',f(av)],['highest',f(hi)]];
     if(money)lines.push(['sum of all rows',f(sum)]);
     out.push({k:(head.length>38?head.slice(0,37)+'…':head),v:'',lines:lines});});
@@ -2034,20 +2036,36 @@ function tablePDF(t,title){
      index without cutting the wrong one, so it is printed whole */
   const simple=(t.tHead.rows.length===1)&&!t.querySelector('th[colspan],td[colspan],th[rowspan],td[rowspan]');
   const total=t.tHead.rows[0].cells.length;
-  let keep=null,stats=[],dropped=0;
+  /* every named column is printed - a blank column still says something, and
+     leaving one out means checking the screen to know what is missing. Only
+     the unnamed strips that hold the tick box and the row's delete cross go,
+     because those are buttons, not columns */
+  let stats=[],ui=[];
   if(simple){
-    keep=_pdfKeep(t);
-    if(keep.length<2)keep=null;
-    if(keep){dropped=total-keep.length;stats=tblStats(t,keep);}}
+    const filled=_pdfKeep(t);
+    if(filled.length>=2)stats=tblStats(t,filled);}
   const c=t.cloneNode(true);
   c.querySelectorAll('td.rowactions,th.rowactions').forEach(e=>{e.innerHTML='';});
   c.querySelectorAll('.dragrip,.colgrip,.rowgrip,.tbltools,button,select,input,textarea').forEach(e=>e.remove());
   c.querySelectorAll('[style]').forEach(e=>{e.style.width='';e.style.minWidth='';e.style.maxWidth='';e.style.height='';});
   c.querySelectorAll('tr').forEach(tr=>{if(!String(tr.innerText||'').replace(/\s/g,''))tr.remove();});
-  if(keep&&dropped){
-    const drop=[];for(let i=0;i<total;i++)if(keep.indexOf(i)<0)drop.push(i);
-    [...c.rows].forEach(r=>{for(let k=drop.length-1;k>=0;k--){if(r.cells[drop[k]])r.deleteCell(drop[k]);}});}
-  const cols=keep?keep.length:total;
+  /* worked out on the stripped copy, so a drag handle does not read as content */
+  if(simple&&c.tHead&&c.tHead.rows[0]){
+    const chr=c.tHead.rows[0];
+    const crows=[...c.tBodies].reduce((a,b)=>a.concat([...b.rows]),[]);
+    for(let i=0;i<total;i++){
+      if(!chr.cells[i])continue;
+      if(String(chr.cells[i].textContent||'').replace(/\s/g,''))continue;
+      let any=false;
+      crows.forEach(r=>{const cc=r.cells[i];
+        if(cc&&String(cc.textContent||'').replace(/[\s—–\-＋+✕×]/g,''))any=true;});
+      if(!any)ui.push(i);}}
+  if(ui.length){
+    [...c.rows].forEach(r=>{for(let k=ui.length-1;k>=0;k--){if(r.cells[ui[k]])r.deleteCell(ui[k]);}});}
+  const cols=total-ui.length;
+  /* a long or wide bill is set a little tighter so it still lands on one sheet */
+  const dense=(_pdfRows(t).length>14||cols>10);
+  const FS=dense?'11px':'12px',HS=dense?'10px':'11px',PAD=dense?'5px 7px':'7px 9px';
   const win=window.open('','_blank');
   if(!win){toast('Allow pop-ups for this site and press PDF again');return;}
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
@@ -2058,29 +2076,30 @@ function tablePDF(t,title){
       ((s.lines||[]).length?'<table class="fig">'+s.lines.map(l=>
         '<tr><td class="fl">'+esc(l[0])+'</td><td class="fv">'+esc(l[1])+'</td></tr>').join('')+'</table>':'')+
       '</div>').join('')+'</div>'):'';
-  const note=dropped?('<div class="note">'+dropped+' column'+(dropped>1?'s':'')+
-      ' left out — nothing was entered in '+(dropped>1?'them':'it')+' yet</div>'):'';
+  const note='';
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Table')+'</title><style>'+
-   '@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:12mm}'+
+   '@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:'+(dense?'10mm':'12mm')+'}'+
    'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
-   'body{font:11px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0;text-align:center}'+
-   'h1{font-size:17px;margin:0 0 3px}.sub{color:#666;font-size:10px;margin:0 0 12px}'+
+   'body{font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0;text-align:center}'+
+   'h1{font-size:'+(dense?'18px':'22px')+';margin:0 0 3px}'+
+   '.sub{color:#666;font-size:'+(dense?'11px':'12px')+';margin:0 0 '+(dense?'11px':'16px')+'}'+
+   (dense?'tbody td{line-height:1.35}.card{padding:7px 13px}.card .k{font-size:9.5px}':'')+
    '.cards{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 13px}'+
-   '.card{border:1px solid #d6dbe3;border-radius:9px;padding:7px 13px;min-width:118px;background:#f7f9fb}'+
-   '.card .k{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'+
-   '.card .v{font-size:14px;font-weight:700;margin-top:2px}'+
-   '.card .s{font-size:8.5px;color:#6b7280;margin-top:2px}'+
-   'table.fig{border-collapse:collapse;margin:3px 0 0;width:100%}'+
-   'table.fig td{border:none;padding:1px 0;font-size:9.5px;vertical-align:baseline}'+
+   '.card{border:1px solid #d6dbe3;border-radius:10px;padding:9px 16px;min-width:150px;background:#f7f9fb}'+
+   '.card .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'+
+   '.card .v{font-size:18px;font-weight:700;margin-top:3px}'+
+   '.card .s{font-size:10px;color:#6b7280;margin-top:2px}'+
+   'table.fig{border-collapse:collapse;margin:4px 0 0;width:100%}'+
+   'table.fig td{border:none;padding:1px 0;font-size:11.5px;vertical-align:baseline}'+
    'table.fig td.fl{color:#6b7280;text-align:left;padding-right:10px;white-space:nowrap}'+
    'table.fig td.fv{text-align:right;font-weight:600;white-space:nowrap}'+
-   'table{border-collapse:collapse;margin:0 auto;width:auto;max-width:100%;text-align:left}'+
-   'th,td{border:1px solid #bbb;padding:5px 7px;text-align:left;vertical-align:top;'+
-     'word-break:normal;overflow-wrap:normal;hyphens:none}'+
-   'th{background:#eef1f5;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.02em}'+
+   'table{border-collapse:collapse;margin:0 auto;width:100%;text-align:left}'+
+   'th,td{border:1px solid #bbb;padding:'+PAD+';text-align:left;vertical-align:top;font-size:'+FS+';'+
+     'word-break:normal;overflow-wrap:break-word;hyphens:none}'+
+   'th{background:#eef1f5;font-weight:700;font-size:'+HS+';text-transform:uppercase;letter-spacing:.02em}'+
    'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
-   '.hint{color:#666}.chip,.badge{border:1px solid #ccc;border-radius:8px;padding:0 4px;font-size:9px}'+
-   '.note{color:#888;font-size:9px;margin-top:9px}'+
+   '.hint{color:#666}.chip,.badge{border:1px solid #ccc;border-radius:8px;padding:1px 5px;font-size:10.5px}'+
+   '.note{color:#888;font-size:10.5px;margin-top:11px}'+
    '</style></head><body><h1>'+esc(title||'Table')+'</h1><div class="sub">'+esc(head)+
    ' · printed '+esc(new Date().toLocaleString())+'</div>'+cards+c.outerHTML+note+
    '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},150);}<\/scr'+'ipt></body></html>');
