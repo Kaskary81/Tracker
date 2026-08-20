@@ -1913,12 +1913,22 @@ function winTable(wid,ti){return _winTables(wid)[ti||0]||null;}
    the table on screen, so what you export is what you are looking at - the
    columns in the order you put them, hidden ones left out. */
 function tblTitle(w,t){
-  const wt=w&&w.el&&w.el.querySelector('.wintitle');
-  let base=wt?String(wt.innerText||'').trim():'Table';
-  const host=t.closest('.gridwrap'), prev=host&&host.previousElementSibling;
+  const wt=w&&w.el&&w.el.querySelector('.titlebar .ttext');
+  const base=String((w&&w.title)||(wt?wt.textContent:'')||'').trim()||'Table';
   let sub='';
-  if(prev&&prev.innerText){const first=String(prev.innerText).trim().split('\n')[0];
-    if(first&&first.length<=60&&!/^\s*$/.test(first))sub=first;}
+  /* the caption is the tab you are looking at - never the wording off a
+     form control that happens to sit above the grid */
+  const tab=w&&w.el&&w.el.querySelector('.tabbar button.active');
+  if(tab)sub=String(tab.innerText||'').replace(/\s*\(\d+\)\s*$/,'').trim();
+  if(!sub){
+    const host=t.closest('.gridwrap');
+    let prev=host&&host.previousElementSibling;
+    /* the export bar now sits directly above every grid - step over it */
+    if(prev&&prev.classList&&prev.classList.contains('tbltools'))prev=prev.previousElementSibling;
+    if(prev&&prev.innerText&&!prev.querySelector('input,select,button,textarea')){
+      const first=String(prev.innerText).trim().split('\n')[0];
+      if(first&&first.length<=60)sub=first;}}
+  if(sub&&base.toLowerCase().indexOf(sub.toLowerCase())>=0)sub='';
   return (base+(sub?' — '+sub:'')).replace(/\s+/g,' ').trim();}
 function tblFileName(title){
   return String(title||'table').replace(/[^\w\- ]+/g,' ').replace(/\s+/g,'_').replace(/^_|_$/g,'').slice(0,80)||'table';}
@@ -1946,27 +1956,134 @@ function tableExport(t,how,title){
 /* No PDF library: the browser already makes very good PDFs. This opens a clean
    print view of just this table and asks for the print dialog, where "Save as
    PDF" is the usual destination. */
+/* ---- printed table: A3, centred, with a summary strip above it ---- */
+const _PDFUNIT=/^(wks?|weeks?|d|days?|mo|months?|hrs?|%|sar|usd|eur|pcs?|nos?|m|m2|m3|km|kg|t|tons?|lm|ls)$/i;
+/* a figure only counts when the cell opens with one - "1 missing" is not a
+   quantity, and a summary built out of it would be worse than none */
+function _pdfNum(txt){
+  const line=String(txt==null?'':txt).replace(/ /g,' ').split('\n')[0].trim();
+  if(!line)return null;
+  const tok=line.split(/\s+/);
+  if(!/^[-+]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(tok[0]))return null;
+  let unit='';
+  if(tok.length>1){
+    const t1=tok[1].replace(/[(),]/g,'');
+    if(_PDFUNIT.test(t1))unit=t1;
+    else if(!(/^[A-Za-z]\d+$/.test(t1)||/^[+\-]/.test(tok[1])||/^(lowest|shortest|highest|longest)$/i.test(t1)))return null;}
+  return {n:parseFloat(tok[0].replace(/,/g,'')),unit:unit,grouped:/,/.test(tok[0])};}
+function _pdfRows(t){
+  return [...t.tBodies].reduce((a,b)=>a.concat([...b.rows]),[])
+    .filter(r=>String(r.innerText||'').replace(/\s/g,''));}
+/* a column that is blank the whole way down only eats width on paper */
+function _pdfKeep(t){
+  const hr=t.tHead.rows[0],n=hr.cells.length,rows=_pdfRows(t),keep=[];
+  for(let i=0;i<n;i++){
+    let any=false;
+    rows.forEach(r=>{const c=r.cells[i];if(!c)return;
+      if(String(c.innerText||'').replace(/[\s—–\-＋+✕×x]/gi,''))any=true;});
+    if(any)keep.push(i);}
+  return keep;}
+function tblStats(t,keep){
+  const hs=[...t.tHead.rows[0].cells].map(h=>String(h.innerText||'').replace(/\s+/g,' ').trim());
+  const rows=_pdfRows(t);
+  const out=[{k:'Rows',v:String(rows.length),lines:[]}];
+  keep.forEach(ci=>{
+    const vals=[];let units={},grouped=0;
+    rows.forEach(r=>{const c=r.cells[ci];if(!c)return;
+      const v=_pdfNum(c.innerText);
+      if(v){vals.push(v.n);if(v.unit)units[v.unit]=1;if(v.grouped)grouped++;}});
+    if(vals.length<2||vals.length<rows.length/2)return;
+    /* an unnamed column is a row number or an icon, not a figure worth summing */
+    if(!String(hs[ci]||'').replace(/[^A-Za-z]/g,''))return;
+    if(out.length>=5)return;
+    const u=Object.keys(units)[0]||'';
+    const lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+    const sum=vals.reduce((a,b)=>a+b,0),av=sum/vals.length;
+    const head=hs[ci].replace(/[^\w\s.%&()\/-]/g,'').replace(/\s+/g,' ').trim();
+    /* quantities in mixed units do not average to anything - a bill that
+       carries LS beside m and No. is not one measurement */
+    if(/^(qty|quantity)$/i.test(head.replace(/[^A-Za-z]/g,''))&&
+       hs.some(h=>/^unit$/i.test(String(h).replace(/[^A-Za-z]/g,''))))return;
+    const money=(grouped>=vals.length/2)||/price|cost|amount|total|value|budget|sar|usd|eur/i.test(head);
+    const f=x=>(money?Number(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
+                     :Number(Math.round(x*100)/100).toLocaleString())+(u?' '+u:'');
+    /* every figure is labelled - a bare headline invites the wrong reading,
+       and the sum of six competing offers is not a project total */
+    const lines=[['lowest',f(lo)],['average',f(av)],['highest',f(hi)]];
+    if(money)lines.push(['sum of all rows',f(sum)]);
+    out.push({k:(head.length>38?head.slice(0,37)+'…':head),v:'',lines:lines});});
+  /* a comparison carries its answer across a row, not down a column */
+  const money2=x=>Number(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  let gr=null,gi=-1;
+  rows.some(r=>[...r.cells].some((c,i)=>{
+    if(i<=2&&/grand total/i.test(String(c.innerText||''))){gr=r;gi=i;return true;}
+    return false;}));
+  if(gr){
+    const gv=[];
+    [...gr.cells].forEach((c,i)=>{if(i<=gi)return;const v=_pdfNum(c.innerText);if(v)gv.push(v.n);});
+    if(gv.length>1){
+      const lo=Math.min.apply(null,gv),hi=Math.max.apply(null,gv);
+      const av=gv.reduce((a,b)=>a+b,0)/gv.length;
+      out.push({k:'Grand total — across '+gv.length+' offers',v:'',
+        lines:[['lowest',money2(lo)],['average',money2(av)],['highest',money2(hi)],
+               ['lowest to highest',money2(hi-lo)]]});}}
+  return out;}
 function tablePDF(t,title){
+  if(!t||!t.tHead||!t.tHead.rows[0]){toast('Nothing to print in this table');return;}
+  /* a table with merged or stacked headings cannot be trimmed by column
+     index without cutting the wrong one, so it is printed whole */
+  const simple=(t.tHead.rows.length===1)&&!t.querySelector('th[colspan],td[colspan],th[rowspan],td[rowspan]');
+  const total=t.tHead.rows[0].cells.length;
+  let keep=null,stats=[],dropped=0;
+  if(simple){
+    keep=_pdfKeep(t);
+    if(keep.length<2)keep=null;
+    if(keep){dropped=total-keep.length;stats=tblStats(t,keep);}}
   const c=t.cloneNode(true);
-  c.querySelectorAll('.dragrip,.colgrip,.rowgrip,.tbltools,button,select,input').forEach(e=>e.remove());
+  c.querySelectorAll('td.rowactions,th.rowactions').forEach(e=>{e.innerHTML='';});
+  c.querySelectorAll('.dragrip,.colgrip,.rowgrip,.tbltools,button,select,input,textarea').forEach(e=>e.remove());
   c.querySelectorAll('[style]').forEach(e=>{e.style.width='';e.style.minWidth='';e.style.maxWidth='';e.style.height='';});
-  c.querySelectorAll('tr').forEach(tr=>{if(!tr.innerText.replace(/\s/g,''))tr.remove();});
-  const cols=t.tHead.rows[0].cells.length;
+  c.querySelectorAll('tr').forEach(tr=>{if(!String(tr.innerText||'').replace(/\s/g,''))tr.remove();});
+  if(keep&&dropped){
+    const drop=[];for(let i=0;i<total;i++)if(keep.indexOf(i)<0)drop.push(i);
+    [...c.rows].forEach(r=>{for(let k=drop.length-1;k>=0;k--){if(r.cells[drop[k]])r.deleteCell(drop[k]);}});}
+  const cols=keep?keep.length:total;
   const win=window.open('','_blank');
   if(!win){toast('Allow pop-ups for this site and press PDF again');return;}
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   const head=[proj.name,proj.subtitle].filter(Boolean).join(' · ');
+  const cards=stats.length>1?('<div class="cards">'+stats.map(s=>
+      '<div class="card"><div class="k">'+esc(s.k)+'</div>'+
+      (s.v?'<div class="v">'+esc(s.v)+'</div>':'')+
+      ((s.lines||[]).length?'<table class="fig">'+s.lines.map(l=>
+        '<tr><td class="fl">'+esc(l[0])+'</td><td class="fv">'+esc(l[1])+'</td></tr>').join('')+'</table>':'')+
+      '</div>').join('')+'</div>'):'';
+  const note=dropped?('<div class="note">'+dropped+' column'+(dropped>1?'s':'')+
+      ' left out — nothing was entered in '+(dropped>1?'them':'it')+' yet</div>'):'';
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Table')+'</title><style>'+
-   '@page{size:A4 '+(cols>7?'landscape':'portrait')+';margin:12mm}'+
-   'body{font:11px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0}'+
-   'h1{font-size:15px;margin:0 0 2px}.sub{color:#666;font-size:10px;margin:0 0 10px}'+
-   'table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top;word-break:break-word}'+
+   '@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:12mm}'+
+   'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+   'body{font:11px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0;text-align:center}'+
+   'h1{font-size:17px;margin:0 0 3px}.sub{color:#666;font-size:10px;margin:0 0 12px}'+
+   '.cards{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 13px}'+
+   '.card{border:1px solid #d6dbe3;border-radius:9px;padding:7px 13px;min-width:118px;background:#f7f9fb}'+
+   '.card .k{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'+
+   '.card .v{font-size:14px;font-weight:700;margin-top:2px}'+
+   '.card .s{font-size:8.5px;color:#6b7280;margin-top:2px}'+
+   'table.fig{border-collapse:collapse;margin:3px 0 0;width:100%}'+
+   'table.fig td{border:none;padding:1px 0;font-size:9.5px;vertical-align:baseline}'+
+   'table.fig td.fl{color:#6b7280;text-align:left;padding-right:10px;white-space:nowrap}'+
+   'table.fig td.fv{text-align:right;font-weight:600;white-space:nowrap}'+
+   'table{border-collapse:collapse;margin:0 auto;width:auto;max-width:100%;text-align:left}'+
+   'th,td{border:1px solid #bbb;padding:5px 7px;text-align:left;vertical-align:top;'+
+     'word-break:normal;overflow-wrap:normal;hyphens:none}'+
    'th{background:#eef1f5;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.02em}'+
    'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
    '.hint{color:#666}.chip,.badge{border:1px solid #ccc;border-radius:8px;padding:0 4px;font-size:9px}'+
+   '.note{color:#888;font-size:9px;margin-top:9px}'+
    '</style></head><body><h1>'+esc(title||'Table')+'</h1><div class="sub">'+esc(head)+
-   ' · printed '+esc(new Date().toLocaleString())+'</div>'+c.outerHTML+
-   '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},120);}<\/scr'+'ipt></body></html>');
+   ' · printed '+esc(new Date().toLocaleString())+'</div>'+cards+c.outerHTML+note+
+   '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},150);}<\/scr'+'ipt></body></html>');
   win.document.close();}
 function copyTable(wid,ti){
   const t=winTable(wid,ti);if(!t){toast('No table to copy here');return;}
