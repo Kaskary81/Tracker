@@ -395,14 +395,6 @@ window.APP_CONFIG = {
     <button class="tbbtn" onclick="openGrid('submittals')">📑 Submittals</button>
     <button class="tbbtn" onclick="openTaskBoard()">✓ Tasks</button>
   </span>
-  <span id="nav-design" style="display:none">
-    <button class="tbbtn" onclick="openDDash()">📊 Design Dashboard</button>
-    <button class="tbbtn" onclick="openGrid('designs')">📐 Master Log</button>
-  </span>
-  <span id="nav-engineering" style="display:none">
-    <button class="tbbtn" onclick="openEDash()">📊 Engineering Dashboard</button>
-    <button class="tbbtn" onclick="openGrid('shopdwgs')">📏 Shop Drawings</button>
-  </span>
   <span id="nav-procurement" style="display:none">
     <button class="tbbtn" onclick="openGrid('compare')">💰 Comparison Sheets</button>
     <button class="tbbtn" onclick="openGrid('targets')">🎯 Target Prices</button>
@@ -485,7 +477,7 @@ window.APP_CONFIG = {
 
 <script>
 /* ================= DATA ================= */
-const DB_TABLES=['materials','rfqs','tasks','submittals','links','activity','designs','revs','msubs','shopdwgs','rfqrevs','rfqopts','compliance','criteria','scores','citems','crates','notifs','pocmts','subrevs','lists'];
+const DB_TABLES=['materials','rfqs','tasks','submittals','links','activity','rfqrevs','rfqopts','compliance','criteria','scores','citems','crates','notifs','pocmts','subrevs','lists'];
 function _blankDB(){const d={};DB_TABLES.forEach(t=>d[t]=[]);return d;}
 function _normDB(src){const d=_blankDB();if(src)DB_TABLES.forEach(t=>{if(Array.isArray(src[t]))d[t]=src[t];});return d;}
 let PROJECTS=[],ALLDATA={},PROJ=1,DB=_blankDB(),USERS=[];
@@ -513,10 +505,7 @@ const TASK_STATUS=["Open","In Progress","Pending","Closed"];
 const CATEGORIES=["","Butterfly Valves","Gate Valves","Air Valves","FCV","PRV","NRV","Valves (general)","Steel Reinforced Gasket","Dismantling Joints","DI Fittings","Quick Coupler","Lamination Tools","K-Flex"];
 const SUB_STATUSES=["Not Submitted","Under Review","Approved (A)","Approved w/ Comments (B)","Revised & Resubmit (C)","Rejected (D)","Cancelled"];
 const MAT_SUBM=["","IFI","IFR","N/A","Approved"];
-const DES_TYPES=["","Drawing","Report","Model","BOM","BOQ","List","Drawing/Report","Standard Drawing","Detail Drawing"];
-const DES_CLASS=["","IFI","IFR","AWPT-only"];
 const IFX=["","IFI","IFR"];
-const SD_CATS=["Shop Drawings","As-Built","Method Statement","Calculation","Other"];
 const UNITS=["","No.","Set","m","m²","m³","kg","ton","L","LS","Lot"];
 const COMP_STATUS=["Pending","Complies","Not complied"];
 const COMP_COLOR={"Pending":"var(--accent)","Complies":"var(--good)","Not complied":"var(--critical)"};
@@ -550,20 +539,15 @@ const EDITORS={
    payment:'textarea',exclusions:'textarea',origin:'textarea'},
  tasks:{status:()=>listOf('taskStatus'),priority:()=>listOf('priority'),taskDesc:'textarea',material:'selectMat',target:'date',engineer:()=>engineerOptions(),createdBy:()=>engineerOptions()},
  submittals:{status:()=>SUB_STATUSES,submType:()=>listOf('ifx'),materialId:'pickMat',vendorId:'pickVen',history:'textarea',submittedDate:'date',returnedDate:'date'},
- designs:{recoveryDate:'date',inRecovery:()=>['Yes','No'],submType:()=>listOf('ifx'),reviewClass:()=>listOf('desClass'),reviewStatus:()=>REVIEW_STATUSES,docType:()=>listOf('desType'),scheduled:'date',notes:'textarea'},
- revs:{hescoDate:'date',awptDate:'date',notes:'textarea'},
  rfqrevs:{issued:'date',quotesDue:'date',reason:'textarea',issuedTo:'textarea',notes:'textarea'},
  compliance:{status:()=>COMP_STATUS,point:'textarea',requirement:'textarea',offered:'textarea',remarks:'textarea',checked:'date'},
  subrevs:{status:()=>SUB_STATUSES,submitted:'date',returned:'date',notes:'textarea',comments:'textarea'},
  pocmts:{status:()=>CMT_STATUS,clause:'textarea',comment:'textarea',reply:'textarea',agreed:'textarea',notes:'textarea',raised:'date',closed:'date'},
  citems:{description:'textarea',spec:'textarea',section:'textarea',unit:()=>listOf('unit'),remarks:'textarea'},
- users:{role:()=>[['admin','admin — every module'],['procurement','procurement only'],['design','design only'],['engineering','engineering only'],['material','material only']]},
+ users:{role:()=>[['admin','admin — every module'],['procurement','procurement only'],['material','material only']]},
  criteria:{name:'textarea',notes:'textarea',
    auto:()=>[['','Entered by hand (percentage)'],['yesno','Tick box — ticked = 100%'],['spec','From the compliance checklist'],['delivery','Shortest delivery range (weeks) = 100%']]},
  scores:{notes:'textarea'},
- shopdwgs:{status:()=>listOf('ifx'),reviewStatus:()=>listOf('sdCode'),zone:()=>['',...new Set((DB.shopdwgs||[]).map(d=>d.zone).filter(Boolean))],category:()=>listOf('sdCat'),
-   plannedSub:'date',actualSub:'date',plannedRcv:'date',actualRcv:'date',remarks:'textarea'},
- msubs:{subDate:'date',retDate:'date',status:()=>['','Under Review','Approved','Approved as Noted','Approved With Comments','Revise and Resubmit','Rejected','For Information'],purpose:()=>['','For Review','For Information'],cycle:()=>['M1','M2','M3','M4','M5'],notes:'textarea'}
 };
 const isDateField=(tbl,k)=>(EDITORS[tbl]||{})[k]==='date';
 /* users and projects are workspace-wide; everything else belongs to a project */
@@ -1520,7 +1504,7 @@ function genRowResize(e,w,key,ri,tr){
   const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);
     grip.classList.remove('active');renderWin(w);};
   document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);}
-function _renderWin(w){({po:renderPoWin,notif:renderNotifWin,users:renderUsersWin,lists:renderListsWin,paste:renderPasteWin,comp:renderCompWin,crit:renderCritWin,cmp:renderCmpWin,cols:renderColsWin,grid:renderGrid,mat:renderMatWin,ven:renderVenWin,task:renderTaskWin,sub:renderSubWin,dash:renderDashWin,feed:renderFeedWin,des:renderDesignWin,ddash:renderDDashWin,eng:renderShopWin,edash:renderEDashWin,msg:()=>{}})[w.kind.split('-')[0]](w);}
+function _renderWin(w){({po:renderPoWin,notif:renderNotifWin,users:renderUsersWin,lists:renderListsWin,paste:renderPasteWin,comp:renderCompWin,crit:renderCritWin,cmp:renderCmpWin,cols:renderColsWin,grid:renderGrid,mat:renderMatWin,ven:renderVenWin,task:renderTaskWin,sub:renderSubWin,dash:renderDashWin,feed:renderFeedWin,msg:()=>{}})[w.kind.split('-')[0]](w);}
 let _holdRender=0;
 function refreshData(){if(_holdRender)return;
   windows.forEach(w=>{if(w.kind!=='msg')renderWin(w);});if(typeof updateBell==='function')updateBell();
@@ -1548,7 +1532,7 @@ function txEnd(){
 function txAbort(){_tx=null;}
 function _rowCopy(r){return JSON.parse(JSON.stringify(r));}
 function _closeRecWindows(tbl,id){
-  const kind={materials:'mat',rfqs:'ven',tasks:'task',submittals:'sub',designs:'des',shopdwgs:'eng'}[tbl];
+  const kind={materials:'mat',rfqs:'ven',tasks:'task',submittals:'sub'}[tbl];
   if(!kind)return;
   [...windows.values()].forEach(x=>{if(x.kind===kind&&x.params.recId===id)closeWin(x.id);});}
 function _applyOp(op,dir){
@@ -2294,87 +2278,6 @@ const GRIDS={
     :k==='returnedDate'?(subReturned(r)||'')
     :k==='status'?subStatus(r)
     :k==='no'?(parseFloat(r[k])||0):(r[k]??'')},
- designs:{icon:'📐',title:'Design Master Log',tbl:'designs',w:1300,h:560,open:id=>openDesign(id),
-  filters:[
-   ['f1','All disciplines',()=>['',...[...new Set(DB.designs.map(d=>d.discipline).filter(Boolean))].sort()],'discipline'],
-   ['f2','All classes',['','IFI','IFR','AWPT-only'],'reviewClass'],
-   ['f3','All statuses',()=>['',...allStatusValues()],(r,v)=>effStatus(r)[0]===v],
-   ['f4','Maaden / AWPT',['','Ma\u2019aden','AWPT'],(r,v)=>effStatus(r)[1]===v],
-   ['f5','All review states',()=>['',...REVIEW_STATUSES],'reviewStatus'],
-   ['f6','All phases',()=>['',...[...new Set(DB.designs.map(d=>d.phase).filter(Boolean))].sort()],'phase'],
-   ['f7','Recovery plan',['','In recovery plan','Not in plan','Overdue','Due','Met','Late'],(r,v)=>{
-      if(v==='In recovery plan')return r.inRecovery==='Yes';
-      if(v==='Not in plan')return r.inRecovery!=='Yes';
-      return recoveryState(r)===v;}]],
-  searchIn:r=>{const m=lastMsub(r);return [r.docNo,r.subject,r.discipline,r.docType,r.sn,effStatus(r)[0],m?m.ref:'',r.inRecovery==='Yes'?'recovery plan':''].join(' ');},
-  cols:[
-   ['sn','#','num',r=>esc(r.sn)],
-   ['docNo','Document No.',null,r=>'<b>'+esc(r.docNo)+'</b>'],
-   ['subject','Subject',null,r=>esc(r.subject)],
-   ['discipline','Discipline',null,r=>esc(r.discipline)],
-   ['reviewClass','Class',null,r=>esc(r.reviewClass)],
-   ['_rev','Last rev','num',r=>{const rv=latestRev(r);return rv?esc(rv.rev):''}],
-   ['_h','Last HESCO 📅',null,r=>{const rv=latestRev(r);return rv?esc(fmtDate(rv.hescoDate)):''}],
-   ['_a','AWPT reply 📅',null,r=>{const rv=latestRev(r);return rv?esc(fmtDate(rv.awptDate)):''}],
-   ['_ms','To Ma\u2019aden 📅',null,r=>{const m=lastMsub(r);return m?esc(fmtDate(m.subDate)):''}],
-   ['_mr','Ma\u2019aden reply 📅',null,r=>{const m=lastMsub(r);return m?esc(fmtDate(m.retDate)):''}],
-   ['_days','Days','num',r=>{const m=lastMsub(r);
-      if(m&&m.subDate&&!m.retDate){const d=daysSince(m.subDate);return d===null?'':'<span style="color:var(--serious);font-weight:600">'+d+' …</span>';}
-      if(m&&m.subDate&&m.retDate)return String(Math.max(0,Math.round((new Date(m.retDate)-new Date(m.subDate))/86400000)));
-      const rv=latestRev(r);
-      if(rv&&rv.hescoDate&&!rv.awptDate){const d=daysSince(rv.hescoDate);return d===null?'':'<span style="color:var(--warn);font-weight:600">'+d+' …</span>';}
-      if(rv&&rv.awptDate&&!msubsFor(r).length){const d=daysSince(rv.awptDate);return d===null?'':'<span style="color:var(--accent);font-weight:600">'+d+' …</span>';}
-      return '';}],
-   ['_status','Status',null,r=>{const s=effStatus(r);return stageBadge(s[0],s[2])+' <span class="hint">'+s[1]+'</span>'}],
-   ['_ref','Transmittal ref',null,r=>{const m=lastMsub(r);return m?esc(m.ref):''}],
-   ['reviewStatus','Review class status',null,r=>stageBadge(r.reviewStatus||'Not issued',DS_COLOR[r.reviewStatus]||'var(--muted)')],
-   ['_credit','Credit','num',r=>creditOf(r)+'%'],
-   ['_plan','Planned submission 📅',null,r=>{const p=plannedSub(r);return p.date?esc(fmtDate(p.date))+' <span class="hint">'+p.src+'</span>':''}],
-   ['_rec','Recovery plan',null,r=>{const s=recoveryState(r);return s?stageBadge(s,REC_COLOR[s]):'<span class="hint">—</span>'}],
-   ['phase','Phase',null,r=>esc(r.phase)]],
-  sortVal:(r,k)=>{const rv=latestRev(r),m=lastMsub(r);
-    return k==='sn'?(parseFloat(r.sn)||9999):k==='_credit'?creditOf(r):k==='_status'?effStatus(r)[0]:
-    k==='reviewStatus'?REVIEW_STATUSES.indexOf(r.reviewStatus||'Not issued'):
-    k==='_rev'?(rv?rv.rev:''):k==='_h'?(rv?.hescoDate||''):k==='_a'?(rv?.awptDate||''):
-    k==='_ms'?(m?.subDate||''):k==='_mr'?(m?.retDate||''):k==='_ref'?(m?.ref||''):
-    k==='_days'?((m&&m.subDate&&!m.retDate)?(daysSince(m.subDate)||0):(rv&&rv.hescoDate&&!rv.awptDate?(daysSince(rv.hescoDate)||0):-1)):
-    k==='_plan'?(plannedSub(r).date||'9999'):k==='_rec'?(recoveryState(r)||'~'):(r[k]??'');}}
-, shopdwgs:{icon:'📏',title:'Shop Drawings Register',tbl:'shopdwgs',w:1320,h:560,open:id=>openShop(id),
-  filters:[
-   ['f1','All disciplines',()=>['',...[...new Set(DB.shopdwgs.map(d=>d.discipline).filter(Boolean))].sort()],'discipline'],
-   ['f2','IFI / IFR',['','IFI','IFR'],'status'],
-   ['f3','All statuses',()=>['',...new Set((DB.shopdwgs||[]).map(d=>sdState(d)[0]))].sort(),(r,v)=>sdState(r)[0]===v],
-   ['f4','All locations',()=>['',...[...new Set(DB.shopdwgs.map(d=>d.location).filter(Boolean))].sort()],'location'],
-   ['f5','All categories',()=>['',...[...new Set(DB.shopdwgs.map(d=>d.category).filter(Boolean))].sort()],'category'],
-   ['f6','Receipt',['','Overdue return','Awaiting Ma\u2019aden','Received','Not submitted'],(r,v)=>{
-      if(v==='Overdue return')return sdOverdue(r);
-      if(v==='Awaiting Ma\u2019aden')return !!r.actualSub&&!r.actualRcv;
-      if(v==='Received')return !!r.actualRcv;
-      return !r.actualSub;}],
-   ['f7','Submission plan',['','On plan','Late','Due','Overdue'],(r,v)=>sdPlan(r)===v]],
-  searchIn:r=>[r.aconexNo,r.docNo,r.description,r.discipline,r.location,r.zone,r.transmittal,r.reviewStatus,r.lastRev].join(' '),
-  cols:[
-   ['aconexNo','Aconex','num',r=>esc(r.aconexNo)],
-   ['docNo','Document No.',null,r=>'<b>'+esc(r.docNo)+'</b>'],
-   ['description','Description',null,r=>esc(r.description)],
-   ['discipline','Discipline',null,r=>esc(r.discipline)],
-   ['status','IFI/IFR',null,r=>esc(r.status)],
-   ['location','Location',null,r=>esc(r.location)],
-   ['zone','Zone',null,r=>esc(r.zone)],
-   ['plannedSub','Planned subm. 📅',null,r=>{const t=esc(fmtDate(r.plannedSub));
-      return (sdPlan(r)==='Overdue')?'<span style="color:var(--critical);font-weight:600">'+t+'</span>':t;}],
-   ['actualSub','Actual subm. 📅',null,r=>esc(fmtDate(r.actualSub))],
-   ['plannedRcv','Planned return 📅',null,r=>{const t=esc(fmtDate(r.plannedRcv));return sdOverdue(r)?'<span style="color:var(--critical);font-weight:600">'+t+'</span>':t;}],
-   ['actualRcv','Returned 📅',null,r=>esc(fmtDate(r.actualRcv))],
-   ['_days','Days','num',r=>{const d=sdDays(r);if(d===null)return '';
-      return r.actualRcv?String(d):'<span style="color:'+(sdOverdue(r)?'var(--critical)':'var(--serious)')+';font-weight:600">'+d+' …</span>';}],
-   ['_plan','Plan',null,r=>{const s=sdPlan(r);if(!s)return '';const dd=sdPlanDays(r);
-      return stageBadge(s,PLAN_COLOR[s])+(dd!==null&&dd!==0?' <span class="hint">'+(dd>0?'+':'')+dd+'d</span>':'')}],
-   ['_st','Status',null,r=>{const s=sdState(r);return stageBadge(s[0],s[1])}],
-   ['delay','Delay','num',r=>{const v=String(r.delay||'');return v&&v!=='0'?'<span style="color:var(--critical);font-weight:600">'+esc(v)+'</span>':esc(v)}],
-   ['transmittal','Transmittal',null,r=>esc(r.transmittal)],
-   ['lastRev','Rev',null,r=>esc(r.lastRev)]],
-  sortVal:(r,k)=>k==='aconexNo'?(parseInt(r.aconexNo)||0):k==='_days'?(sdDays(r)??-1):k==='_st'?sdState(r)[0]:k==='_plan'?(sdPlan(r)||'~'):k==='delay'?(parseFloat(r.delay)||0):(r[k]??'')}
 };
 function openGrid(g){
   if(!canGrid(g)){toast('Your account does not have access to that register');return;}
@@ -2554,8 +2457,8 @@ function clearColDefault(wid){
 
 /* ================= DRAGGING ROWS AND COLUMNS IN A REGISTER =================
    The same grip as the bill of quantities. A row can be dragged where the
-   register keeps its own numbering — materials, tasks, submittals, design
-   documents — and the whole column of numbers is rewritten to match. A column
+   register keeps its own numbering — materials, tasks, submittals — and the
+   whole column of numbers is rewritten to match. A column
    heading can be dragged anywhere along the row, and the order is remembered
    with the hidden columns when you save the default.                       */
 const gridNumField=w=>{const cfg=GRIDS[w.params.g];return cfg?(RENUM[cfg.tbl]||null):null;};
@@ -2810,7 +2713,7 @@ function deleteMany(tbl,ids,after){
   const map={};
   ids.forEach(id=>{const c=collectDeletes(tbl,id);
     Object.keys(c).forEach(t=>{const m=map[t]=map[t]||new Map();c[t].forEach((r,k)=>m.set(k,r));});});
-  const order=['links','crates','citems','rfqopts','rfqrevs','compliance','scores','pocmts','submittals','subrevs','revs','msubs','tasks','notifs'];
+  const order=['links','crates','citems','rfqopts','rfqrevs','compliance','scores','pocmts','submittals','subrevs','tasks','notifs'];
   const lines=order.filter(t=>t!==tbl&&map[t]&&map[t].size).map(t=>map[t].size+' '+delLabel(t,map[t].size));
   const names=ids.map(id=>actName(tbl,id)||('#'+id)).filter(Boolean);
   const label=delLabel(tbl,ids.length);
@@ -4210,7 +4113,7 @@ function copyTableEl(btn,label){
 /* which lists can be changed, where each one is used, and what it falls back to */
 const LIST_DEFS=[
  {k:'discipline',label:'Discipline',def:()=>DISCIPLINES,blank:true,
-  where:'Materials · comparison sheets · target prices',uses:[['materials','discipline'],['designs','discipline'],['shopdwgs','discipline'],['submittals','discipline']]},
+  where:'Materials · comparison sheets · target prices',uses:[['materials','discipline'],['submittals','discipline']]},
  {k:'category',label:'Material category',def:()=>CATEGORIES,blank:true,
   where:'Materials — the family a material belongs to',uses:[['materials','category']]},
  {k:'priority',label:'Priority',def:()=>PRIORITIES,blank:false,
@@ -4225,16 +4128,8 @@ const LIST_DEFS=[
   where:'Procurement — what kind of offer a vendor has given',uses:[['links','offerStatus']]},
  {k:'incoterm',label:'Delivery terms (Incoterms)',def:()=>INCOTERMS,blank:true,pairs:true,
   where:'Procurement — proposed and final delivery terms',uses:[['links','incoterm'],['links','incotermFinal']]},
- {k:'desType',label:'Design document type',def:()=>DES_TYPES,blank:true,
-  where:'Design — the master log',uses:[['designs','docType']]},
- {k:'desClass',label:'Design review class',def:()=>DES_CLASS,blank:true,
-  where:'Design — how a document is reviewed',uses:[['designs','reviewClass']]},
  {k:'ifx',label:'Submission purpose (IFI / IFR)',def:()=>IFX,blank:true,
-  where:'Designs, submittals and shop drawings',uses:[['designs','submType'],['submittals','submType'],['shopdwgs','status']]},
- {k:'sdCode',label:'Shop drawing review code',def:()=>SD_CODES,blank:true,
-  where:'Engineering — the review outcome',uses:[['shopdwgs','reviewStatus']]},
- {k:'sdCat',label:'Shop drawing category',def:()=>SD_CATS,blank:false,
-  where:'Engineering — what kind of document it is',uses:[['shopdwgs','category']]}];
+  where:'Material submittals',uses:[['submittals','submType']]}];
 const LIST_DEF=k=>LIST_DEFS.find(x=>x.k===k)||null;
 const _listSeq=(a,b)=>(parseFloat(a.seq)||0)-(parseFloat(b.seq)||0)||a.id-b.id;
 const listRows=k=>(DB.lists||[]).filter(r=>String(r.listKey)===String(k)).sort(_listSeq);
@@ -5588,342 +5483,6 @@ function renderSubWin(w){
    </div>`}</div>`;
 }
 
-/* ================= DESIGN MODULE ================= */
-function revsFor(d){return (DB.revs||[]).filter(r=>r.designId===d.id).sort((a,b)=>(parseInt(a.rev.slice(1))||0)-(parseInt(b.rev.slice(1))||0));}
-function latestRev(d){const r=revsFor(d);return r.length?r[r.length-1]:null;}
-function dStatColor(s){s=String(s||'').toLowerCase();if(!s)return 'var(--muted)';
-  if(s.includes('approved'))return 'var(--good)';if(s.includes('under'))return 'var(--accent)';
-  if(s.includes('revise')||s.includes('resubmit'))return 'var(--warn)';if(s.includes('reject'))return 'var(--critical)';return 'var(--muted)';}
-const CREDIT_MAP={'Code A':100,'Deemed (>10 wd)':100,'Code B':85,'Under review':50,'Issued to AWPT':0,'Not issued':0,'Rejected':0};
-const DS_COLOR={'Code A':'var(--good)','Deemed (>10 wd)':'var(--good)','Code B':'var(--accent)','Under review':'var(--serious)','Issued to AWPT':'var(--warn)','Not issued':'var(--muted)','Rejected':'var(--critical)'};
-const REVIEW_STATUSES=['Not issued','Issued to AWPT','Under review','Code B','Deemed (>10 wd)','Code A','Rejected'];
-function creditOf(d){return CREDIT_MAP[d.reviewStatus]??0;}
-const AWPT_COLOR={'Returned to HESCO':'var(--accent)','Under AWPT review':'var(--warn)','Not issued':'var(--muted)'};
-function awptStatusOf(d){
-  const rs=d.reviewStatus||'';
-  if(d.reviewClass==='AWPT-only'&&['Code A','Code B','Deemed (>10 wd)','Rejected'].includes(rs))return rs;
-  const rv=latestRev(d);
-  if(!rv||!rv.hescoDate)return 'Not issued';
-  if(!rv.awptDate)return 'Under AWPT review';
-  return 'Returned to HESCO';}
-function effStatus(d){
-  const ms=msubsFor(d);
-  if(d.reviewClass!=='AWPT-only'&&ms.length){
-    const m=ms[ms.length-1];
-    if(m.status)return [m.status,'Ma\u2019aden',dStatColor(m.status)];
-    if(m.subDate)return ['At Ma\u2019aden (pending)','Ma\u2019aden','var(--serious)'];
-  }
-  const a=awptStatusOf(d);
-  return [a,'AWPT',AWPT_COLOR[a]||DS_COLOR[a]||'var(--muted)'];}
-const lastMsub=d=>{const ms=msubsFor(d);return ms.length?ms[ms.length-1]:null;};
-const SD_CODES=['','Code 1 - Approved','Code 2 - Approved with Comments','Code 3 - Revise and Resubmit','Code 4 - Rejected','Under Review','For Information'];
-function sdColor(s){s=String(s||'').toLowerCase();
-  if(s.includes('code 1')||s==='approved')return 'var(--good)';
-  if(s.includes('code 2'))return 'var(--accent)';
-  if(s.includes('code 3')||s.includes('revise'))return 'var(--warn)';
-  if(s.includes('code 4')||s.includes('reject'))return 'var(--critical)';
-  if(s.includes('under review'))return 'var(--serious)';
-  if(s.includes('information'))return 'var(--muted)';
-  if(s.includes('not submitted'))return 'var(--muted)';
-  return 'var(--muted)';}
-function sdState(d){
-  const rs=String(d.reviewStatus||'').trim();
-  // "Under review" is not a returned code — it means Ma'aden still holds it
-  const coded=rs&&!/^under\s*rev/i.test(rs);
-  if(coded)return [rs,sdColor(rs)];
-  if(d.actualSub&&!d.actualRcv)return ['Under Ma\u2019aden review','var(--serious)'];
-  if(d.actualSub&&d.actualRcv)return ['Returned, no code','var(--warn)'];
-  return ['Not submitted','var(--muted)'];}
-function sdOverdue(d){return !!(d.actualSub&&!d.actualRcv&&d.plannedRcv&&daysSince(d.plannedRcv)>0);}
-const PLAN_COLOR={'On plan':'var(--good)','Late':'var(--warn)','Due':'var(--accent)','Overdue':'var(--critical)'};
-function sdPlan(d){
-  if(!d.plannedSub)return '';
-  if(d.actualSub)return d.actualSub<=d.plannedSub?'On plan':'Late';
-  return daysSince(d.plannedSub)>0?'Overdue':'Due';}
-function sdPlanDays(d){
-  if(!d.plannedSub)return null;
-  if(d.actualSub)return Math.round((new Date(d.actualSub)-new Date(d.plannedSub))/86400000);
-  return -(daysSince(d.plannedSub)||0);}
-function sdDays(d){
-  if(d.actualSub&&d.actualRcv)return Math.max(0,Math.round((new Date(d.actualRcv)-new Date(d.actualSub))/86400000));
-  if(d.actualSub)return daysSince(d.actualSub);
-  return null;}
-function plannedSub(d){
-  if(d.inRecovery==='Yes'&&d.recoveryDate)return {date:d.recoveryDate,src:'RP'};
-  if(d.plannedMaaden)return {date:d.plannedMaaden,src:'LOD'};
-  return {date:'',src:''};}
-function issuedDate(d){const rv=(revsFor(d)||[]).filter(r=>r.hescoDate);return rv.length?rv[rv.length-1].hescoDate:'';}
-function recoveryState(d){
-  if(d.inRecovery!=='Yes'||!d.recoveryDate)return '';
-  const iss=issuedDate(d);
-  if(iss)return iss<=d.recoveryDate?'Met':'Late';
-  return daysSince(d.recoveryDate)>0?'Overdue':'Due';}
-const REC_COLOR={'Met':'var(--good)','Due':'var(--accent)','Late':'var(--warn)','Overdue':'var(--critical)'};
-const allStatusValues=()=>{const s=new Set();(DB.designs||[]).forEach(d=>s.add(effStatus(d)[0]));return [...s].sort();};
-function designState(d){const s=d.reviewStatus||'Not issued';return [s,DS_COLOR[s]||'var(--muted)'];}
-function openDesign(id){createWindow('des',{recId:id},{dedupeKey:'des:'+id,w:1000,h:560});}
-function desRec(w){return DB.designs.find(d=>d.id===w.params.recId);}
-function renderDesignWin(w){
-  const d=desRec(w);if(!d){closeWin(w.id);return;}
-  const rvs=revsFor(d);
-  const ms=msubsFor(d);
-  setTitle(w,'📐',(d.docNo||'(new document)'));
-  const st=designState(d);
-  const ti=Math.min(w.state.tab,2);
-  let body='';
-  if(ti===0){
-    body=`
-     <div class="pickrow">
-       <button class="btn" onclick="addRev(${d.id})">＋ Add revision</button>
-       <span class="hint">HESCO ⇄ AWPT design cycles — HESCO submits, AWPT reviews and replies</span>
-     </div>
-     ${rvs.length?`<div class="gridwrap"><table class="grid">
-      <thead><tr><th>Rev</th><th>HESCO → AWPT 📅</th><th>AWPT reply 📅</th><th>Days</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${rvs.map(rv=>{
-        const days=(rv.hescoDate&&rv.awptDate)?Math.round((new Date(rv.awptDate)-new Date(rv.hescoDate))/86400000):(rv.hescoDate?daysSince(rv.hescoDate)+'…':'');
-        return `<tr>
-          <td class="num"><b>${esc(rv.rev)}</b></td>
-          ${etd('revs',rv.id,'hescoDate',esc(fmtDate(rv.hescoDate)))}
-          ${etd('revs',rv.id,'awptDate',esc(fmtDate(rv.awptDate)))}
-          <td class="num">${esc(String(days))}</td>
-          ${etd('revs',rv.id,'notes',esc(rv.notes))}
-          <td class="rowactions"><button class="iconbtn" title="Delete revision" onclick="removeRev(${rv.id})">✕</button></td></tr>`;}).join('')}</tbody>
-     </table></div>
-     <div class="statusbar"><span>${rvs.length} revision(s)</span><span class="spacer"></span><span>double-click a cell to edit</span></div>`
-     :'<div class="empty">No revisions yet — click “＋ Add revision” when HESCO submits V0.</div>'}`;
-  } else if(ti===1){
-    body=`
-     <div class="pickrow">
-       <button class="btn" onclick="addMsub(${d.id})">＋ Add Maaden submission</button>
-       <span class="hint">AWPT → Ma'aden — tracking mirrored from the Ma'aden submittal log${(()=>{const p=plannedSub(d);return p.date?` · planned: ${esc(fmtDate(p.date))}${p.src==='RP'?' (recovery plan)':''}`:''})()}</span>
-     </div>
-     ${ms.length?`<div class="gridwrap"><table class="grid">
-      <thead><tr><th>Cycle</th><th>Submitted 📅</th><th>Returned 📅</th><th>Days</th><th>Status</th><th>Transmittal ref</th><th>Purpose</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${ms.map(m=>{
-        const days=m.subDate?(m.retDate?Math.max(0,Math.round((new Date(m.retDate)-new Date(m.subDate))/86400000)):'<span style="color:var(--serious);font-weight:600">'+(daysSince(m.subDate)??'')+' …</span>'):'';
-        return `<tr>
-          ${etd('msubs',m.id,'cycle','<b>'+esc(m.cycle)+'</b>','num')}
-          ${etd('msubs',m.id,'subDate',esc(fmtDate(m.subDate)))}
-          ${etd('msubs',m.id,'retDate',esc(fmtDate(m.retDate)))}
-          <td class="num">${days}</td>
-          ${etd('msubs',m.id,'status',m.status?stageBadge(m.status,dStatColor(m.status)):'')}
-          ${etd('msubs',m.id,'ref',esc(m.ref))}
-          ${etd('msubs',m.id,'purpose',esc(m.purpose))}
-          ${etd('msubs',m.id,'notes',esc(m.notes))}
-          <td class="rowactions"><button class="iconbtn" title="Delete submission" onclick="removeMsub(${m.id})">✕</button></td></tr>`;}).join('')}</tbody>
-     </table></div>
-     <div class="statusbar"><span>${ms.length} Ma'aden submission(s)</span><span class="spacer"></span><span>double-click a cell to edit</span></div>`
-     :`<div class="empty">Not submitted to Ma'aden yet${(()=>{const p=plannedSub(d);return p.date?` — planned for ${esc(fmtDate(p.date))}${p.src==='RP'?' per the recovery plan':''}`:''})()}.</div>`}`;
-  } else {
-    const F=[['sn','SN'],['docNo','Document No.'],['subject','Subject'],['discipline','Discipline'],
-      ['docType','Doc type'],['reviewClass','Review class'],['reviewStatus','Review status'],
-      ['phase','Phase'],['scheduled','Scheduled'],['plannedMaaden','Planned Ma\u2019aden submission (LOD)'],
-      ['inRecovery','In recovery plan'],['recoveryDate','Recovery plan submission date'],
-      ['link','Link (files / email)'],['notes','Notes']];
-    body=`${propTable('designs',d,F)}
-    <div class="wtoolbar" style="padding:9px 0 0">
-      <button class="btn danger" onclick="confirmDelete('designs',${d.id})">Delete document</button>
-      <div class="spacer"></div><span class="hint">changes save immediately</span>
-    </div>`;
-  }
-  w.el.querySelector('.wincontent').innerHTML=`
-   <div class="recheader">
-     ${(()=>{const s=effStatus(d);return stageBadge(s[0],s[2])+`<span class="badge">via ${s[1]}</span>`;})()}
-     ${d.discipline?`<span class="badge">${esc(d.discipline)}</span>`:''}
-     ${d.docType?`<span class="badge">${esc(d.docType)}</span>`:''}
-     ${d.reviewClass?`<span class="badge">${esc(d.reviewClass)}</span>`:''}
-     <span class="badge">Credit: ${creditOf(d)}%</span>
-     ${(()=>{const p=plannedSub(d);return p.date?`<span class="badge">📅 Planned: ${esc(fmtDate(p.date))}${p.src==='RP'?' (recovery plan)':''}</span>`:''})()}
-     ${(()=>{const s=recoveryState(d);return s?stageBadge('Recovery: '+s,REC_COLOR[s]):''})()}
-     ${d.scheduled&&!/^(tbc|na)$/i.test(d.scheduled)?`<span class="badge">📅 Scheduled: ${esc(fmtDate(d.scheduled))}</span>`:''}
-     ${latestRev(d)?`<span class="badge">Rev ${esc(latestRev(d).rev)}</span>`:''}
-   </div>
-   <div class="hint" style="padding:0 2px 8px">${esc(d.subject)}</div>
-   <div class="tabbar">${[`HESCO ⇄ AWPT revisions (${rvs.length})`,`Ma'aden submissions (${ms.length})`,'Details'].map((t,i)=>`<button class="${i===ti?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
-   <div class="tabbody">${body}</div>`;
-}
-async function addRev(designId){
-  const d=DB.designs.find(x=>x.id===designId);if(!d)return;
-  const rvs=revsFor(d);
-  const n=rvs.length?(parseInt(rvs[rvs.length-1].rev.slice(1))||0)+1:0;
-  const base={designId,rev:'V'+n,hescoDate:'',awptDate:'',notes:''};
-  let row;
-  if(_isLive()){row=await apiInsert('revs',base);if(!row)return;}
-  else row={id:nextId('revs'),...base};
-  DB.revs.push(row);
-  txPush({t:'ins',tbl:'revs',row:_rowCopy(row)},'New design revision');
-  logAct('Created','revs',row.id,'','','');
-  refreshData();
-}
-function removeRev(id){
-  const rv=DB.revs.find(x=>x.id===id);if(!rv)return;
-  msgBox('Delete revision?','🗑',`Revision <b>${esc(rv.rev)}</b> will be removed.`,[
-    ['Cancel',null,''],['Delete',()=>{txPush({t:'del',tbl:'revs',row:_rowCopy(rv)},'Delete design revision '+rv.rev);
-      logAct('Deleted','revs',id,'','','');if(_isLive())apiDelete('revs',id);
-      DB.revs=DB.revs.filter(x=>x.id!==id);refreshData();},'danger']]);
-}
-/* the first issue of the RFQ is revision R0, dated the day it went out */
-async function ensureRev0(materialId,when){
-  const m=DB.materials.find(x=>x.id===materialId);
-  if(!m||rfqRevsFor(m).length)return null;
-  const auto=txBegin('RFQ R0 created');
-  const row=await addRfqRev(materialId);
-  if(row&&when&&row.issued!==when)_setCell('rfqrevs',row.id,'issued',when);
-  if(auto)txEnd();
-  refreshData();
-  toast('RFQ R0 recorded for “'+String(m.desc||'').slice(0,32)+'” — it is the current revision');
-  return row;}
-/* a revision starts life as a copy of the one before it */
-async function copyBoqTo(mid,fromRev,toRev){
-  const src=boqOf(mid,fromRev,null);
-  if(!src.length)return 0;
-  let n=0;
-  for(const i of src){
-    const base={materialId:mid,revId:String(toRev),optId:_oid(i.optId),no:i.no,description:i.description,
-      spec:i.spec||'',unit:i.unit,qty:i.qty,remarks:i.remarks||''};
-    let row;
-    if(_isLive()){row=await apiInsert('citems',base);if(!row)continue;}
-    else row={id:nextId('citems'),...base};
-    DB.citems=DB.citems||[];DB.citems.push(row);
-    txPush({t:'ins',tbl:'citems',row:_rowCopy(row)});
-    n++;}
-  return n;}
-async function addRfqRev(materialId){
-  const m=DB.materials.find(x=>x.id===materialId);if(!m)return;
-  const rr=rfqRevsFor(m);
-  const first=!rr.length;
-  const n=first?0:revNum(rr[rr.length-1])+1;
-  const base={materialId,rev:'R'+n,issued:first?(m.rfqDate||''):'',quotesDue:'',
-    reason:first?'Original RFQ issue':'',issuedTo:vendorsFor(m).map(v=>v.manufacturer).join(', '),notes:''};
-  let row;
-  if(_isLive()){row=await apiInsert('rfqrevs',base);if(!row)return;}
-  else row={id:nextId('rfqrevs'),...base};
-  DB.rfqrevs.push(row);
-  txPush({t:'ins',tbl:'rfqrevs',row:_rowCopy(row)},'New RFQ revision');
-  logAct('Created','rfqrevs',row.id,'','','');
-  /* the new revision starts as a copy of the bill that went out before it */
-  const prev=first?null:rr[rr.length-1];
-  const copied=prev?await copyBoqTo(materialId,prev.id,row.id):0;
-  notify('procurement','rfq','RFQ '+row.rev+' issued — '+matName(materialId),
-    copied?('The bill of quantities was carried over from '+prev.rev+' — '+copied+' item(s). Price this revision in the comparison sheet.')
-          :'Collect the vendors\u2019 prices for this revision in the comparison sheet.',materialId);
-  if(copied)setTimeout(()=>toast(row.rev+' created — '+copied+' item(s) copied from '+prev.rev),0);
-  refreshData();
-  return row;
-}
-function removeRfqRev(id){
-  const rv=(DB.rfqrevs||[]).find(x=>x.id===id);if(!rv)return;
-  const imp=deleteImpact('rfqrevs',id);
-  msgBox('Delete RFQ revision?','🗑',`RFQ revision <b>${esc(rv.rev)}</b> will be removed.`+
-    (imp.total?`<div style="margin-top:9px">Everything issued with it goes too:</div>
-       <ul style="margin:6px 0 0 16px;line-height:1.9">${imp.lines.map(l=>'<li>'+esc(l)+'</li>').join('')}</ul>
-       <div class="hint" style="margin-top:8px">Earlier revisions and their prices are untouched.</div>`
-      :'<div class="hint" style="margin-top:8px">Nothing was issued against it yet.</div>'),[
-    ['Cancel',null,''],['Delete',()=>{
-      const auto=txBegin('Delete RFQ revision '+rv.rev);
-      const nRates=imp.map.crates?imp.map.crates.size:0,nItems=imp.map.citems?imp.map.citems.size:0;
-      notify('procurement','del','RFQ '+rv.rev+' deleted — '+matName(rv.materialId),
-        (nItems?nItems+' bill item(s)':'No bill items')+(nRates?' and '+nRates+' price(s)':'')+' went with it. Earlier revisions still stand.',rv.materialId);
-      Object.keys(imp.map).filter(t=>t!=='rfqrevs').forEach(t=>{
-        const ids=new Set([...imp.map[t].keys()]);
-        imp.map[t].forEach(r=>{txPush({t:'del',tbl:t,row:_rowCopy(r)});if(_isLive())apiDelete(t,r.id);});
-        DB[t]=(DB[t]||[]).filter(r=>!ids.has(r.id));});
-      txPush({t:'del',tbl:'rfqrevs',row:_rowCopy(rv)});
-      logAct('Deleted','rfqrevs',id,'','','');if(_isLive())apiDelete('rfqrevs',id);
-      DB.rfqrevs=(DB.rfqrevs||[]).filter(x=>x.id!==id);
-      recomputeStageDates(rv.materialId);
-      if(auto)txEnd();refreshData();},'danger']]);
-}
-function msubsFor(d){return (DB.msubs||[]).filter(m=>m.designId===d.id).sort((a,b)=>(a.subDate||'9999')<(b.subDate||'9999')?-1:1);}
-async function addMsub(designId){
-  const d=DB.designs.find(x=>x.id===designId);if(!d)return;
-  const n=msubsFor(d).length+1;
-  const base={designId,cycle:'M'+n,subDate:'',retDate:'',status:'',ref:'',purpose:'',notes:''};
-  let row;
-  if(_isLive()){row=await apiInsert('msubs',base);if(!row)return;}
-  else row={id:nextId('msubs'),...base};
-  DB.msubs.push(row);
-  txPush({t:'ins',tbl:'msubs',row:_rowCopy(row)},'New Ma’aden submission');
-  logAct('Created','msubs',row.id,'','','');
-  refreshData();
-}
-function removeMsub(id){
-  const m=DB.msubs.find(x=>x.id===id);if(!m)return;
-  msgBox('Delete Maaden submission?','🗑',`Submission <b>${esc(m.cycle)}</b> will be removed.`,[
-    ['Cancel',null,''],['Delete',()=>{txPush({t:'del',tbl:'msubs',row:_rowCopy(m)},'Delete Ma\u2019aden submission '+m.cycle);
-      logAct('Deleted','msubs',id,'','','');if(_isLive())apiDelete('msubs',id);
-      DB.msubs=DB.msubs.filter(x=>x.id!==id);refreshData();},'danger']]);
-}
-function openDDash(){createWindow('ddash',{},{dedupeKey:'ddash',w:820,h:560});}
-function renderDDashWin(w){
-  setTitle(w,'📊','Design Progress — LOD');
-  const scope=(DB.designs||[]);
-  const prog=a=>a.length?a.reduce((s,d)=>s+creditOf(d),0)/a.length:0;
-  const overall=prog(scope);
-  const pct=v=>(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')+'%';
-  const isSub=d=>(d.reviewStatus||'Not issued')!=='Not issued';
-  const classes=['IFI','IFR','AWPT-only'].map(c=>{const g=scope.filter(d=>d.reviewClass===c);return [c,g.length,prog(g)];});
-  const subCnt=scope.filter(isSub).length;
-  const rec=(DB.designs||[]).filter(d=>d.inRecovery==='Yes');
-  const tabs=['Summary','Where documents stand','Current status','By discipline','Monthly submissions','Recovery plan'];
-  const ti=Math.min(w.state.tab||0,tabs.length-1);
-  let head='',body='';
-  if(ti===0){
-    head=`<div class="rhead"><div><div class="big">${pct(overall)}</div><div class="cap">overall progress · ${scope.length} documents in LOD scope</div></div></div>`;
-    body=`<div class="rtitle">Progress by review class</div><div class="rsub">Each document carries equal weight; progress is the average credit of its documents</div>`+
-      rtbl([['Review class'],['Docs','n'],['Submitted','n'],['Ma\u2019aden','n'],['Progress','n']],
-        classes.map(([c,n,p])=>{const g=scope.filter(d=>d.reviewClass===c);
-          return [esc(c),n,g.filter(isSub).length,g.filter(d=>msubsFor(d).length).length,'<span class="em">'+pct(p)+'</span>'];}),
-        ['Total',scope.length,subCnt,scope.filter(d=>msubsFor(d).length).length,pct(overall)])+
-      `<div class="rnote">IFI and IFR documents are measured on Ma'aden's review; the AWPT-only documents (BOQs and reviews) on AWPT's review.</div>`;
-  } else if(ti===1){
-    const STL=['Code A','Deemed (>10 wd)','Code B','Under review','Issued to AWPT','Not issued','Rejected'];
-    const rows=STL.map(s=>{const n=scope.filter(d=>(d.reviewStatus||'Not issued')===s).length;
-      return {s,n,share:n/(scope.length||1)*100,earned:n*(CREDIT_MAP[s]||0)/(scope.length||1)};}).filter(r=>r.n);
-    body=`<div class="rtitle">Where the documents stand</div><div class="rsub">Credit earned from the review of each document's latest revision</div>`+
-      rtbl([['Status'],['Credit','w'],['Docs','n'],['Share','n'],['Earned','n']],
-        rows.map(r=>[esc(r.s),(CREDIT_MAP[r.s]||0)+'%',r.n,pct(r.share),pct(r.earned)]),
-        ['Total','',scope.length,'100%',pct(overall)])+
-      `<div class="rnote">Code A or deemed approved 100% · Code B 85% · issued and under review 50% · issued to AWPT or not yet issued 0% · rejected 0%. IFI documents with no Client response within 10 working days of submission are deemed approved.</div>`;
-  } else if(ti===2){
-    const g={};scope.forEach(d=>{const s=effStatus(d);const k=s[0]+'||'+s[1];g[k]=(g[k]||0)+1;});
-    const pairs=Object.entries(g).sort((a,b)=>b[1]-a[1]);
-    body=`<div class="rtitle">Current status</div><div class="rsub">Ma'aden's review where the document has been issued to Ma'aden, otherwise AWPT's</div>`+
-      rtbl([['Status'],['Reviewer','w'],['Docs','n'],['Share','n']],
-        pairs.map(([k,n])=>[esc(k.split('||')[0]),esc(k.split('||')[1]),n,pctOf(n,scope.length)]),
-        ['Total','',scope.length,'100%']);
-  } else if(ti===3){
-    const g={};scope.forEach(d=>{const k=d.discipline||'—';(g[k]=g[k]||[]).push(d);});
-    const rows=Object.entries(g).map(([k,a])=>[k,a.length,a.filter(isSub).length,prog(a)]).sort((a,b)=>b[1]-a[1]);
-    body=`<div class="rtitle">Progress by discipline</div><div class="rsub">Submitted counts and credit-weighted progress</div>`+
-      rtbl([['Discipline'],['Total','n'],['Submitted','n'],['Not issued','n'],['Progress','n']],
-        rows.map(([k,t,sub,p])=>[esc(k),t,sub,t-sub,'<span class="em">'+pct(p)+'</span>']),
-        ['Total',scope.length,subCnt,scope.length-subCnt,pct(overall)]);
-  } else if(ti===4){
-    const firstRev=d=>{const r=revsFor(d).filter(x=>x.hescoDate);return r.length?r[0].hescoDate:'';};
-    const firstMsub=d=>{const m=msubsFor(d).filter(x=>x.subDate);return m.length?m[0].subDate:'';};
-    body=`<div class="rtitle">Monthly submissions</div><div class="rsub">Planned submission dates against what was actually issued each month</div>`+
-      monthlyTable([
-        {label:'Planned',cum:true,cumLabel:'cum.',dates:scope.map(d=>plannedSub(d).date).filter(Boolean)},
-        {label:'To AWPT',dates:scope.map(firstRev).filter(Boolean)},
-        {label:'To Ma\u2019aden',cum:true,cumLabel:'cum.',dates:scope.map(firstMsub).filter(Boolean)}
-      ],{note:"Planned uses the recovery-plan date where one exists, otherwise the LOD planned Ma'aden submission. “To AWPT” counts each document's first issue to AWPT; “To Ma'aden” its first submission to Ma'aden."});
-  } else {
-    if(!rec.length){body='<div class="empty">No documents are flagged as part of a recovery plan.</div>';}
-    else{
-      const g={};rec.forEach(d=>{const s=recoveryState(d)||'Due';g[s]=(g[s]||0)+1;});
-      const dates=rec.map(d=>d.recoveryDate).filter(Boolean).sort();
-      const order=['Met','Late','Due','Overdue'];
-      head=`<div class="rhead"><div><div class="big">${rec.length}</div><div class="cap">deliverables in the recovery plan · target ${esc(fmtDate(dates[dates.length-1]||''))}</div></div></div>`;
-      body=`<div class="rtitle">Recovery plan status</div><div class="rsub">HESCO response to notice of delay, dated 09-Jul-2026</div>`+
-        rtbl([['Recovery state'],['Docs','n'],['Share','n']],
-          order.filter(k=>g[k]).map(k=>[esc(k),g[k],pctOf(g[k],rec.length)]),['Total',rec.length,'100%'])+
-        `<div class="rnote">Met — issued on or before its target date · Late — issued after the target · Due — target still ahead · Overdue — past the target and still not issued.</div>`;
-    }
-  }
-  dashShell(w,tabs,ti,head,body);
-}
-
 function showHome(){
   if(!USER){showLogin();return;}
   if(typeof MOBILE!=='undefined'&&MOBILE){mobTab('home');return;}
@@ -5931,31 +5490,21 @@ function showHome(){
   hideProjects();applyProjectChrome();el.style.display='flex';
   renderHomeTiles();
 
-  const ds=document.getElementById('homestat-des');
-  if(ds){const scope=(DB.designs||[]);
-    const pr=scope.length?scope.reduce((s,d)=>s+creditOf(d),0)/scope.length:0;
-    const atM=(DB.designs||[]).filter(d=>msubsFor(d).length).length;
-    const rec=(DB.designs||[]).filter(d=>d.inRecovery==='Yes').length;
-    ds.textContent=`${scope.length} LOD documents · progress ${(Math.round(pr*10)/10)}% · ${atM} at Ma\u2019aden · ${rec} in recovery plan`;}
   const ps=document.getElementById('homestat-prc');
   if(ps){const withItems=(DB.materials||[]).filter(m=>itemsFor(m.id).length);
     const pricedV=(DB.links||[]).filter(l=>vendorTotal(l)!=null).length;
     ps.textContent=`${withItems.length} comparison sheet(s) · ${(DB.citems||[]).length} item(s) · ${pricedV} vendor quote(s) priced`;}
-  const es=document.getElementById('homestat-eng');
-  if(es){const D=DB.shopdwgs||[];
-    es.textContent=`${D.length} shop drawings · ${D.filter(d=>d.actualSub).length} submitted · ${D.filter(d=>sdPlan(d)==='Overdue').length} overdue vs plan`;}
 }
 function hideHome(){const el=document.getElementById('homewrap');if(el)el.style.display='none';}
 /* ================= USERS, ROLES AND TILES =================
    admin  — every module;  procurement — the procurement module only.
    This is workspace access control, not encryption: the standalone file's
    data can still be read by anyone who opens the file itself.            */
-const ROLE_MODULES={admin:['material','design','procurement','engineering'],
-  procurement:['procurement'],
-  design:['design'],engineering:['engineering'],material:['material']};
+const ROLE_MODULES={admin:['material','procurement'],
+  procurement:['procurement'],material:['material']};
 const ROLE_GRIDS={admin:null,
   procurement:['compare','targets','materials','rfqs'],
-  design:['designs'],engineering:['shopdwgs'],material:['materials','rfqs','submittals','tasks']};
+  material:['materials','rfqs','submittals','tasks']};
 let USER=null;
 const roleOf=()=>(USER&&USER.role)||'admin';
 const can=m=>{const a=ROLE_MODULES[roleOf()]||ROLE_MODULES.admin;return a.includes(m);};
@@ -5994,8 +5543,8 @@ function showLogin(){
   el.style.display='flex';
   const u=document.getElementById('luser');
   if(u){
-    const groups={admin:'Administrator',material:'Material team',procurement:'Procurement',design:'Design',engineering:'Engineering'};
-    const order=['admin','material','procurement','design','engineering'];
+    const groups={admin:'Administrator',material:'Material team',procurement:'Procurement'};
+    const order=['admin','material','procurement'];
     const roles=[...new Set((USERS||[]).map(x=>x.role))].sort((a,b)=>{
       const ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
     const byName=(a,b)=>String(a.name||a.username).localeCompare(String(b.name||b.username),undefined,{sensitivity:'base'});
@@ -6025,7 +5574,7 @@ function appLogout(){
 function applyRole(){
   const el=document.getElementById('userchip');
   if(el)el.textContent=USER?((USER.name||USER.username)+' · '+USER.role):'';
-  ['material','design','engineering','procurement'].forEach(k=>{
+  ['material','procurement'].forEach(k=>{
     const b=document.getElementById('navbtn-'+k);if(b)b.style.display=can(k)?'':'none';});
   if(!can(window.__module||'material')){
     const first=(ROLE_MODULES[roleOf()]||['material'])[0];setModule(first);}
@@ -6042,7 +5591,7 @@ function renderUsersWin(w){
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="pickrow">
      <button class="btn" onclick="addUser()">＋ Add user</button>
-     <span class="hint">roles: admin = every module · procurement = procurement only · design / engineering / material = that module only</span>
+     <span class="hint">roles: admin = both modules · procurement = procurement only · material = material only</span>
    </div>
    <div class="gridwrap"><table class="grid">
      <thead><tr><th style="width:150px">User name</th><th style="width:175px">Name</th><th style="width:135px">Role</th><th style="width:130px">Password</th><th style="width:230px">Supabase account 🔑</th><th></th></tr></thead>
@@ -6076,19 +5625,12 @@ const MODULE_TILES=[
   {k:'material',glyph:'🧱',name:'Material Tracking',color:'#0f6cbd',sub:'Materials · Vendors · Submittals · Tasks',
    stat:()=>[`${DB.materials.length} materials · ${DB.rfqs.length} vendors`,
              `${DB.submittals.length} submittals · ${DB.tasks.length} tasks`]},
-  {k:'design',glyph:'📐',name:'Design Tracking',color:'#8764b8',sub:'List of Deliverables — HESCO → AWPT → Ma’aden',
-   stat:()=>{const s=(DB.designs||[]);const pr=s.length?s.reduce((a,d)=>a+creditOf(d),0)/s.length:0;
-     return [`${s.length} documents · progress ${Math.round(pr*10)/10}%`,
-             `${s.filter(d=>msubsFor(d).length).length} at Ma’aden · ${s.filter(d=>d.inRecovery==='Yes').length} in recovery`];}},
   {k:'procurement',glyph:'💰',name:'Procurement',color:'#0b6a52',sub:'Comparison sheets · target prices · awards',
    stat:()=>{const wi=(DB.materials||[]).filter(m=>itemsFor(m.id).length).length;
      const pv=(DB.links||[]).filter(l=>vendorTotal(l)!=null).length;
      const aw=(DB.materials||[]).filter(m=>awardedLink(m)).length;
-     return [`${wi} sheet(s) · ${pv} priced quote(s)`,`${aw} material(s) awarded`];}},
-  {k:'engineering',glyph:'📏',name:'Engineering',color:'#c04c1c',sub:'Shop drawings — submission and review codes',
-   stat:()=>{const D=DB.shopdwgs||[];
-     return [`${D.length} drawings · ${D.filter(d=>d.actualSub).length} submitted`,
-             `${D.filter(d=>sdPlan(d)==='Overdue').length} overdue vs plan`];}}];
+     return [`${wi} sheet(s) · ${pv} priced quote(s)`,`${aw} material(s) awarded`];}}
+];
 function renderHomeTiles(){
   const box=document.getElementById('hometiles');if(!box)return;
   const list=MODULE_TILES.filter(t=>can(t.k));
@@ -6418,7 +5960,7 @@ function applyProjectChrome(){
 function projStats(pid){
   const d=ALLDATA[pid]||_blankDB();
   return {mat:d.materials.length,ven:d.rfqs.length,sub:d.submittals.length,tsk:d.tasks.length,
-          des:d.designs.length,eng:d.shopdwgs.length,act:d.activity.length};}
+          act:d.activity.length};}
 function showProjects(){
   if(typeof MOBILE!=='undefined'&&MOBILE){if(USER){MOB.stack=[];MOB.view='projects';MOB.id=null;mobRender();}return;}
   if(!USER){showLogin();return;}
@@ -6442,7 +5984,7 @@ function showProjects(){
       <div class="tsub">${esc(p.subtitle||'')}</div>
       <div class="tflip">
         <div>🧱 ${s.mat} materials · 🏷 ${s.ven} vendors · 📑 ${s.sub} submittals</div>
-        <div>📐 ${s.des} design docs · 📏 ${s.eng} shop drawings · ✓ ${s.tsk} tasks${empty?' — empty workspace':''}</div>
+        <div>✓ ${s.tsk} tasks${empty?' — empty workspace':''}</div>
       </div>
     </div>`;}).join('');
   el.style.display='flex';}
@@ -6462,7 +6004,7 @@ const _dlgInput=(id,label,val,ph)=>`<div style="margin-top:8px"><label class="hi
   <input id="${id}" value="${esc(val||'')}" placeholder="${esc(ph||'')}" style="width:100%;border:1px solid var(--ring);background:var(--field);color:var(--ink);border-radius:9px;padding:7px 9px;font:inherit;user-select:text"></div>`;
 function newProjectDialog(){
   const w=msgBox('New project','🏗',
-    `<div>Creates an empty workspace — materials, vendors, submittals, tasks, design documents and shop drawings all start blank.</div>
+    `<div>Creates an empty workspace — materials, vendors, submittals and tasks all start blank.</div>
      ${_dlgInput('npname','Project name','','e.g. JAZAN')}
      ${_dlgInput('npsub','Description (optional)','','e.g. Water Pipeline Project')}`,
     [['Cancel',null,''],['Create',()=>createProject(_dlg.npname,_dlg.npsub),'primary']]);
@@ -6506,7 +6048,7 @@ function emptyProjectDialog(pid){
   const keys=Object.keys(counts);
   if(!keys.length){msgBox('Nothing to empty','🧹','<b>'+esc(p.name)+'</b> has no records in it.',[['OK',null,'']]);return;}
   const total=keys.reduce((s,k)=>s+counts[k],0);
-  const order=['materials','rfqs','links','citems','crates','compliance','scores','pocmts','rfqrevs','submittals','subrevs','tasks','designs','revs','msubs','shopdwgs','notifs','activity'];
+  const order=['materials','rfqs','links','citems','crates','compliance','scores','pocmts','rfqrevs','submittals','subrevs','tasks','notifs','activity'];
   const lines=order.filter(t=>counts[t]).map(t=>counts[t]+' '+delLabel(t,counts[t]));
   keys.filter(t=>!order.includes(t)).forEach(t=>lines.push(counts[t]+' '+delLabel(t,counts[t])));
   const d=msgBox('Empty this project?','🧹',
@@ -6553,7 +6095,7 @@ function deleteProjectDialog(pid){
   if(PROJECTS.length<2){msgBox('Delete project','⚠','This is the only project — create another one first.',[['OK',null,'']]);return;}
   const s=projStats(p.id);
   msgBox('Delete project?','🗑',
-    `<b>${esc(p.name)}</b> and everything in it will be removed — ${s.mat} materials, ${s.ven} vendors, ${s.sub} submittals, ${s.des} design documents, ${s.eng} shop drawings, ${s.tsk} tasks.<br><span class="hint">This cannot be undone.</span>`,
+    `<b>${esc(p.name)}</b> and everything in it will be removed — ${s.mat} materials, ${s.ven} vendors, ${s.sub} submittals, ${s.tsk} tasks.<br><span class="hint">This cannot be undone.</span>`,
     [['Cancel',null,''],['Delete project',()=>{
       if(_isLive()&&typeof apiDelete==='function')apiDelete('projects',p.id);
       PROJECTS=PROJECTS.filter(x=>String(x.id)!==String(p.id));
@@ -6564,7 +6106,7 @@ function deleteProjectDialog(pid){
         PROJ=PROJECTS[0].id;DB=ALLDATA[PROJ];applyProjectChrome();}
       showProjects();toast('Project deleted');},'danger']]);}
 function setModule(m){window.__module=m;
-  ['material','design','engineering','procurement'].forEach(k=>{const el=document.getElementById('nav-'+k);
+  ['material','procurement'].forEach(k=>{const el=document.getElementById('nav-'+k);
     if(el)el.style.display=(m===k?'contents':'none');});}
 function enterModule(m){
   if(!can(m)){toast('Your account does not have access to that module');return;}
@@ -6573,86 +6115,7 @@ function enterModule(m){
     if(dw){dw.x=Math.max(10,desktop.clientWidth-dw.w-16);dw.y=10;applyRect(dw);}};
   /* the register is what the work happens in — the dashboard is a button away */
   if(m==='material')openGrid('materials');
-  else if(m==='design')openGrid('designs');
-  else if(m==='procurement')openGrid('compare');
-  else openGrid('shopdwgs');}
-
-/* ================= ENGINEERING MODULE ================= */
-function openShop(id){createWindow('eng',{recId:id},{dedupeKey:'eng:'+id,w:760,h:560});}
-function shopRec(w){return DB.shopdwgs.find(d=>d.id===w.params.recId);}
-function renderShopWin(w){
-  const d=shopRec(w);if(!d){closeWin(w.id);return;}
-  setTitle(w,'📏',d.docNo||'(new drawing)');
-  const st=sdState(d), dd=sdDays(d);
-  const F=[['aconexNo','Aconex No.'],['docNo','Document No.'],['description','Description'],['category','Category'],
-    ['discipline','Discipline'],['status','IFI / IFR'],['location','Location'],['zone','Zone'],['package','Package'],
-    ['plannedSub','Planned submission'],['actualSub','Submitted to Ma\u2019aden'],
-    ['plannedRcv','Planned return'],['actualRcv','Returned from Ma\u2019aden'],
-    ['reviewStatus','Ma\u2019aden review status'],['delay','Delay (days)'],['transmittal','Transmittal'],
-    ['lastRev','Last revision'],['remarks','Remarks']];
-  w.el.querySelector('.wincontent').innerHTML=`
-   <div class="recheader">
-     ${stageBadge(st[0],st[1])}
-     ${d.discipline?`<span class="badge">${esc(d.discipline)}</span>`:''}
-     ${d.status?`<span class="badge">${esc(d.status)}</span>`:''}
-     ${d.location?`<span class="badge">📍 ${esc(d.location)}</span>`:''}
-     ${d.lastRev?`<span class="badge">Rev ${esc(d.lastRev)}</span>`:''}
-     ${dd!==null?`<span class="badge">${d.actualRcv?'Turnaround':'Pending'}: ${dd} days</span>`:''}
-     ${(()=>{const s=sdPlan(d);if(!s)return '';const dd=sdPlanDays(d);
-        return stageBadge('Plan: '+s+(dd&&dd!==0?' ('+(dd>0?'+':'')+dd+'d)':''),PLAN_COLOR[s]);})()}
-     ${sdOverdue(d)?stageBadge('Return overdue','var(--critical)'):''}
-   </div>
-   <div class="hint" style="padding:0 2px 8px">${esc(d.description)}</div>
-   ${propTable('shopdwgs',d,F)}
-   <div class="wtoolbar" style="padding:9px 0 0">
-     <button class="btn danger" onclick="confirmDelete('shopdwgs',${d.id})">Delete drawing</button>
-     <div class="spacer"></div><span class="hint">changes save immediately</span>
-   </div>`;
-}
-function openEDash(){createWindow('edash',{},{dedupeKey:'edash',w:820,h:560});}
-function renderEDashWin(w){
-  setTitle(w,'\ud83d\udcca','Engineering — Shop Drawings');
-  const D=DB.shopdwgs||[],N=D.length;
-  const cnt=f=>D.filter(f).length;
-  const tabs=['Summary','By status','Monthly submissions'];
-  const ti=Math.min(w.state.tab||0,tabs.length-1);
-  const sub=cnt(d=>d.actualSub), rcv=cnt(d=>d.actualRcv), pend=cnt(d=>d.actualSub&&!d.actualRcv), over=cnt(sdOverdue);
-  let head='',body='';
-  if(ti===0){
-    head=`<div class="rhead"><div><div class="big">${N}</div><div class="cap">shop drawings in the register</div></div></div>`;
-    body=`<div class="rtitle">Summary</div><div class="rsub">Submission to Ma'aden, review position and plan adherence</div>`+
-      rtbl([['Measure'],['Count','n'],['Share','n']],[
-        ['Drawings in register',N,'100%'],
-        ['Submitted to Ma\u2019aden',sub,pctOf(sub,N)],
-        ['Awaiting Ma\u2019aden reply',pend,pctOf(pend,N)],
-        ['<span style="color:var(--critical)">Return overdue</span>','<span style="color:var(--critical)">'+over+'</span>',pctOf(over,N)],
-        ['Returned from Ma\u2019aden',rcv,pctOf(rcv,N)],
-        ['Not yet submitted',N-sub,pctOf(N-sub,N)],
-        ['IFI drawings',cnt(d=>d.status==='IFI'),pctOf(cnt(d=>d.status==='IFI'),N)],
-        ['IFR drawings',cnt(d=>d.status==='IFR'),pctOf(cnt(d=>d.status==='IFR'),N)],
-        ['Submitted on plan',cnt(d=>sdPlan(d)==='On plan'),pctOf(cnt(d=>sdPlan(d)==='On plan'),N)],
-        ['Submitted late',cnt(d=>sdPlan(d)==='Late'),pctOf(cnt(d=>sdPlan(d)==='Late'),N)],
-        ['<span style="color:var(--critical)">Overdue vs plan</span>','<span style="color:var(--critical)">'+cnt(d=>sdPlan(d)==='Overdue')+'</span>',pctOf(cnt(d=>sdPlan(d)==='Overdue'),N)],
-        ['Due later per plan',cnt(d=>sdPlan(d)==='Due'),pctOf(cnt(d=>sdPlan(d)==='Due'),N)]
-      ])+
-      (()=>{const done=D.filter(d=>d.actualSub&&d.actualRcv);
-        const avg=done.length?Math.round(done.reduce((s,d)=>s+sdDays(d),0)/done.length):0;
-        return `<div class="rnote">Average Ma'aden turnaround on returned drawings: ${avg} days. “Return overdue” counts drawings submitted whose planned return date has passed without a reply.</div>`;})();
-  } else if(ti===1){
-    const g={};D.forEach(d=>{const k=sdState(d)[0];g[k]=(g[k]||0)+1;});
-    const rows=Object.entries(g).sort((a,b)=>b[1]-a[1]);
-    body=`<div class="rtitle">By status</div><div class="rsub">Ma'aden review code where returned, otherwise submission state</div>`+
-      rtbl([['Status'],['Drawings','n'],['Share','n']],rows.map(([k,c])=>[esc(k),c,pctOf(c,N)]),['Total',N,'100%']);
-  } else {
-    body=`<div class="rtitle">Monthly submissions</div><div class="rsub">Planned submission dates against actual submission to Ma'aden</div>`+
-      monthlyTable([
-        {label:'Planned',cum:true,cumLabel:'cum.',dates:D.map(d=>d.plannedSub).filter(Boolean)},
-        {label:'Submitted',cum:true,cumLabel:'cum.',dates:D.map(d=>d.actualSub).filter(Boolean)},
-        {label:'Returned',dates:D.map(d=>d.actualRcv).filter(Boolean)}
-      ],{note:'Planned and actual submission to Ma\u2019aden per month, with running totals; “Returned” counts Ma\u2019aden replies received in that month.'});
-  }
-  dashShell(w,tabs,ti,head,body);
-}
+  else openGrid('compare');}
 
 /* ================= NEW / DELETE ================= */
 function blankRow(tbl){
@@ -6666,9 +6129,6 @@ function blankRow(tbl){
       /* raised for yourself unless it is handed to someone else */
       blank.engineer=USER.name||USER.username;}}
   if(tbl==='submittals'){['no','submDesc','refNo','supplier','manufacturer','origin','discipline','submType','status','latestRev','submittedDate','returnedDate','daysUR','maadenVendorId','history'].forEach(k=>blank[k]='');blank.status='Not Submitted';blank.no=String(DB.submittals.length+1);blank.materialId=null;blank.vendorId=null;}
-  if(tbl==='designs'){['sn','docNo','subject','discipline','docType','submType','scheduled','link','notes','reviewClass','reviewStatus'].forEach(k=>blank[k]='');blank.sn=String(DB.designs.length+1);blank.reviewStatus='Not issued';blank.inRecovery='No';blank.recoveryDate='';}
-  if(tbl==='shopdwgs'){['aconexNo','docNo','description','discipline','status','plannedSub','actualSub','plannedRcv','actualRcv','reviewStatus','delay','transmittal','location','zone','package','lastRev','remarks'].forEach(k=>blank[k]='');blank.category='Shop Drawings';
-    blank.aconexNo=String(Math.max(0,...DB.shopdwgs.map(d=>parseInt(d.aconexNo)||0))+1);}
   return blank;}
 async function newRecord(tbl,preset,opts){
   const blank=blankRow(tbl);
@@ -6690,14 +6150,13 @@ async function newRecord(tbl,preset,opts){
       setTimeout(()=>{const td=w.el.querySelector(`td[data-i="${row.id}"][data-k="taskDesc"],td[data-i="${row.id}"]`);
         if(td){td.scrollIntoView({block:'nearest'});td.click();}},60);}
     return row;}
-  ({materials:openMaterial,rfqs:openVendor,tasks:openTask,submittals:openSub,designs:openDesign,shopdwgs:openShop})[tbl](row.id);
+  ({materials:openMaterial,rfqs:openVendor,tasks:openTask,submittals:openSub})[tbl](row.id);
   if(tbl==='materials'){const w=[...windows.values()].find(x=>x.kind==='mat'&&x.params.recId===row.id);if(w){w.state.tab=5;renderMatWin(w);}}
   if(tbl==='rfqs'){const w=[...windows.values()].find(x=>x.kind==='ven'&&x.params.recId===row.id);if(w){w.state.tab=2;renderVenWin(w);}}
-  if(tbl==='designs'){const w=[...windows.values()].find(x=>x.kind==='des'&&x.params.recId===row.id);if(w){w.state.tab=2;renderDesignWin(w);}}
 }
 /* app-generated sequence numbers close up when a record is removed
    (external references such as Aconex numbers are never touched)      */
-const RENUM={materials:'itemNo',tasks:'no',submittals:'no',designs:'sn'};
+const RENUM={materials:'itemNo',tasks:'no',submittals:'no'};
 function renumber(tbl,field,rows){
   const list=(rows||DB[tbl]||[]).slice()
     .sort((a,b)=>(parseFloat(a[field])||0)-(parseFloat(b[field])||0)||a.id-b.id);
@@ -6739,9 +6198,7 @@ const CHILDREN={
   rfqopts:[
     {t:'citems', test:(r,p)=>String(r.optId||'')===String(p.id)}],
   submittals:[{t:'subrevs', test:(r,p)=>r.submittalId===p.id}],
-  designs:[
-    {t:'revs',  test:(r,p)=>r.designId===p.id},
-    {t:'msubs', test:(r,p)=>r.designId===p.id}]};
+  };
 const DEL_LABEL={
   rfqopts:['pricing option','pricing options'],
   links:['vendor assignment','vendor assignments'],compliance:['compliance point','compliance points'],
@@ -6749,11 +6206,9 @@ const DEL_LABEL={
   pocmts:['draft PO comment','draft PO comments'],citems:['comparison item','comparison items'],
   rfqrevs:['RFQ revision','RFQ revisions'],submittals:['material approval','material approvals'],
   subrevs:['approval revision','approval revisions'],tasks:['task','tasks'],
-  notifs:['notification','notifications'],revs:['design revision','design revisions'],
-  msubs:['Ma’aden submission','Ma’aden submissions'],materials:['material','materials'],
+  notifs:['notification','notifications'],materials:['material','materials'],
   activity:['entry in Updates','entries in Updates'],notifs:['notification','notifications'],
-  rfqs:['vendor','vendors'],designs:['design document','design documents'],
-  shopdwgs:['shop drawing','shop drawings'],criteria:['criterion','criteria']};
+  rfqs:['vendor','vendors'],criteria:['criterion','criteria']};
 const delLabel=(t,n)=>((DEL_LABEL[t]||[t,t])[n===1?0:1]);
 /* everything that would go with this record, transitively */
 function collectDeletes(tbl,id){
@@ -6776,7 +6231,7 @@ function collectDeletes(tbl,id){
 /* the same graph, described in words for the confirmation */
 function deleteImpact(tbl,id){
   const c=collectDeletes(tbl,id),lines=[];
-  const order=['links','crates','citems','rfqopts','rfqrevs','compliance','scores','pocmts','submittals','subrevs','revs','msubs','tasks','notifs'];
+  const order=['links','crates','citems','rfqopts','rfqrevs','compliance','scores','pocmts','submittals','subrevs','tasks','notifs'];
   order.forEach(t=>{
     if(t===tbl)return;
     const n=c[t]?c[t].size:0;
@@ -6815,7 +6270,7 @@ function confirmDelete(tbl,id){
       if(imp.total)setTimeout(()=>toast(imp.total+' related record(s) removed with it'),0);
       if(_auto)txEnd();
       [...windows.values()].forEach(x=>{if((x.kind==='mat'||x.kind==='ven'||x.kind==='task'||x.kind==='sub'||x.kind==='des'||x.kind==='eng')&&x.params.recId===id&&
-        ((tbl==='materials'&&x.kind==='mat')||(tbl==='rfqs'&&x.kind==='ven')||(tbl==='tasks'&&x.kind==='task')||(tbl==='submittals'&&x.kind==='sub')||(tbl==='designs'&&x.kind==='des')||(tbl==='shopdwgs'&&x.kind==='eng')))closeWin(x.id);});
+        ((tbl==='materials'&&x.kind==='mat')||(tbl==='rfqs'&&x.kind==='ven')||(tbl==='tasks'&&x.kind==='task')||(tbl==='submittals'&&x.kind==='sub')))closeWin(x.id);});
       refreshData();},'danger']]);
   if(d&&imp.lines.length>2){d.h=Math.min(470,250+imp.lines.length*26);applyRect(d);}
 }
@@ -7011,7 +6466,7 @@ function pasteRowsRun(g,txt){
     [['Cancel',null,''],['Add records',()=>createRows(cfg.tbl,built.rows),'primary']]);}
 
 /* ================= UPDATES FEED ================= */
-const ACT_TBL={materials:'Material',rfqs:'Vendor',submittals:'Submittal',tasks:'Task',links:'Assignment',designs:'Design doc',revs:'Design rev',msubs:'Maaden submission',shopdwgs:'Shop drawing',rfqrevs:'RFQ revision',rfqopts:'Pricing option',compliance:'Compliance point',criteria:'Evaluation criterion',scores:'Evaluation score',citems:'Comparison item',crates:'Vendor rate'};
+const ACT_TBL={materials:'Material',rfqs:'Vendor',submittals:'Submittal',tasks:'Task',links:'Assignment',rfqrevs:'RFQ revision',rfqopts:'Pricing option',compliance:'Compliance point',criteria:'Evaluation criterion',scores:'Evaluation score',citems:'Comparison item',crates:'Vendor rate'};
 function actName(tbl,id){
   const r=rowOf(tbl,id);if(!r)return '';
   if(tbl==='users')return r.name||r.username||'';
@@ -7021,9 +6476,6 @@ function actName(tbl,id){
   if(tbl==='tasks')return 'Task '+(r.no||'')+(r.system?' — '+r.system:'');
   if(tbl==='submittals')return r.submDesc||'';
   if(tbl==='links')return venName(r.vendorId)+' × '+matName(r.materialId);
-  if(tbl==='designs')return r.docNo||r.subject||'';
-  if(tbl==='revs'){const d=DB.designs.find(x=>x.id===r.designId);return (d?d.docNo:'')+' '+(r.rev||'');}
-  if(tbl==='msubs'){const d=DB.designs.find(x=>x.id===r.designId);return (d?d.docNo:'')+' '+(r.cycle||'');}
   if(tbl==='rfqrevs')return matName(r.materialId)+' '+(r.rev||'');
   if(tbl==='criteria')return r.name||'';
   if(tbl==='citems')return matName(r.materialId)+' — item '+(r.no||'');
@@ -7036,7 +6488,6 @@ function actName(tbl,id){
     return (l?venName(l.vendorId)+' × '+matName(l.materialId):'')+(c?' — '+c.name:'');}
   if(tbl==='compliance'){const l=(DB.links||[]).find(x=>x.id===r.linkId);
     return (l?venName(l.vendorId)+' × '+matName(l.materialId):'')+' — point '+(r.no||'');}
-  if(tbl==='shopdwgs')return r.docNo||r.description||'';
   return '';}
 function _nowTs(){const d=new Date();const p=n=>String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
@@ -7054,7 +6505,7 @@ function renderFeedWin(w){
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="wtoolbar">
      <input type="text" placeholder="Search updates…" value="${esc(w.state.q)}" oninput="windows.get('${w.id}').state.q=this.value;renderFeedBody(windows.get('${w.id}'))">
-     <select onchange="windows.get('${w.id}').state.f1=this.value;renderFeedBody(windows.get('${w.id}'))">${['','materials','rfqs','submittals','tasks','links','compliance','criteria','scores','citems','crates','rfqrevs','designs','revs','msubs','shopdwgs'].map(t=>`<option value="${t}" ${w.state.f1===t?'selected':''}>${t===''?'All tables':ACT_TBL[t]+'s'}</option>`).join('')}</select>
+     <select onchange="windows.get('${w.id}').state.f1=this.value;renderFeedBody(windows.get('${w.id}'))">${['','materials','rfqs','submittals','tasks','links','compliance','criteria','scores','citems','crates','rfqrevs'].map(t=>`<option value="${t}" ${w.state.f1===t?'selected':''}>${t===''?'All tables':ACT_TBL[t]+'s'}</option>`).join('')}</select>
      <div class="spacer"></div>
      ${isAdmin()&&(DB.activity||[]).length?`<button class="btn" onclick="clearActivity()">🧹 Clear the log</button>`:''}
      <span class="hint">every change is recorded automatically — newest first</span>
@@ -7090,7 +6541,7 @@ function renderFeedBody(w){
    <div class="gridwrap"><table class="grid">
     <thead><tr><th>Date 📅</th><th>Time</th><th>Table</th><th>Record</th><th>Action</th><th>Property</th><th>From</th><th>To</th></tr></thead>
     <tbody>${shown.length?shown.map(r=>{
-      const fn={materials:'openMaterial',rfqs:'openVendor',submittals:'openSub',tasks:'openTask',designs:'openDesign',shopdwgs:'openShop'}[r.tbl];
+      const fn={materials:'openMaterial',rfqs:'openVendor',submittals:'openSub',tasks:'openTask'}[r.tbl];
       const exists=fn&&(DB[r.tbl]||[]).some(x=>x.id===r.recId);
       const chip=exists?`<span class="linkchip" onclick="${fn}(${r.recId})"><b>${esc(r.recName)}</b></span>`:`<b>${esc(r.recName)}</b>`;
       const dv=v=>{v=String(v??'');const shown=/^\d{4}-\d{2}-\d{2}$/.test(v)?fmtDate(v):v;return esc(shown.slice(0,60))+(shown.length>60?'…':'');};
@@ -7227,7 +6678,7 @@ window.addEventListener('resize',()=>{
 function msgAct(id,i){const w=windows.get(id);const fn=w.params.actions[i];
   _dlg={};w.el.querySelectorAll('input,select,textarea').forEach(el=>{if(el.id)_dlg[el.id]=(el.type==='checkbox'?el.checked:el.value);});
   closeWin(id);if(fn)fn();}
-function showAbout(){msgBox('About','▦','<b>Trackers</b><br>MAADEN — TAIF AR RJUM Water Pipeline Project, Package B.<br><br>Material, procurement, design and engineering tracking in one workspace. Each material links only to the vendors quoting for it, so a vendor’s price, compliance, evaluation, draft PO and approval all hang off that one relation and can be edited from either side.',[['OK',null,'']]);}
+function showAbout(){msgBox('About','▦','<b>Trackers</b><br>MAADEN — TAIF AR RJUM Water Pipeline Project, Package B.<br><br>Material tracking and procurement in one workspace. Each material links only to the vendors quoting for it, so a vendor’s price, compliance, evaluation, draft PO and approval all hang off that one relation and can be edited from either side.',[['OK',null,'']]);}
 
 /* ================= SUPABASE SYNC ================= */
 const CFG=window.APP_CONFIG||{};
@@ -7377,8 +6828,8 @@ async function loadTeam(){
   TEAM=data;
   const grp={};
   TEAM.forEach(u=>{(grp[u.role]=grp[u.role]||[]).push(u);});
-  const order=['admin','procurement','material','design','engineering'];
-  const label={admin:'Administrator',procurement:'Procurement',material:'Material team',design:'Design',engineering:'Engineering'};
+  const order=['admin','procurement','material'];
+  const label={admin:'Administrator',procurement:'Procurement',material:'Material team'};
   sel.innerHTML='<option value="">Select your name…</option>'+
     order.filter(r=>grp[r]).map(r=>`<optgroup label="${label[r]||r}">`+
       grp[r].slice().sort((a,b)=>String(a.name||a.username).localeCompare(String(b.name||b.username),undefined,{sensitivity:'base'}))
