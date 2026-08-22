@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trackers — MAADEN TAIF–AR RJUM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Emoji:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
   color-scheme:light;
@@ -19,28 +22,68 @@
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --page1:#101216; --page2:#0b0c0f;
-  --glass:rgba(26,26,25,.94); --surface:#1a1a19; --surface2:#2c2c2a; --field:#111110;
-  --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
-  --grid:#2c2c2a; --ring:rgba(255,255,255,.10);
-  --accent:#3987e5; --accent-soft:rgba(57,135,229,.14); --accent-soft2:rgba(57,135,229,.22);
-  --goodtext:#0ca30c;
-  --priced:rgba(45,200,80,.15); --priced2:rgba(45,200,80,.24);
-  --shadow:0 10px 34px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.4);
-  --shadow-focus:0 18px 50px rgba(0,0,0,.65),0 3px 10px rgba(0,0,0,.45);
+  /* the Engineering Activity palette, value for value */
+  --page1:#150e26; --page2:#0a0613;
+  --glass:rgba(23,16,41,.92); --surface:#1b1330; --surface2:#221739; --field:rgba(18,12,33,.85);
+  --ink:#f5f2ff; --ink2:#bdb2d8; --muted:#8b81a8;
+  --grid:#332552; --ring:#3f2d67;
+  --accent:#a855f7; --accent2:#7c3aed;
+  --accent-soft:rgba(168,85,247,.15); --accent-soft2:rgba(168,85,247,.26);
+  --good:#34d399; --warn:#fbbf24; --serious:#fb923c; --critical:#f43f5e; --goodtext:#34d399;
+  --chip:#251a42; --heading:#c4b5fd;
+  --priced:rgba(52,211,153,.15); --priced2:rgba(52,211,153,.26);
+  --shadow:0 14px 40px rgba(10,4,26,.6);
+  --shadow-focus:0 22px 60px rgba(10,4,26,.78),0 3px 12px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
-body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;color:var(--ink);
+:root{--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1);
+  --accent2:var(--accent);--chip:var(--surface2);--heading:var(--muted)}
+body{font-family:system-ui,-apple-system,"Segoe UI","Noto Emoji",sans-serif;font-size:13px;color:var(--ink);
   background:radial-gradient(1200px 700px at 20% 0%,var(--page1),var(--page2));user-select:none}
-button{font-family:inherit}
+:root[data-theme="dark"] body{
+  background:
+    radial-gradient(1100px 620px at 12% -10%,rgba(124,58,237,.22),transparent 60%),
+    radial-gradient(900px 520px at 88% 0%,rgba(168,85,247,.16),transparent 62%),
+    linear-gradient(180deg,var(--page1),var(--page2) 60%);
+  background-attachment:fixed}
+@keyframes sheen{0%,75%{transform:translateX(-100%)}90%,100%{transform:translateX(120%)}}
+@keyframes slide{from{transform:scaleX(.3)}to{transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+/* windows, panels and dialogs come in; a 294-line bill does not animate
+   294 times, so rows are deliberately left out of all of this */
+.win{animation:rise .32s var(--ease) both}
+.tile{animation:rise .45s var(--ease) both}
+.wtoolbar,.pickrow,.tabbar,.statusbar{animation:rise .28s var(--ease) both}
+.btn,.tbbtn,.linkchip,.iconbtn,.chip{transition:transform .2s var(--spring),
+  background .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
+.btn:hover,.tbbtn:hover,.linkchip:hover,.iconbtn:hover{transform:translateY(-1px)}
+.btn:active,.tbbtn:active,.linkchip:active,.iconbtn:active{transform:translateY(0) scale(.98)}
+.bar>i,.bar>span,.meter>i,.tflip{transition:width .8s var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important}}
+button,input,select,textarea{font-family:inherit}
+/* the icons are text, so they take the theme's ink and the accent on hover */
+.ic{display:inline-block;vertical-align:-3px;flex:none}
+.tbbtn .ic{vertical-align:-4px;margin-right:1px}
+.ticon .ic{vertical-align:0}
+.tglyph .ic{width:26px;height:26px}
+.ticon,.tglyph{color:var(--accent)}
+:root[data-theme="dark"] .tbbtn:hover{color:#e9d5ff}
 /* ===== top bar ===== */
 #topbar{height:52px;display:flex;align-items:center;gap:8px;padding:0 16px;
   background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--ring);position:relative;z-index:900}
 #topbar .logo{width:26px;height:26px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
-#topbar .title{font-weight:650;font-size:13.5px;letter-spacing:-.01em;margin-right:4px}
+#topbar .title{font-weight:650;font-size:13.5px;letter-spacing:-.01em;margin-right:4px;
+  flex:none;max-width:200px;min-width:0;overflow:hidden}
+@media (max-width:1460px){#topbar .title{max-width:150px}}
+#topbar .title small{display:block;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #topbar .title small{display:block;font-weight:400;font-size:10.5px;color:var(--muted)}
-.tbbtn{border:none;background:none;color:var(--ink2);font-size:12.5px;padding:7px 12px;border-radius:9px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.tbbtn{border:none;background:none;color:var(--ink2);font-size:12.3px;padding:7px 8px;border-radius:9px;cursor:pointer;display:flex;gap:5px;align-items:center;white-space:nowrap;flex:none}
+/* on a narrow screen the words go and the icons carry it, tooltips and all */
+@media (max-width:1460px){#topbar .tbbtn{font-size:0;gap:0;padding:7px 7px}}
 .tbbtn:hover{background:var(--accent-soft);color:var(--ink)}
 #topbar .spacer{flex:1}
 .menuwrap{position:relative}
@@ -188,6 +231,52 @@ table.rtbl td.em{font-weight:650}
 .msgbody .txt b{color:var(--ink)}
 .msgbtns{display:flex;justify-content:flex-end;gap:8px;padding:8px 4px 2px;flex:none;
   border-top:1px solid var(--grid);background:var(--surface);position:sticky;bottom:0}
+/* ===== Engineering Activity finish (dark only) ===== */
+/* the full-screen layers paint their own ground, so the violet wash has to
+   be given to each of them or it only shows behind the desktop */
+:root[data-theme="dark"] #loginwrap,:root[data-theme="dark"] #authwrap{
+  background:radial-gradient(900px 500px at 50% 0%,rgba(124,58,237,.25),transparent 65%),
+    linear-gradient(180deg,var(--page1),var(--page2))!important}
+:root[data-theme="dark"] #homewrap,:root[data-theme="dark"] #projwrap{
+  background:radial-gradient(1100px 620px at 12% -10%,rgba(124,58,237,.22),transparent 60%),
+    radial-gradient(900px 520px at 88% 0%,rgba(168,85,247,.16),transparent 62%),
+    linear-gradient(180deg,var(--page1),var(--page2) 60%)!important}
+:root[data-theme="dark"] #logincard,:root[data-theme="dark"] #authcard{
+  border:1px solid rgba(168,85,247,.25);border-radius:22px;
+  background:linear-gradient(180deg,rgba(35,25,62,.96),rgba(20,14,38,.98));
+  box-shadow:0 30px 90px rgba(88,28,135,.5)}
+:root[data-theme="dark"] .win{border:1px solid rgba(168,85,247,.16)}
+:root[data-theme="dark"] .win.focused{border-color:rgba(168,85,247,.34)}
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] button.primary{
+  background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:transparent;color:#fff}
+:root[data-theme="dark"] .btn:hover{border-color:var(--accent);color:#e9d5ff}
+:root[data-theme="dark"] .tile{position:relative;overflow:hidden;
+  border:1px solid rgba(168,85,247,.16);border-radius:15px;box-shadow:var(--shadow)}
+/* the module colours are set inline on the element, so a veil is laid over
+   them rather than replacing them — each tile keeps its own hue, quietly */
+:root[data-theme="dark"] .tile{
+  background-image:linear-gradient(180deg,rgba(34,24,60,.62),rgba(20,14,38,.78))!important}
+:root[data-theme="dark"] .tile:hover{border-color:rgba(168,85,247,.4)}
+:root[data-theme="dark"] .tcorner{background:rgba(168,85,247,.22);border:1px solid rgba(168,85,247,.3)}
+:root[data-theme="dark"] .tile .tshine{
+  position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.13) 48%,transparent 66%);
+  animation:sheen 6s var(--ease) infinite}
+:root[data-theme="dark"] .gridwrap{border-radius:12px}
+:root[data-theme="dark"] table.grid thead th{color:var(--heading);letter-spacing:.05em}
+:root[data-theme="dark"] table.grid tbody tr:nth-child(even) td{background:rgba(31,22,54,.5)}
+:root[data-theme="dark"] table.grid tbody tr:hover td{background:var(--chip)}
+:root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{
+  border-radius:10px}
+:root[data-theme="dark"] input:focus,:root[data-theme="dark"] select:focus,
+:root[data-theme="dark"] textarea:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,247,.16);outline:none}
+:root[data-theme="dark"] ::-webkit-scrollbar{width:10px;height:10px}
+:root[data-theme="dark"] ::-webkit-scrollbar-track{background:transparent}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb{
+  background:#3f2d67;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#4f3a80;background-clip:content-box}
 /* ===== editing a name where you read it ===== */
 .pedit{cursor:text;border-radius:6px;padding:1px 4px;margin:0 -4px;transition:background .12s,box-shadow .12s}
 .pedit:hover{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
@@ -360,8 +449,8 @@ window.APP_CONFIG = {
     </div>
     <div id="hometiles" class="tiles"></div>
     <div style="margin-top:18px;display:flex;gap:8px;justify-content:center">
-      <button class="btn ghost" onclick="showProjects()">🗂 All projects</button>
-      <button class="btn ghost" onclick="hideHome();openFeed()">📜 Updates feed — all changes across every module</button>
+      <button class="btn ghost" onclick="showProjects()">${icon('folder',12)} All projects</button>
+      <button class="btn ghost" onclick="hideHome();openFeed()">${icon('feed',12)} Updates feed — all changes across every module</button>
     </div>
   </div>
 </div>
@@ -393,42 +482,42 @@ window.APP_CONFIG = {
 <div id="topbar">
   <div class="logo">▦</div>
   <div class="title">Trackers<small id="projname" class="pedit dark" onclick="projInline(PROJ,'name',this)" title="Click to rename this project">—</small></div>
-  <button class="tbbtn" onclick="showProjects()" title="Switch project">🗂 Projects</button>
-  <button class="tbbtn" onclick="showHome()">⌂ Home</button>
+  <button class="tbbtn" onclick="showProjects()" title="Switch project"><span class="icslot" data-ic="folder"></span>Projects</button>
+  <button class="tbbtn" onclick="showHome()" title="Home"><span class="icslot" data-ic="home"></span>Home</button>
   <span id="navbtn-material" style="display:contents"></span>
   <span id="nav-material" style="display:contents">
-    <button class="tbbtn" onclick="openDashboard()">📊 Dashboard</button>
-    <button class="tbbtn" onclick="openGrid('materials')">🧱 Materials</button>
-    <button class="tbbtn" onclick="openGrid('rfqs')">🏷 Vendors</button>
-    <button class="tbbtn" onclick="openGrid('submittals')">📑 Submittals</button>
-    <button class="tbbtn" onclick="openTaskBoard()">✓ Tasks</button>
+    <button class="tbbtn" onclick="openDashboard()" title="Dashboard"><span class="icslot" data-ic="chart"></span>Dashboard</button>
+    <button class="tbbtn" onclick="openGrid('materials')" title="Materials"><span class="icslot" data-ic="box"></span>Materials</button>
+    <button class="tbbtn" onclick="openGrid('rfqs')" title="Vendors"><span class="icslot" data-ic="tag"></span>Vendors</button>
+    <button class="tbbtn" onclick="openGrid('submittals')" title="Submittals"><span class="icslot" data-ic="doc"></span>Submittals</button>
+    <button class="tbbtn" onclick="openTaskBoard()" title="Tasks"><span class="icslot" data-ic="check"></span>Tasks</button>
   </span>
   <span id="nav-procurement" style="display:none">
-    <button class="tbbtn" onclick="openGrid('compare')">💰 Comparison Sheets</button>
-    <button class="tbbtn" onclick="openGrid('targets')">🎯 Target Prices</button>
-    <button class="tbbtn" onclick="openGrid('materials')">🧱 Materials</button>
-    <button class="tbbtn" onclick="openGrid('rfqs')">🏷 Vendors</button>
+    <button class="tbbtn" onclick="openGrid('compare')" title="Comparison Sheets"><span class="icslot" data-ic="money"></span>Comparison Sheets</button>
+    <button class="tbbtn" onclick="openGrid('targets')" title="Target Prices"><span class="icslot" data-ic="target"></span>Target Prices</button>
+    <button class="tbbtn" onclick="openGrid('materials')" title="Materials"><span class="icslot" data-ic="box"></span>Materials</button>
+    <button class="tbbtn" onclick="openGrid('rfqs')" title="Vendors"><span class="icslot" data-ic="tag"></span>Vendors</button>
   </span>
-  <button class="tbbtn" onclick="openFeed()">📜 Updates</button>
+  <button class="tbbtn" onclick="openFeed()" title="Updates"><span class="icslot" data-ic="feed"></span>Updates</button>
   <div class="spacer"></div>
   <span id="sync" class="hint" style="margin-right:4px"></span>
   <span id="userchip" class="userchip"></span>
-  <button class="tbbtn" id="bellBtn" title="Notifications" onclick="openNotifs()">🔔<span id="bellcount" style="display:none;background:var(--critical);color:#fff;border-radius:20px;font-size:10px;padding:1px 5px;margin-left:3px"></span></button>
-  <button class="tbbtn" title="Users and access" onclick="openUsers()">👤</button>
-  <button class="tbbtn" title="Sign out" onclick="appLogout()">⎋</button>
-  <button class="tbbtn" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()">↶</button>
-  <button class="tbbtn" id="redoBtn" title="Redo (Ctrl+Y)" onclick="redo()">↷</button>
-  <button class="tbbtn" id="themeBtn" title="Light / dark">◐</button>
+  <button class="tbbtn" id="bellBtn" title="Notifications" onclick="openNotifs()"><span class="icslot" data-ic="bell"></span><span id="bellcount" style="display:none;background:var(--critical);color:#fff;border-radius:20px;font-size:10px;padding:1px 5px;margin-left:3px"></span></button>
+  <button class="tbbtn" title="Users and access" onclick="openUsers()"><span class="icslot" data-ic="user"></span></button>
+  <button class="tbbtn" title="Sign out" onclick="appLogout()"><span class="icslot" data-ic="exit"></span></button>
+  <button class="tbbtn" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()"><span class="icslot" data-ic="undo"></span></button>
+  <button class="tbbtn" id="redoBtn" title="Redo (Ctrl+Y)" onclick="redo()"><span class="icslot" data-ic="redo"></span></button>
+  <button class="tbbtn" id="themeBtn" title="Light / dark"><span class="icslot" data-ic="theme"></span></button>
   <div class="menuwrap" id="arrMenu">
-    <button class="tbbtn" title="Arrange the open windows" onclick="document.getElementById('arrMenu').classList.toggle('open')">🗗 Arrange</button>
+    <button class="tbbtn" title="Arrange the open windows" onclick="document.getElementById('arrMenu').classList.toggle('open')"><span class="icslot" data-ic="windows"></span>Arrange</button>
     <div class="menucard">
       <button onclick="closeMenus();arrangeAll('cols')">◫ Side by side — half screen each</button>
       <button onclick="closeMenus();arrangeAll('rows')">⊟ Stacked — top and bottom</button>
-      <button onclick="closeMenus();arrangeAll('grid')">▦ Tile all windows</button>
+      <button onclick="closeMenus();arrangeAll('grid')">${icon('grid',12)} Tile all windows</button>
       <button onclick="closeMenus();arrangeAll('cascade')">🗗 Cascade</button>
       <hr>
       <button onclick="closeMenus();arrangeRelated(null,'cols')">◫ Related windows side by side</button>
-      <button onclick="closeMenus();arrangeRelated(null,'grid')">▦ Related windows tiled</button>
+      <button onclick="closeMenus();arrangeRelated(null,'grid')">${icon('grid',12)} Related windows tiled</button>
       <button onclick="closeMenus();arrangeRelated(null,'cascade')">🗗 Related windows cascaded</button>
       <button onclick="closeMenus();openRelated()">⧉ Open everything for this material</button>
       <hr>
@@ -436,14 +525,14 @@ window.APP_CONFIG = {
     </div>
   </div>
   <div class="menuwrap" id="fileMenu">
-    <button class="tbbtn" onclick="document.getElementById('fileMenu').classList.toggle('open')">⋯ File</button>
+    <button class="tbbtn" onclick="document.getElementById('fileMenu').classList.toggle('open')" title="File"><span class="icslot" data-ic="more"></span>File</button>
     <div class="menucard">
       <button onclick="closeMenus();reloadAll()">⟳ Refresh from server</button>
       <button onclick="closeMenus();exportJSON()">⭳ Download backup (JSON)</button>
       <button onclick="closeMenus();signOut()">⎋ Sign out</button>
       <button onclick="closeMenus();importExcel()">📥 Import from Excel…</button>
       <hr>
-      <button onclick="closeMenus();openLists()">🗂 Lists and dropdowns…</button>
+      <button onclick="closeMenus();openLists()">${icon('folder',12)} Lists and dropdowns…</button>
       <hr>
       <button onclick="closeMenus();setMobile(true,true)">📱 Phone view</button>
       <button onclick="closeMenus();showAbout()">ℹ About</button>
@@ -454,7 +543,7 @@ window.APP_CONFIG = {
   <div class="mtop">
     <button id="mback" onclick="mobBack()" title="Back">‹</button>
     <div class="mt"><span id="mtitle">Trackers</span><div class="msub" id="msub"></div></div>
-    <button onclick="mobGo('alerts')" title="Notifications">🔔<span id="mbell" class="mbadge" style="display:none"></span></button>
+    <button onclick="mobGo('alerts')" title="Notifications">${icon('bell',18)}<span id="mbell" class="mbadge" style="display:none"></span></button>
     <button onclick="mobGo('more')" title="More">⋯</button>
   </div>
   <div id="mbody"></div>
@@ -485,6 +574,44 @@ window.APP_CONFIG = {
 
 <script>
 /* ================= DATA ================= */
+const ICON_PATHS={
+ folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/>',
+ chart:'<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>',
+ box:'<path d="M12 3 3 7.5v9L12 21l9-4.5v-9z"/><path d="M3 7.5 12 12l9-4.5"/><path d="M12 12v9"/>',
+ tag:'<path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.4"/>',
+ doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+ check:'<path d="M20 6 9 17l-5-5"/>',
+ feed:'<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>',
+ money:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9"/><path d="M14.5 10c0-1.1-1.1-1.8-2.5-1.8s-2.5.7-2.5 1.7 1 1.4 2.5 1.7 2.6.7 2.6 1.8-1.1 1.8-2.6 1.8-2.5-.7-2.5-1.8"/>',
+ target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
+ bell:'<path d="M18 8.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5"/><path d="M13.7 19a2 2 0 0 1-3.4 0"/>',
+ user:'<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+ exit:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16 6 12l4-4"/><path d="M6 12h10"/>',
+ undo:'<path d="M4 12h11a4.5 4.5 0 0 1 0 9h-4"/><path d="M8 8 4 12l4 4"/>',
+ redo:'<path d="M20 12H9a4.5 4.5 0 0 0 0 9h4"/><path d="M16 8l4 4-4 4"/>',
+ theme:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/>',
+ windows:'<rect x="3" y="4" width="11" height="9" rx="1.6"/><rect x="10" y="11" width="11" height="9" rx="1.6"/>',
+ more:'<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+ site:'<path d="M3 21h18"/><path d="M6 21V8l7-4v17"/><path d="M13 12h5v9"/><path d="M9 11h1"/><path d="M9 15h1"/>',
+ grid:'<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17"/><path d="M9.5 9.5v11"/>',
+ link:'<path d="M10 13a4 4 0 0 0 5.7.4l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.4 1.4"/><path d="M14 11a4 4 0 0 0-5.7-.4L5.7 13.2a4 4 0 0 0 5.7 5.7l1.4-1.4"/>',
+ cal:'<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17"/><path d="M8 3v4"/><path d="M16 3v4"/>',
+ star:'<path d="m12 4 2.5 5.2 5.5.8-4 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4-3.9 5.5-.8z"/>',
+ bin:'<path d="M4 7h16"/><path d="M9.5 7V5h5v2"/><path d="M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4L18 7"/>',
+};
+/* icons are drawn, not typed: an emoji brings its own colours and reads as
+   a sticker beside the text. These take the colour of whatever they sit in. */
+const ICON_FOR={'\u25a6':'grid','\u2696':'chart','\u2705':'check','\u2713':'check','\u2b31':'feed',
+ '\ud83c\udff7':'tag','\ud83d\udc64':'user','\ud83d\udcb0':'money','\ud83d\udcc4':'doc',
+ '\ud83d\udcca':'chart','\ud83d\udcd1':'doc','\ud83d\udcdc':'feed','\ud83d\udce5':'feed',
+ '\ud83d\udd14':'bell','\ud83d\uddc2':'folder','\ud83e\uddf1':'box','\ud83c\udfaf':'target',
+ '\ud83c\udfd7':'site','\ud83d\uddd1':'bin','\ud83d\udd17':'link','\ud83d\udcc5':'cal','\u2605':'star'};
+const iconFor=(g,sz)=>{const k=ICON_FOR[String(g||'')];return k?icon(k,sz):esc(String(g||''));};
+function icon(k,sz){const p=ICON_PATHS[k];if(!p)return '';
+  return '<svg class="ic" viewBox="0 0 24 24" width="'+(sz||16)+'" height="'+(sz||16)+'" '+
+    'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" '+
+    'stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
 const DB_TABLES=['materials','rfqs','tasks','submittals','links','activity','rfqrevs','rfqopts','compliance','criteria','scores','citems','crates','notifs','pocmts','subrevs','lists'];
 function _blankDB(){const d={};DB_TABLES.forEach(t=>d[t]=[]);return d;}
 function _normDB(src){const d=_blankDB();if(src)DB_TABLES.forEach(t=>{if(Array.isArray(src[t]))d[t]=src[t];});return d;}
@@ -819,7 +946,7 @@ function matApprovalCell(l){
   const txt=`<div class="editable" style="display:inline-block;min-width:46px" title="Material approval note from the tracker — double-click to edit" ondblclick="event.stopPropagation();beginEdit(this,'links',${l.id},'matApproval')">${esc(l.matApproval)||'<span class="hint">—</span>'}</div>`;
   if(!mine.length&&!wide.length)return `<td>${txt} ${plus}</td>`;
   /* the material-wide ones belong to every vendor — say so once, don't repeat them */
-  const wideChip=wide.length?`<div style="padding-top:1px"><span class="linkchip" title="${esc(wide.length+' approval(s) cover the whole material: '+wide.map(s=>(s.submDesc||'')+' — '+s.status).join(' · '))}" onclick="event.stopPropagation();openMatSubs(${l.materialId})">📄 ${wide.length} material-wide</span></div>`:'';
+  const wideChip=wide.length?`<div style="padding-top:1px"><span class="linkchip" title="${esc(wide.length+' approval(s) cover the whole material: '+wide.map(s=>(s.submDesc||'')+' — '+s.status).join(' · '))}" onclick="event.stopPropagation();openMatSubs(${l.materialId})">${icon('doc',12)} ${wide.length} material-wide</span></div>`:'';
   return `<td>${mine.map(s=>subChip(s,mine.length>1?String(s.submDesc||'').slice(0,18):'')).join('')||
     '<div class="hint">— none for this vendor —</div>'}${wideChip}${
     l.matApproval?`<div class="hint" style="padding-top:1px">${esc(l.matApproval)}</div>`:''}
@@ -912,7 +1039,7 @@ function materialApprovalInner(m){
   /* a long list collapses to its roll-up with a way through to the tab */
   const body=subs.length<=2
     ? subs.map(x=>subChip(x,venName(x.vendorId)||'material-wide')).join('')
-    : `<div><span class="linkchip" title="Open the material's approvals" onclick="event.stopPropagation();openMatSubs(${m.id})">📄 ${subs.length} approvals</span></div>`;
+    : `<div><span class="linkchip" title="Open the material's approvals" onclick="event.stopPropagation();openMatSubs(${m.id})">${icon('doc',12)} ${subs.length} approvals</span></div>`;
   return `<div style="padding-bottom:1px">${stageBadge(s.label,s.color)}</div>`+body+
     (m.approvalStatus?`<div class="hint">${esc(m.approvalStatus)}</div>`:'')+
     `<div style="padding-top:1px">${plus}</div>`;
@@ -924,7 +1051,7 @@ function propTable(tbl,rec,F){
       const disp=(tbl==='materials'&&k==='optId')
           ?(optsOf(rec.id).length?esc(optLabel(rec.id,optInForce(rec.id)))+' <span class="chip">in force</span>':'<span class="hint">no options</span>')
         :sp==='pickMat'?esc(matName(rec[k])):sp==='pickVen'?esc(venName(rec[k])):isDateField(tbl,k)?esc(fmtDate(rec[k])):esc(rec[k]);
-      return `<tr><td style="color:var(--muted);font-weight:600">${l}${isDateField(tbl,k)?' 📅':''}${(sp==='pickMat'||sp==='pickVen')?' 🔗':''}</td>${etd(tbl,rec.id,k,disp,'wrap')}</tr>`;}).join('')}</tbody></table></div>`;
+      return `<tr><td style="color:var(--muted);font-weight:600">${l}${isDateField(tbl,k)?' '+icon('cal',11):''}${(sp==='pickMat'||sp==='pickVen')?' '+icon('link',11):''}</td>${etd(tbl,rec.id,k,disp,'wrap')}</tr>`;}).join('')}</tbody></table></div>`;
 }
 
 function nextId(t){return (DB[t]||[]).reduce((m,r)=>Math.max(m,r.id),0)+1}
@@ -1071,7 +1198,9 @@ function closeWin(id){const w=windows.get(id);if(!w)return;w.el.remove();windows
 function minWin(id){const w=windows.get(id);w.min=true;w.el.style.display='none';renderDock();}
 function restoreWin(id){const w=windows.get(id);if(w&&w.min){w.min=false;w.el.style.display='flex';}}
 function toggleMax(id){const w=windows.get(id);w.maxed=!w.maxed;applyRect(w);focusWin(id);}
-function setTitle(w,icon,text){w.title=text;w.el.querySelector('.ticon').textContent=icon;w.el.querySelector('.ttext').textContent=text;renderDock();}
+function setTitle(w,ic,text){w.title=text;
+  w.el.querySelector('.ticon').innerHTML=iconFor(ic,14);
+  w.el.querySelector('.ttext').textContent=text;renderDock();}
 function renderDock(){
   const focusedId=[...windows.values()].sort((a,b)=>(b.el.style.zIndex|0)-(a.el.style.zIndex|0)).find(x=>!x.min)?.id;
   document.getElementById('dock').innerHTML=[...windows.values()].map(w=>
@@ -2137,31 +2266,31 @@ const GRIDS={
    ['stage','Stage',null,r=>stageBadge(r.stage)],
    ['submStatus','Subm.',null,r=>esc(r.submStatus)],
    ['engineer','Engineer',null,r=>esc(r.engineer)],
-   ['_appr','Material approval 🔗',null,r=>materialApprovalInner(r)],
+   ['_appr','Material approval'+icon('link',13),null,r=>materialApprovalInner(r)],
    ['_rfqrev','RFQ rev',null,r=>{const rv=latestRfqRev(r),n=rfqRevsFor(r).length;
      return rv?`<span class="chip" title="${esc(rfqRevTip(r))}">${esc(rv.rev)}</span>${n>1?` <span class="hint">of ${n}</span>`:''}`:'<span class="hint">—</span>'}],
-   ['rfqDate','RFQ date 📅',null,r=>{const dt=rfqDateOf(r);return dt?`<span title="${esc(rfqRevTip(r))}">${esc(fmtDate(dt))}</span>`:''}],
+   ['rfqDate','RFQ date'+icon('cal',13),null,r=>{const dt=rfqDateOf(r);return dt?`<span title="${esc(rfqRevTip(r))}">${esc(fmtDate(dt))}</span>`:''}],
    ['_days','Days','num',r=>{const d=daysSince(rfqDateOf(r));return d===null?'':(d>90?'<span style="color:var(--critical);font-weight:600">'+d+'</span>':d)}],
-   ['_rfqdue','Quotes due 📅',null,r=>{const dt=rfqDueOf(r);if(!dt)return '';const left=-daysSince(dt);
+   ['_rfqdue','Quotes due'+icon('cal',13),null,r=>{const dt=rfqDueOf(r);if(!dt)return '';const left=-daysSince(dt);
      return `<span style="color:${left<0?'var(--critical)':'inherit'};${left<0?'font-weight:600':''}">${esc(fmtDate(dt))}</span>`}],
    ['optId','Option in force',null,r=>{const os=optsOf(r.id);if(!os.length)return '';
      const f=optInForce(r.id);
      return `<span class="chip" title="${esc(optLabel(r.id,f))} — the scope every figure on this row is measured on. Double-click to change it.">${esc(optCode(r.id,f))}</span>${
        os.length>1?` <span class="hint">of ${os.length}</span>`:''}`}],
-   ['dRfq','RFQ issued 📅',null,r=>esc(fmtDate(r.dRfq||r.rfqDate))],
-   ['dQuote','Offers received 📅',null,r=>esc(fmtDate(r.dQuote))],
-   ['dTech','Tech. evaluated 📅',null,r=>esc(fmtDate(r.dTech))],
-   ['dShort','Shortlisted 📅',null,r=>esc(fmtDate(r.dShort))],
-   ['dTarget','Target offers 📅',null,r=>esc(fmtDate(r.dTarget))],
-   ['dAward','Awarded 📅',null,r=>esc(fmtDate(r.dAward))],
-   ['compDate','Comparison 📅',null,r=>esc(fmtDate(r.compDate))],
-   ['plannedPO','Planned PO 📅',null,r=>esc(fmtDate(r.plannedPO))],
+   ['dRfq','RFQ issued'+icon('cal',13),null,r=>esc(fmtDate(r.dRfq||r.rfqDate))],
+   ['dQuote','Offers received'+icon('cal',13),null,r=>esc(fmtDate(r.dQuote))],
+   ['dTech','Tech. evaluated'+icon('cal',13),null,r=>esc(fmtDate(r.dTech))],
+   ['dShort','Shortlisted'+icon('cal',13),null,r=>esc(fmtDate(r.dShort))],
+   ['dTarget','Target offers'+icon('cal',13),null,r=>esc(fmtDate(r.dTarget))],
+   ['dAward','Awarded'+icon('cal',13),null,r=>esc(fmtDate(r.dAward))],
+   ['compDate','Comparison'+icon('cal',13),null,r=>esc(fmtDate(r.compDate))],
+   ['plannedPO','Planned PO'+icon('cal',13),null,r=>esc(fmtDate(r.plannedPO))],
    ['_v','Vendors',null,r=>{const n=vendorsFor(r).length;return `<span class="chip ${n?'':'zero'}">${n}</span>`}],
    ['_t','Tasks',null,r=>{const n=tasksFor(r).length;return `<span class="chip ${n?'':'zero'}">${n}</span>`}],
-   ['_awv','Awarded vendor ★',null,r=>{const l=awardedLink(r);
+   ['_awv','Awarded vendor'+icon('star',13),null,r=>{const l=awardedLink(r);
      if(l)return `<span class="linkchip" title="Selected vendor — open" onclick="event.stopPropagation();openVendor(${l.vendorId})">${stageBadge(venName(l.vendorId),'var(--good)')}</span>`;
      return r.awarded?esc(r.awarded):'<span class="hint">—</span>'}],
-   ['_awp','Awarded price 💰',null,r=>{const p=awardedPrice(r);
+   ['_awp','Awarded price'+icon('money',13),null,r=>{const p=awardedPrice(r);
      if(p==null)return '<span class="hint">—</span>';
      const l=awardedLink(r),rev=revisedTotal(l),orig=vendorTotal(l);
      const cut=(rev!=null&&orig!=null&&orig>0)?Math.round(((orig-rev)/orig)*1000)/10:null;
@@ -2178,7 +2307,7 @@ const GRIDS={
    ['_mats','Scope of supply (auto — assigned materials)',null,r=>{const ms=materialsForRfq(r).map(m=>m.desc);return ms.length?esc(ms.join(', ')):'<span class="hint">— not assigned —</span>'}],
    ['_n','#','num',r=>String(linksForVendor(r).length)],
    ['shared','RFQ shared',null,r=>esc(r.shared)],
-   ['_dl','Next deadline 📅',null,r=>{const ds=linksForVendor(r).map(l=>l.deadline).filter(x=>/^\d{4}/.test(x)).sort();return ds.length?esc(fmtDate(ds[0])):''}],
+   ['_dl','Next deadline'+icon('cal',13),null,r=>{const ds=linksForVendor(r).map(l=>l.deadline).filter(x=>/^\d{4}/.test(x)).sort();return ds.length?esc(fmtDate(ds[0])):''}],
    ['notes','Notes',null,r=>esc(r.notes)]],
   sortVal:(r,k)=>k==='_n'?linksForVendor(r).length:k==='_mats'?materialsForRfq(r).map(m=>m.desc).join(','):k==='_dl'?(linksForVendor(r).map(l=>l.deadline).filter(x=>/^\d{4}/.test(x)).sort()[0]||'9999'):(r[k]??'')},
  compare:{icon:'💰',title:'Comparison Sheets',tbl:'materials',w:1180,h:540,noNew:true,open:id=>openCompare(id),
@@ -2197,7 +2326,7 @@ const GRIDS={
    ['_low','Lowest total',null,r=>{const t=lowestTotal(r.id);if(t==null)return '<span class="hint">—</span>';
      const ls=linksForMaterial(r).filter(l=>vendorTotal(l)===t);
      return `<b>${esc(money(t))}</b> <span class="hint">${esc(ls.length?venName(ls[0].vendorId):'')}</span>`}],
-   ['targetPrice','Target price 🎯',null,r=>{const t=targetOf(r);
+   ['targetPrice','Target price'+icon('target',13),null,r=>{const t=targetOf(r);
      if(t==null)return '<span class="hint">— not set —</span>';
      const low=lowestTotal(r.id),best=lowestRevised(r.id);
      const gap=(low!=null&&low>0)?Math.round(((low-t)/low)*1000)/10:null;
@@ -2209,7 +2338,7 @@ const GRIDS={
      return `<span class="hint">${esc(money(hi-lo))} · +${Math.round(((hi-lo)/lo)*1000)/10}%</span>`}],
    ['_short','Shortlisted',null,r=>{const s=linksForMaterial(r).filter(l=>isYes(l.priceShortlisted));
      return s.length?s.map(l=>esc(venName(l.vendorId))).join(', '):'<span class="hint">—</span>'}],
-   ['_sel','Selected ★',null,r=>{const s=linksForMaterial(r).filter(l=>isYes(l.selected));
+   ['_sel','Selected'+icon('star',13),null,r=>{const s=linksForMaterial(r).filter(l=>isYes(l.selected));
      return s.length?stageBadge(venName(s[0].vendorId),'var(--good)'):'<span class="hint">—</span>'}]],
   sortVal:(r,k)=>k==='targetPrice'?(targetOf(r)??Number.MAX_SAFE_INTEGER):k==='_items'?itemsFor(r.id).length:k==='_vend'?linksForMaterial(r).length
     :k==='_priced'?linksForMaterial(r).filter(l=>vendorTotal(l)!=null).length
@@ -2224,7 +2353,7 @@ const GRIDS={
      return s.length?s.map(l=>esc(venName(l.vendorId))).join(', '):'<span class="hint">—</span>'}],
    ['_low','Lowest original',null,r=>{const t=lowestTotal(r.id);return t==null?'<span class="hint">—</span>':esc(money(t))}],
    ['targetPrice','Target price',null,r=>{const t=targetOf(r);return t==null?'<span class="hint">— not set —</span>':'<b>'+esc(money(t))+'</b>'}],
-   ['targetDate','Sent on 📅',null,r=>esc(fmtDate(r.targetDate))],
+   ['targetDate','Sent on'+icon('cal',13),null,r=>esc(fmtDate(r.targetDate))],
    ['_rev','Best revised',null,r=>{const t=lowestRevised(r.id);if(t==null)return '<span class="hint">awaiting</span>';
      const ls=linksForMaterial(r).filter(l=>revisedTotal(l)===t);
      return '<b>'+esc(money(t))+'</b> <span class="hint">'+esc(ls.length?venName(ls[0].vendorId):'')+'</span>'}],
@@ -2232,7 +2361,7 @@ const GRIDS={
      if(a==null||b==null)return '<span class="hint">—</span>';
      const d=Math.round((a-b)*100)/100;
      return `<b style="color:var(--goodtext,var(--good))">${esc(money(d))}</b> <span class="hint">−${Math.round(((a-b)/a)*1000)/10}%</span>`}],
-   ['_sel','Selected ★',null,r=>{const s=linksForMaterial(r).filter(l=>isYes(l.selected));
+   ['_sel','Selected'+icon('star',13),null,r=>{const s=linksForMaterial(r).filter(l=>isYes(l.selected));
      return s.length?stageBadge(venName(s[0].vendorId),'var(--good)'):'<span class="hint">—</span>'}],
    ['_meets','Meets target',null,r=>{const t=targetOf(r),b=lowestRevised(r.id);
      if(t==null||b==null)return '<span class="hint">—</span>';
@@ -2253,7 +2382,7 @@ const GRIDS={
    ['status','Status',null,r=>stageBadge(r.status,TASK_COLOR[r.status])],
    ['engineer','Engineer',null,r=>esc(r.engineer)],
    ['priority','Priority',null,r=>esc(r.priority)],
-   ['target','Target 📅',null,r=>esc(fmtDate(r.target))],
+   ['target','Target'+icon('cal',13),null,r=>esc(fmtDate(r.target))],
    ['_dl','Days left','num',r=>{if(r.status==='Closed'||!r.target)return'';const d=-daysSince(r.target);return '<span style="color:'+(d<0?'var(--critical)':'var(--goodtext)')+';font-weight:600">'+d+'</span>'}],
    ['material','Linked material',null,r=>esc(r.material)],
    ['createdBy','Raised by',null,r=>esc(r.createdBy)]],
@@ -2265,18 +2394,18 @@ const GRIDS={
    ['no','#','num',r=>esc(r.no)],
    ['submDesc','Submittal',null,r=>'<b>'+esc(r.submDesc)+'</b>'],
    ['refNo','Sub Ref. No.',null,r=>esc(r.refNo)],
-   ['materialId','Material 🔗',null,r=>{const m=DB.materials.find(x=>x.id===r.materialId);
+   ['materialId','Material'+icon('link',13),null,r=>{const m=DB.materials.find(x=>x.id===r.materialId);
      return m?`<span class="linkchip" onclick="event.stopPropagation();openMaterial(${m.id})">${esc(m.desc)}</span>`
        :`<span class="editable" style="color:var(--warn)" title="This approval is not attached to any material — double-click to pick one" ondblclick="event.stopPropagation();beginEdit(this,'submittals',${r.id},'materialId')">⚠ not attached</span>`}],
-   ['vendorId','Vendor 🔗',null,r=>{const v=DB.rfqs.find(x=>x.id===r.vendorId);return v?`<span class="linkchip" onclick="event.stopPropagation();openVendor(${v.id})">${esc(v.manufacturer)}</span>`:'<span class="hint">— not linked —</span>'}],
+   ['vendorId','Vendor'+icon('link',13),null,r=>{const v=DB.rfqs.find(x=>x.id===r.vendorId);return v?`<span class="linkchip" onclick="event.stopPropagation();openVendor(${v.id})">${esc(v.manufacturer)}</span>`:'<span class="hint">— not linked —</span>'}],
    ['origin','Origin',null,r=>esc(r.origin)],
    ['submType','Type',null,r=>esc(r.submType)],
    ['status','Status',null,r=>stageBadge(subStatus(r),SUB_COLOR[subStatus(r)])],
    ['latestRev','Rev','num',r=>{const n=subRevs(r).length;
      return subRevLabel(r)?`<span class="linkchip" title="${n?n+' revision(s) — open the history':'Open the submittal'}" onclick="event.stopPropagation();openSubRevs(${r.id})"><b>${esc(subRevLabel(r))}</b>${n>1?` <span class="hint">of ${n}</span>`:''}</span>`
        :`<span class="linkchip hint" title="No revision recorded — open to add one" onclick="event.stopPropagation();openSubRevs(${r.id})">—</span>`}],
-   ['submittedDate','Submitted 📅',null,r=>esc(fmtDate(subSubmitted(r)))],
-   ['returnedDate','Returned 📅',null,r=>esc(fmtDate(subReturned(r)))],
+   ['submittedDate','Submitted'+icon('cal',13),null,r=>esc(fmtDate(subSubmitted(r)))],
+   ['returnedDate','Returned'+icon('cal',13),null,r=>esc(fmtDate(subReturned(r)))],
    ['daysUR','Days UR','num',r=>{const d=subDaysUR(r);
      return d==null?'<span class="hint">—</span>':`${d}${subReturned(r)?'':' <span class="hint">open</span>'}`}],
    ['maadenVendorId','Maaden ID','num',r=>esc(r.maadenVendorId)]],
@@ -2332,7 +2461,7 @@ function renderGrid(w){
      <input type="text" placeholder="Search…" value="${esc(w.state.q)}" oninput="gq('${w.id}',this.value)">
      ${filterHtml}
      <div class="spacer"></div>
-     <button class="btn" title="Choose which columns are shown — empty ones start hidden" onclick="openCols('${w.id}')">▦ Columns</button>
+     <button class="btn" title="Choose which columns are shown — empty ones start hidden" onclick="openCols('${w.id}')">${icon('grid',12)} Columns</button>
      <span class="sizegrp">
        <button class="iconbtn" title="Narrower columns" onclick="colW('${w.id}',-24)">↔−</button>
        <button class="iconbtn" title="Wider columns" onclick="colW('${w.id}',24)">↔+</button>
@@ -2783,7 +2912,7 @@ function renderMatWin(w){
        <span class="hint">double-click any status cell to edit it — tick the boxes to unassign several at once</span>
      </div>
      ${ls.length?`<div class="gridwrap"><table class="grid">
-       <thead><tr><th style="width:34px"><input type="checkbox" title="Select every vendor" onclick="lkSelAll(${m.id},this.checked)"></th><th>Vendor</th><th>Offer received 📅</th><th>Delivery time</th><th>Spec compliance 🔗</th><th>Technical ranking 🔗</th><th>Total price 💰</th><th>vs budget 🎯</th><th>Shortlisted</th><th>Offer after target 🎯</th><th>Draft PO 📄</th><th>Selected ★</th><th>Mat. approval 🔗</th><th>Notes</th><th></th></tr></thead>
+       <thead><tr><th style="width:34px"><input type="checkbox" title="Select every vendor" onclick="lkSelAll(${m.id},this.checked)"></th><th>Vendor</th><th>Offer received${icon('cal',13)}</th><th>Delivery time</th><th>Spec compliance${icon('link',13)}</th><th>Technical ranking${icon('link',13)}</th><th>Total price${icon('money',13)}</th><th>vs budget${icon('target',13)}</th><th>Shortlisted</th><th>Offer after target${icon('target',13)}</th><th>Draft PO${icon('doc',13)}</th><th>Selected${icon('star',13)}</th><th>Mat. approval${icon('link',13)}</th><th>Notes</th><th></th></tr></thead>
        <tbody>${ls.map(l=>{const v=DB.rfqs.find(x=>x.id===l.vendorId);if(!v)return '';
          return `<tr>
            <td class="num"><input type="checkbox" class="lksel" value="${l.id}" ${LKSEL.has(l.id)?'checked':''} onclick="event.stopPropagation();lkSel(${l.id},this.checked)"></td>
@@ -2857,7 +2986,7 @@ function renderMatWin(w){
      </div>
      ${rrs.length?`<div class="gridwrap" style="flex:none;max-height:${w.state.revBig?'340':'150'}px">
       <table class="grid">
-      <thead><tr><th>Rev</th><th>Issued 📅</th><th>Quotes due 📅</th><th>Days</th><th>Reason for revision</th><th>Issued to</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th>Rev</th><th>Issued${icon('cal',13)}</th><th>Quotes due${icon('cal',13)}</th><th>Days</th><th>Reason for revision</th><th>Issued to</th><th>Notes</th><th></th></tr></thead>
       <tbody>${rrs.map((rv,i)=>{
         const cur=i===rrs.length-1;
         const dd=rv.issued?daysSince(rv.issued):null;
@@ -2957,7 +3086,7 @@ function renderMatWin(w){
        ${asum?`<span class="badge"><span class="dot" style="background:${asum.color}"></span>${esc(asum.label)}</span>`:''}
        <span class="hint">name the manufacturer on each one and it appears on his row in Related vendors</span>
      </div>`+(sms.length?`<div class="gridwrap"><table class="grid">
-      <thead><tr><th></th><th>Submittal</th><th>Vendor 🔗</th><th>Status</th><th>Rev</th><th>Submitted 📅</th><th>Returned 📅</th><th>Revision history</th></tr></thead>
+      <thead><tr><th></th><th>Submittal</th><th>Vendor${icon('link',13)}</th><th>Status</th><th>Rev</th><th>Submitted${icon('cal',13)}</th><th>Returned${icon('cal',13)}</th><th>Revision history</th></tr></thead>
       <tbody>${sms.map(s=>`<tr>
         <td class="rowactions"><button class="iconbtn" title="Open" onclick="openSub(${s.id})">⧉</button></td>
         ${etd('submittals',s.id,'submDesc','<b>'+esc(s.submDesc)+'</b>')}
@@ -3002,15 +3131,15 @@ function renderMatWin(w){
    <div class="recheader">
      ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
      ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}
-     ${m.engineer?`<span class="badge">👤 ${esc(m.engineer)}</span>`:''}
-     ${subsFor(m).length?`<span class="badge">📑 ${subsFor(m).length} material approval${subsFor(m).length>1?'s':''}</span>`:(m.approvalStatus?`<span class="badge">📑 ${esc(m.approvalStatus)}</span>`:'')}
+     ${m.engineer?`<span class="badge">${icon('user',12)} ${esc(m.engineer)}</span>`:''}
+     ${subsFor(m).length?`<span class="badge">${icon('doc',12)} ${subsFor(m).length} material approval${subsFor(m).length>1?'s':''}</span>`:(m.approvalStatus?`<span class="badge">${icon('doc',12)} ${esc(m.approvalStatus)}</span>`:'')}
      ${(()=>{const rv=latestRfqRev(m),dt=rfqDateOf(m);
-       return dt?`<span class="badge">📅 RFQ${rv?' '+esc(rv.rev):''}: ${esc(fmtDate(dt))}${d!==null?` (${d}d)`:''}</span>`:''})()}
+       return dt?`<span class="badge">${icon('cal',12)} RFQ${rv?' '+esc(rv.rev):''}: ${esc(fmtDate(dt))}${d!==null?` (${d}d)`:''}</span>`:''})()}
      ${(()=>{const du=rfqDueOf(m);if(!du)return '';const left=-daysSince(du);
        return stageBadge('Quotes due '+fmtDate(du)+(left<0?' ('+(-left)+'d late)':' ('+left+'d)'),left<0?'var(--critical)':'var(--accent)');})()}
-     ${m.compDate?`<span class="badge">📅 Comparison: ${esc(fmtDate(m.compDate))}</span>`:''}
-     ${m.plannedPO?`<span class="badge">📅 Planned PO: ${esc(fmtDate(m.plannedPO))}</span>`:''}
-     ${m.plannedSubmission?`<span class="badge">📅 Planned subm.: ${esc(fmtDate(m.plannedSubmission))}</span>`:''}
+     ${m.compDate?`<span class="badge">${icon('cal',12)} Comparison: ${esc(fmtDate(m.compDate))}</span>`:''}
+     ${m.plannedPO?`<span class="badge">${icon('cal',12)} Planned PO: ${esc(fmtDate(m.plannedPO))}</span>`:''}
+     ${m.plannedSubmission?`<span class="badge">${icon('cal',12)} Planned subm.: ${esc(fmtDate(m.plannedSubmission))}</span>`:''}
      <div class="recnav">
        <button class="btn ghost" ${idx<=0?'disabled':''} onclick="matNav('${w.id}',-1)">‹</button>
        <span class="pos">${idx+1} / ${list.length}</span>
@@ -3096,8 +3225,8 @@ function renderPoWin(w){
      ${s.open?`<span class="badge"><span class="dot" style="background:var(--warn)"></span>${s.open} still open</span>`:''}
      ${s.no?`<span class="badge"><span class="dot" style="background:var(--critical)"></span>${s.no} not agreed</span>`:''}
      ${isYes(l.priceShortlisted)?'<span class="badge">shortlisted</span>':'<span class="badge" style="color:var(--warn)">not shortlisted</span>'}
-     <span class="linkchip" onclick="openVendor(${l.vendorId})">🏷 ${esc(venName(l.vendorId))}</span>
-     <span class="linkchip" onclick="openMaterial(${l.materialId})">🧱 ${esc(matName(l.materialId))}</span>
+     <span class="linkchip" onclick="openVendor(${l.vendorId})">${icon('tag',12)} ${esc(venName(l.vendorId))}</span>
+     <span class="linkchip" onclick="openMaterial(${l.materialId})">${icon('box',12)} ${esc(matName(l.materialId))}</span>
    </div>
    <div class="pickrow">
      <button class="btn" onclick="addPoCmt(${l.id})">＋ Add comment</button>
@@ -3187,8 +3316,8 @@ function renderCompWin(w){
      ${s.n?`<span class="badge">${s.done} of ${s.eff} point(s) comply${s.na?' · '+s.na+' n/a':''}</span>`:''}
      ${s.pend?`<span class="badge">${s.pend} still to assess</span>`:''}
      <span class="badge">Tech. acceptance: ${esc(l.techAccept||'—')}</span>
-     ${m?`<span class="linkchip" onclick="openMaterial(${m.id})">🧱 ${esc(m.desc)}</span>`:''}
-     ${v?`<span class="linkchip" onclick="openVendor(${v.id})">🏷 ${esc(v.manufacturer)}</span>`:''}
+     ${m?`<span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} ${esc(m.desc)}</span>`:''}
+     ${v?`<span class="linkchip" onclick="openVendor(${v.id})">${icon('tag',12)} ${esc(v.manufacturer)}</span>`:''}
    </div>
    <div class="pickrow">
      <button class="btn" onclick="addCompPoint(${l.id})">＋ Add point</button>
@@ -3198,7 +3327,7 @@ function renderCompWin(w){
      ${s.n&&!s.bad&&!s.pend&&l.techAccept!=='Yes'?`<button class="btn primary" onclick="markTechAccepted(${l.id})">Mark technically accepted</button>`:''}
    </div>
    ${cs.length?`<div class="gridwrap"><table class="grid">
-     <thead><tr><th style="width:44px">#</th><th style="width:260px">Specification point 🔗</th><th style="width:200px">Project requirement 🔗</th><th style="width:200px">Vendor offer</th><th style="width:190px">Status</th><th style="width:110px">Checked 📅</th><th>Remarks</th><th></th></tr></thead>
+     <thead><tr><th style="width:44px">#</th><th style="width:260px">Specification point${icon('link',13)}</th><th style="width:200px">Project requirement${icon('link',13)}</th><th style="width:200px">Vendor offer</th><th style="width:190px">Status</th><th style="width:110px">Checked${icon('cal',13)}</th><th>Remarks</th><th></th></tr></thead>
      <tbody>${cs.map(c=>`<tr data-tbl="compliance" data-rid="${c.id}">
        <td class="num" title="numbering is kept in step across every vendor"><b>${esc(c.no)}</b></td>
        ${etd('compliance',c.id,'point',esc(c.point),'wrap')}
@@ -3209,7 +3338,7 @@ function renderCompWin(w){
        ${etd('compliance',c.id,'remarks',esc(c.remarks),'wrap')}
        <td class="rowactions"><button class="iconbtn" title="Delete point" onclick="removeCompPoint(${c.id})">✕</button></td></tr>`).join('')}</tbody>
    </table></div>
-   <div class="statusbar"><span>${cs.length} point(s) — ${s.ok} complies, ${s.bad} not complied, ${s.pend} pending</span><span class="spacer"></span><span>🔗 shared with all vendors of this material · offer, status and remarks are this vendor’s own</span></div>`
+   <div class="statusbar"><span>${cs.length} point(s) — ${s.ok} complies, ${s.bad} not complied, ${s.pend} pending</span><span class="spacer"></span><span>${icon('link',12)} shared with all vendors of this material · offer, status and remarks are this vendor’s own</span></div>`
    :`<div class="empty">No compliance points yet — add them one by one or paste the specification list from Excel. Whatever you enter here becomes this material’s checklist and appears for every vendor quoting it.</div>`}`;
 }
 async function addCompPoint(linkId,fields){
@@ -4680,9 +4809,9 @@ function renderCmpWin(w){
        copt===optInForce(m.id)?' · in force':`<span class="linkchip" onclick="setOptInForce(${m.id},'${copt}')"> make it in force</span>`}</span>`:''}
      ${low!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Lowest ${esc(money(low))} ${CUR}${priced.length?' — '+esc(venName(priced[0].l.vendorId)):''}</span>`:''}
      ${(()=>{const b=budgetOf(m),v=varianceOf(low,b);
-       return `<span class="badge" title="Budgeted total for this material — double-click to set it">🎯 Budget <span class="editable" style="display:inline-block;min-width:54px;font-weight:700" ondblclick="event.stopPropagation();beginEdit(this,'materials',${m.id},'budget')">${b==null?'<span class="hint">— set —</span>':esc(money(b))}</span>${
+       return `<span class="badge" title="Budgeted total for this material — double-click to set it">${icon('target',12)} Budget <span class="editable" style="display:inline-block;min-width:54px;font-weight:700" ondblclick="event.stopPropagation();beginEdit(this,'materials',${m.id},'budget')">${b==null?'<span class="hint">— set —</span>':esc(money(b))}</span>${
          v==null?'':` <span style="color:${v<=0?'var(--goodtext,var(--good))':(v<=10?'var(--warn)':'var(--critical)')};font-weight:700">${v>0?'+':''}${v}%</span>`}</span>`;})()}
-     <span class="linkchip" onclick="openMaterial(${m.id})">🧱 open material</span>
+     <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===0?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    <div class="pickrow">
@@ -4870,7 +4999,7 @@ function renderTermsTab(w,m,ls,low){
   const rev=String(w.state.rev==null?currentRevId(m.id):w.state.rev);
   const bestT=bestValue(ls[0]||{materialId:m.id},null);
   const R=[
-   ['Offer received 📅',l=>offerCell(l)],
+   ['Offer received'+icon('cal',13),l=>offerCell(l)],
    ['Quotation currency',l=>etd('links',l.id,'cur','<b>'+esc(curOf(l))+'</b> <span class="hint">'+esc(curName(curOf(l)))+'</span>','num')],
    ['Exchange rate to '+CUR,l=>fxCell(l)],
    ['Proposed delivery terms',l=>termCell(l,'incoterm')],
@@ -4910,7 +5039,7 @@ function renderTermsTab(w,m,ls,low){
      <span class="badge">${ls.length} vendor(s)</span>
      ${fxUsed.length?`<span class="badge"><span class="dot" style="background:var(--accent)"></span>${fxUsed.map(c=>esc(c)+' @ '+fxOf(ls.find(l=>curOf(l)===c))).join(' · ')}</span>`:`<span class="badge">all quoted in ${CUR}</span>`}
      ${low!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Lowest delivered ${esc(money(low))} ${CUR}</span>`:''}
-     <span class="linkchip" onclick="openMaterial(${m.id})">🧱 open material</span>
+     <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===1?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    ${!ls.length?'<div class="empty">No vendors are assigned to this material yet.</div>':`
@@ -4942,7 +5071,7 @@ function renderDraftsTab(w,m,ls){
      <span class="badge">${short.length} vendor(s) in review</span>
      ${tot.n?`<span class="badge"><span class="dot" style="background:${tot.open||tot.no?'var(--warn)':'var(--good)'}"></span>${tot.ag} of ${tot.n} comment(s) agreed</span>`:''}
      ${tot.no?`<span class="badge"><span class="dot" style="background:var(--critical)"></span>${tot.no} not agreed</span>`:''}
-     <span class="linkchip" onclick="openMaterial(${m.id})">🧱 open material</span>
+     <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===3?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    ${!short.length?'<div class="empty">The draft purchase order goes to the shortlisted vendors — shortlist them in the material module first, then record the draft as sent and enter their comments.</div>':`
@@ -4961,7 +5090,7 @@ function renderDraftsTab(w,m,ls){
        <td class="num">${s.n?`<b>${s.ag} / ${s.n}</b>${s.open?` <span class="hint">${s.open} open</span>`:''}${s.no?` <span class="hint" style="color:var(--critical)">${s.no} not agreed</span>`:''}`:'<span class="hint">— none —</span>'}</td>
        ${etd('links',l.id,'poStatus',stageBadge(s.st,PO_COLOR[s.st]||'var(--muted)'),'num')}
        ${etd('links',l.id,'poAgreed',esc(fmtDate(l.poAgreed)),'num')}
-       <td class="num"><span class="linkchip" onclick="openPo(${l.id})">📄 open review</span>${
+       <td class="num"><span class="linkchip" onclick="openPo(${l.id})">${icon('doc',12)} open review</span>${
          l.poSent?'':` <span class="linkchip" onclick="sendDraftPo(${l.id})">📤 send</span>`}</td></tr>`;}).join('')}
      </tbody>
    </table></div>
@@ -4979,7 +5108,7 @@ function renderTargetTab(w,m,its,ls,low,rev,copt,revs){
      ${tgt!=null?`<span class="badge" title="The target is a delivered price — converted to ${CUR} and including the charges to site"><span class="dot" style="background:var(--accent)"></span>Target ${esc(money(tgt))} ${CUR} delivered${low!=null&&low>0?(()=>{const d=Math.round(((low-tgt)/low)*1000)/10;return d>0?' · '+d+'% below the lowest offer':(d<0?' · '+(-d)+'% above the lowest offer':' · equal to the lowest offer');})():''}</span>`:''}
      ${lowRev!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Best revised ${esc(money(lowRev))} ${CUR}</span>`:''}
      ${(()=>{const s=ls.filter(l=>isYes(l.selected));return s.length?stageBadge('Selected: '+venName(s[0].vendorId),'var(--good)'):'';})()}
-     <span class="linkchip" onclick="openMaterial(${m.id})">🧱 open material</span>
+     <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===2?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    <div class="pickrow">
@@ -5289,7 +5418,7 @@ function renderVenWin(w){
        <span class="hint">double-click any status cell to edit — each material's status is independent</span>
      </div>
      ${ls.length?`<div class="gridwrap"><table class="grid">
-       <thead><tr><th>Material</th><th>Delivery time</th><th>Spec compliance 🔗</th><th>Technical ranking 🔗</th><th>Total price 💰</th><th>vs budget 🎯</th><th>Shortlisted</th><th>Offer after target 🎯</th><th>Draft PO 📄</th><th>Selected ★</th><th>Mat. approval 🔗</th><th>Notes</th><th></th></tr></thead>
+       <thead><tr><th>Material</th><th>Delivery time</th><th>Spec compliance${icon('link',13)}</th><th>Technical ranking${icon('link',13)}</th><th>Total price${icon('money',13)}</th><th>vs budget${icon('target',13)}</th><th>Shortlisted</th><th>Offer after target${icon('target',13)}</th><th>Draft PO${icon('doc',13)}</th><th>Selected${icon('star',13)}</th><th>Mat. approval${icon('link',13)}</th><th>Notes</th><th></th></tr></thead>
        <tbody>${ls.map(l=>{const m=DB.materials.find(x=>x.id===l.materialId);if(!m)return '';
          return `<tr>
            <td><span class="linkchip" onclick="openMaterial(${m.id})"><b>${esc(m.desc)}</b></span></td>
@@ -5313,7 +5442,7 @@ function renderVenWin(w){
        <button class="btn" onclick="newApprovalDialog(${(linksForVendor(r)[0]||{}).materialId??'null'},${r.id})">＋ New material approval</button>
        <span class="hint">pick which of his materials it is for</span>
      </div>`+(subs2.length?`<div class="gridwrap"><table class="grid">
-      <thead><tr><th></th><th>Submittal</th><th>Material 🔗</th><th>Status</th><th>Rev</th><th>Submitted 📅</th><th>Returned 📅</th></tr></thead>
+      <thead><tr><th></th><th>Submittal</th><th>Material${icon('link',13)}</th><th>Status</th><th>Rev</th><th>Submitted${icon('cal',13)}</th><th>Returned${icon('cal',13)}</th></tr></thead>
       <tbody>${subs2.map(s=>`<tr>
         <td class="rowactions"><button class="iconbtn" title="Open" onclick="openSub(${s.id})">⧉</button></td>
         ${etd('submittals',s.id,'submDesc','<b>'+esc(s.submDesc)+'</b>')}
@@ -5346,8 +5475,8 @@ function renderVenWin(w){
   }
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
-     <span class="badge">🧱 Scope: ${mats.length?esc(mats.map(m=>m.desc).slice(0,3).join(', '))+(mats.length>3?' +'+(mats.length-3):''):'not assigned'}</span>
-     ${(()=>{const ds=ls.map(l=>l.deadline).filter(x=>/^\d{4}/.test(x)).sort();return ds.length?`<span class="badge">📅 Next deadline: ${esc(fmtDate(ds[0]))}</span>`:''})()}
+     <span class="badge">${icon('box',12)} Scope: ${mats.length?esc(mats.map(m=>m.desc).slice(0,3).join(', '))+(mats.length>3?' +'+(mats.length-3):''):'not assigned'}</span>
+     ${(()=>{const ds=ls.map(l=>l.deadline).filter(x=>/^\d{4}/.test(x)).sort();return ds.length?`<span class="badge">${icon('cal',12)} Next deadline: ${esc(fmtDate(ds[0]))}</span>`:''})()}
    </div>
    <div class="tabbar">${[`Materials & status (${ls.length})`,`Submittals (${subs2.length})`,'Details'].map((t,i)=>`<button class="${i===ti?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    <div class="tabbody">${body}</div>`;
@@ -5365,8 +5494,8 @@ function renderTaskWin(w){
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
      ${stageBadge(t.status,TASK_COLOR[t.status])}
-     ${t.target?`<span class="badge">📅 Target: ${esc(fmtDate(t.target))}</span>`:''}
-     ${m?`<button class="btn ghost" onclick="openMaterial(${m.id})">🧱 Open ${esc(m.desc)}</button>`:''}
+     ${t.target?`<span class="badge">${icon('cal',12)} Target: ${esc(fmtDate(t.target))}</span>`:''}
+     ${m?`<button class="btn ghost" onclick="openMaterial(${m.id})">${icon('box',12)} Open ${esc(m.desc)}</button>`:''}
    </div>
    ${propTable('tasks',t,F)}
    <div class="wtoolbar" style="padding:9px 0 0">
@@ -5452,7 +5581,7 @@ function renderSubWin(w){
      ${dur!=null?`<span class="badge">${dur} day(s) ${subReturned(s)?'turnaround':'under review'}</span>`:''}
      <span class="hint">each round is its own revision — the submittal shows the latest one</span>
    </div>`+(rvs.length?`<div class="gridwrap"><table class="grid">
-     <thead><tr><th style="width:70px">Rev</th><th style="width:120px">Submitted 📅</th><th style="width:120px">Returned 📅</th>
+     <thead><tr><th style="width:70px">Rev</th><th style="width:120px">Submitted${icon('cal',13)}</th><th style="width:120px">Returned${icon('cal',13)}</th>
        <th style="width:170px">Status / code</th><th style="width:110px">Days</th><th style="width:280px">Ma’aden comments</th><th style="width:36px"></th></tr></thead>
      <tbody>${rvs.map((r,i)=>{
        const d=r.submitted?Math.max(0,Math.round(((r.returned?new Date(r.returned):new Date())-new Date(r.submitted))/86400000)):null;
@@ -5477,11 +5606,11 @@ function renderSubWin(w){
    <div class="recheader">
      ${stageBadge(s.status,SUB_COLOR[s.status])}
      ${s.latestRev!==''?`<span class="badge">Rev ${esc(s.latestRev)}</span>`:''}
-     ${s.submittedDate?`<span class="badge">📅 Submitted: ${esc(fmtDate(s.submittedDate))}</span>`:''}
-     ${s.returnedDate?`<span class="badge">📅 Returned: ${esc(fmtDate(s.returnedDate))}</span>`:''}
+     ${s.submittedDate?`<span class="badge">${icon('cal',12)} Submitted: ${esc(fmtDate(s.submittedDate))}</span>`:''}
+     ${s.returnedDate?`<span class="badge">${icon('cal',12)} Returned: ${esc(fmtDate(s.returnedDate))}</span>`:''}
      ${s.maadenVendorId?`<span class="badge">🆔 ${esc(s.maadenVendorId)}</span>`:''}
-     ${m?`<button class="btn ghost" onclick="openMaterial(${m.id})">🧱 ${esc(m.desc)}</button>`:''}
-     ${v?`<button class="btn ghost" onclick="openVendor(${v.id})">🏷 ${esc(v.manufacturer)}</button>`:''}
+     ${m?`<button class="btn ghost" onclick="openMaterial(${m.id})">${icon('box',12)} ${esc(m.desc)}</button>`:''}
+     ${v?`<button class="btn ghost" onclick="openVendor(${v.id})">${icon('tag',12)} ${esc(v.manufacturer)}</button>`:''}
    </div>
    <div class="tabbar">${['Revisions','Details'].map((t,i)=>`<button class="${i===(w.state.tab||0)?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
    <div class="tabbody">${(w.state.tab||0)===0?revsBody:`${propTable('submittals',s,F)}
@@ -5648,20 +5777,21 @@ function renderHomeTiles(){
       onclick="enterModule('${t.k}')">
       <div class="tshine"></div>
       <div class="tcorner">open →</div>
-      <div class="tglyph">${t.glyph}</div>
+      <div class="tglyph">${iconFor(t.glyph,26)}</div>
       <div class="tname">${esc(t.name)}</div>
       <div class="tsub">${esc(t.sub)}</div>
       <div class="tflip"><div>${esc(s[0]||'')}</div><div>${esc(s[1]||'')}</div></div>
     </div>`;}).join('')+
     (isAdmin()?`<div class="tile" style="background:#3d4650;animation-delay:${list.length*70}ms" onclick="hideHome();openUsers()">
-      <div class="tshine"></div><div class="tglyph">👤</div>
+      <div class="tshine"></div><div class="tglyph">${icon('user',26)}</div>
       <div class="tname">Users &amp; access</div>
       <div class="tsub">Accounts and what each of them may open</div>
       <div class="tflip"><div>${(USERS||[]).length} account(s)</div><div>${(USERS||[]).filter(u=>u.role==='admin').length} administrator(s)</div></div></div>`:'');}
 /* ================= NOTIFICATIONS =================
    material team  -> procurement : RFQ revisions · technical evaluation · shortlist
    procurement    -> material     : prices · target price · revised offers · selection */
-const NOTIF_ICON={rfq:'📄',quote:'📨',eval:'✅',short:'⭐',price:'💰',target:'🎯',offer:'🎯',award:'🏆',del:'🗑',po:'📝'};
+const NOTIF_ICON={rfq:'doc',quote:'feed',eval:'check',short:'star',price:'money',
+  target:'target',offer:'target',award:'star',del:'bin',po:'doc'};
 function notify(to,kind,title,body,materialId){
   const row={ts:_nowTs(),kind,title:String(title||''),body:String(body||''),
     toRole:to,fromRole:(USER&&USER.role)||'admin',fromName:(USER&&(USER.name||USER.username))||'',
@@ -5682,17 +5812,61 @@ function notify(to,kind,title,body,materialId){
 const _flagSet=v=>new Set(String(v==null?'':v).split(',').map(x=>x.trim()).filter(Boolean));
 const _me=()=>String((USER&&USER.id)||'');
 const flaggedForMe=v=>{const s=_flagSet(v);return s.has('Yes')||(!!_me()&&s.has(_me()));};
-function _setFlag(n,key,on){
+function _flagValue(n,key,on){
   const s=_flagSet(n[key]),u=_me();
-  if(!u)return false;
-  if(on){if(s.has('Yes')||s.has(u))return false;s.add(u);}
+  if(!u)return null;
+  if(on){if(s.has('Yes')||s.has(u))return null;s.add(u);}
   else{if(s.has('Yes')){s.delete('Yes');
         /* it was marked for everyone — keep it that way for the others */
         (USERS||[]).forEach(x=>{if(String(x.id)!==u)s.add(String(x.id));});}
-       else{if(!s.has(u))return false;s.delete(u);}}
-  n[key]=[...s].join(',');
+       else{if(!s.has(u))return null;s.delete(u);}}
+  return [...s].join(',');}
+function _setFlag(n,key,on){
+  const v=_flagValue(n,key,on);
+  if(v==null)return false;
+  n[key]=v;
   if(_isLive()&&typeof apiUpdate==='function')apiUpdate('notifs',n,[key]);
   return true;}
+/* Marking a hundred messages one request at a time is slow, and worse, none of
+   those requests is checked: a database that accepts the change without making
+   it answers exactly like one that saved it, so the count comes back on the
+   next refresh and nothing says why. This asks in one go per distinct value
+   and counts the rows the database says it actually changed. */
+async function _setFlagMany(list,key,on,label){
+  const groups=new Map(),touched=[];
+  list.forEach(n=>{const v=_flagValue(n,key,on);
+    if(v==null)return;
+    touched.push([n,v]);
+    if(!groups.has(v))groups.set(v,[]);
+    groups.get(v).push(n.id);});
+  if(!touched.length){toast('Nothing to change');return;}
+  touched.forEach(([n,v])=>{n[key]=v;});
+  _redrawNotifs();
+  if(!(_isLive()&&sb)){toast(touched.length+' '+label);return;}
+  setSync('saving');
+  let saved=0,failed=null;
+  for(const [v,ids] of groups){
+    for(let i=0;i<ids.length;i+=200){
+      const chunk=ids.slice(i,i+200);
+      const q=sb.from('notifs').update({[key]:v}).in('id',chunk);
+      const {data,error}=(typeof q.select==='function')?await q.select('id'):await q;
+      if(error){failed=error;break;}
+      /* older mocks and clients answer without the changed rows; trust the
+         request in that case rather than invent a failure */
+      saved+=(data==null)?chunk.length:data.length;}
+    if(failed)break;}
+  if(failed){syncErr(failed);await loadAll();return;}
+  setSync('ok');
+  if(saved<touched.length){
+    await loadAll();
+    msgBox('The database did not save that','⚠',
+      'You asked to change <b>'+touched.length+'</b> notification(s); the database reports it changed <b>'+saved+'</b>.'+
+      '<div class="hint" style="margin-top:8px">Nothing was lost — the list has been read back from the database so what you see is what is really stored. '+
+      'This almost always means the <b>notifs</b> table does not allow this account to update rows. In Supabase open '+
+      '<b>Authentication → Policies</b> on the <b>notifs</b> table and check there is an UPDATE policy for authenticated users.</div>',
+      [['OK',null,'primary']]);
+    return;}
+  toast(touched.length+' '+label);}
 const addressedToMe=n=>{const r=(USER&&USER.role)||'admin';
   return r==='admin'||n.toRole===r||n.toRole==='all';};
 const myNotifs=()=>(DB.notifs||[]).filter(n=>addressedToMe(n)&&!flaggedForMe(n.cleared))
@@ -5719,7 +5893,7 @@ function renderNotifWin(w){
      <thead><tr><th style="width:132px">When</th><th style="width:56px"></th><th style="width:300px">Message</th><th style="width:190px">Material</th><th style="width:110px">To</th><th style="width:130px">From</th><th style="width:64px"></th></tr></thead>
      <tbody>${list.map(n=>`<tr style="${flaggedForMe(n.read)?'opacity:.62':'font-weight:600'}" onclick="readNotif(${n.id})">
        <td class="num"><span class="hint">${esc(String(n.ts).slice(0,16))}</span></td>
-       <td class="num">${NOTIF_ICON[n.kind]||'🔔'}</td>
+       <td class="num">${icon(NOTIF_ICON[n.kind]||'bell',14)}</td>
        <td class="wrap">${esc(n.title)}${n.body?`<div class="hint" style="font-weight:400">${esc(n.body)}</div>`:''}</td>
        <td>${n.materialId?`<span class="linkchip" onclick="event.stopPropagation();openMaterial(${n.materialId})">${esc(matName(n.materialId))}</span>`:'<span class="hint">—</span>'}</td>
        <td><span class="chip">${esc(n.toRole)}</span></td>
@@ -5737,8 +5911,8 @@ function renderNotifWin(w){
        :'No notifications yet — they appear as the two teams work: RFQ revisions and evaluations go to procurement, prices, target prices and awards come back.'}</div>`}`;}
 function restoreNotifs(){
   const list=(DB.notifs||[]).filter(n=>addressedToMe(n)&&flaggedForMe(n.cleared));
-  list.forEach(n=>_setFlag(n,'cleared',false));
-  _redrawNotifs();toast(list.length+' notification(s) restored');}
+  if(!list.length){toast('Nothing to bring back');return;}
+  _setFlagMany(list,'cleared',false,'notification(s) restored');}
 const _redrawNotifs=()=>{updateBell();[...windows.values()].forEach(x=>{if(x.kind==='notif')renderNotifWin(x);});
   if(typeof MOBILE!=='undefined'&&MOBILE&&typeof mobRender==='function')mobRender();};
 function readNotif(id){
@@ -5750,9 +5924,7 @@ function unreadNotif(id){
 function markAllRead(){
   const list=myNotifs().filter(n=>!flaggedForMe(n.read));
   if(!list.length){toast('Nothing unread');return;}
-  list.forEach(n=>_setFlag(n,'read',true));
-  _redrawNotifs();
-  toast(list.length+' notification(s) marked as read — for you only');}
+  _setFlagMany(list,'read',true,'notification(s) marked as read — for you only');}
 /* clearing takes it off your own list; the others keep theirs */
 function clearNotif(id){
   const n=(DB.notifs||[]).find(x=>x.id===id);if(!n)return;
@@ -5763,13 +5935,11 @@ function clearAllNotifs(){
   msgBox('Clear all notifications?','🔔',
     `<b>${list.length}</b> notification(s) will be taken off your list.<div class="hint" style="margin-top:8px">This only affects what you see — everyone else keeps theirs.</div>`,
     [['Cancel',null,''],['Clear all',()=>{
-      list.forEach(n=>_setFlag(n,'cleared',true));
-      _redrawNotifs();toast(list.length+' notification(s) cleared');},'danger']]);}
+      _setFlagMany(list,'cleared',true,'notification(s) cleared');},'danger']]);}
 function clearReadNotifs(){
   const list=myNotifs().filter(n=>flaggedForMe(n.read));
   if(!list.length){toast('Nothing read to clear');return;}
-  list.forEach(n=>_setFlag(n,'cleared',true));
-  _redrawNotifs();toast(list.length+' read notification(s) cleared');}
+  _setFlagMany(list,'cleared',true,'read notification(s) cleared');}
 /* ================= TASKS BY PERSON =================
    One card per person: what they are carrying, what is late, and behind the
    card their own list with a way to raise more.                            */
@@ -5984,7 +6154,7 @@ function showProjects(){
       <div class="tshine"></div>
       <div class="tcorner">${cur?'current':'open →'}</div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="tglyph">🏗</div>
+        <div class="tglyph">${icon('site',26)}</div>
         <div class="spacer" style="flex:1"></div>
         ${isAdmin()?`<button class="iconbtn" style="color:#fff" title="Rename project" onclick="event.stopPropagation();renameProjectDialog('${p.id}')">✎</button>
         ${empty?'':`<button class="iconbtn" style="color:#fff" title="Empty this project — keep the workspace, remove everything in it" onclick="event.stopPropagation();emptyProjectDialog('${p.id}')">⌫</button>`}
@@ -5993,7 +6163,7 @@ function showProjects(){
       <div class="tname${isAdmin()?' pedit':''}" style="margin-top:10px" ${isAdmin()?`title="Click to rename" onclick="event.stopPropagation();projInline('${p.id}','name',this)"`:''}>${esc(p.name)}</div>
       <div class="tsub${isAdmin()?' pedit':''}" ${isAdmin()?`title="Click to describe this workspace" onclick="event.stopPropagation();projInline('${p.id}','subtitle',this)"`:''}>${esc(p.subtitle||'')||(isAdmin()?'<span class="phold">＋ describe this workspace</span>':'')}</div>
       <div class="tflip">
-        <div>🧱 ${s.mat} materials · 🏷 ${s.ven} vendors · 📑 ${s.sub} submittals</div>
+        <div>${icon('box',12)} ${s.mat} materials · ${icon('tag',12)} ${s.ven} vendors · ${icon('doc',12)} ${s.sub} submittals</div>
         <div>✓ ${s.tsk} tasks${empty?' — empty workspace':''}</div>
       </div>
     </div>`;}).join('');
@@ -6007,6 +6177,8 @@ function openProject(pid){
     PROJ=(PROJECTS.find(p=>String(p.id)===pid)||{}).id;
     DB=ALLDATA[PROJ]||(ALLDATA[PROJ]=_blankDB());
     applyProjectChrome();
+    /* notifications belong to a project, so the count has to move with it */
+    if(typeof updateBell==='function')updateBell();
     toast('Switched to '+curProject().name);
   }
   hideProjects();showHome();}
@@ -6582,7 +6754,7 @@ function renderFeedBody(w){
   const body=w.el.querySelector('.gridbody');if(!body)return;
   body.innerHTML=`
    <div class="gridwrap"><table class="grid">
-    <thead><tr><th>Date 📅</th><th>Time</th><th>Table</th><th>Record</th><th>Action</th><th>Property</th><th>From</th><th>To</th></tr></thead>
+    <thead><tr><th>Date${icon('cal',13)}</th><th>Time</th><th>Table</th><th>Record</th><th>Action</th><th>Property</th><th>From</th><th>To</th></tr></thead>
     <tbody>${shown.length?shown.map(r=>{
       const fn={materials:'openMaterial',rfqs:'openVendor',submittals:'openSub',tasks:'openTask'}[r.tbl];
       const exists=fn&&(DB[r.tbl]||[]).some(x=>x.id===r.recId);
@@ -7154,9 +7326,9 @@ function mobRender(){
   mobTabs();mobRenderBody();}
 function mobTabs(){
   const el=document.getElementById('mtabs');if(!el)return;
-  const T=[['home','⌂','Home'],['mats','🧱','Materials'],['tasks','✓','Tasks'],['alerts','🔔','Alerts'],['feed','📜','Updates']]
+  const T=[['home','home','Home'],['mats','box','Materials'],['tasks','check','Tasks'],['alerts','bell','Alerts'],['feed','feed','Updates']]
     .filter(([v])=>v!=='mats'||canGrid('materials')).filter(([v])=>v!=='tasks'||canGrid('tasks'));
-  el.innerHTML=T.map(([v,i,l])=>`<button class="${MOB.view===v?'on':''}" onclick="mobTab('${v}')"><b>${i}</b>${l}</button>`).join('');}
+  el.innerHTML=T.map(([v,i,l])=>`<button class="${MOB.view===v?'on':''}" onclick="mobTab('${v}')"><b>${icon(i,19)}</b>${l}</button>`).join('');}
 function mobTab(v){MOB.stack=[];MOB.view=v;MOB.id=null;MOB.q='';MOB.f='';
   const b=document.getElementById('mbody');if(b)b.scrollTop=0;mobRender();}
 function mobRenderBody(){
@@ -7188,11 +7360,11 @@ function mobHome(){
         <div class="v">${g[st]}<span class="hint"> of ${M.length}</span></div></div>`).join('')
      ||'<div class="hint">No materials in this project yet.</div>')}
    ${_mcard('Quick moves',
-     `${canGrid('materials')?`<div class="mrow tap" onclick="mobTab('mats')"><div class="k">🧱 Materials</div><div class="v">${M.length} ›</div></div>`:''}
-      <div class="mrow tap" onclick="mobGo('vens')"><div class="k">🏷 Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
+     `${canGrid('materials')?`<div class="mrow tap" onclick="mobTab('mats')"><div class="k">${icon('box',12)} Materials</div><div class="v">${M.length} ›</div></div>`:''}
+      <div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
       ${canGrid('tasks')?`<div class="mrow tap" onclick="mobTab('tasks')"><div class="k">✓ Tasks</div><div class="v">${T.filter(t=>t.status!=='Closed').length} open ›</div></div>`:''}
-      <div class="mrow tap" onclick="mobTab('alerts')"><div class="k">🔔 Notifications</div><div class="v">${un?un+' unread':'all read'} ›</div></div>
-      <div class="mrow tap" onclick="mobTab('feed')"><div class="k">📜 Updates</div><div class="v">${(DB.activity||[]).length} ›</div></div>`)}
+      <div class="mrow tap" onclick="mobTab('alerts')"><div class="k">${icon('bell',12)} Notifications</div><div class="v">${un?un+' unread':'all read'} ›</div></div>
+      <div class="mrow tap" onclick="mobTab('feed')"><div class="k">${icon('feed',12)} Updates</div><div class="v">${(DB.activity||[]).length} ›</div></div>`)}
    <div class="mnote">${priced} vendor quotation(s) priced in this project. The full workspace — comparison sheets, evaluation, draft POs — is on the desktop version, and everything you change here shows there straight away.</div>`;}
 function mobStage(st){MOB.stack.push({view:MOB.view,id:MOB.id,q:MOB.q,f:MOB.f});
   MOB.view='mats';MOB.id=null;MOB.q='';MOB.f=st;mobRender();}
@@ -7233,7 +7405,7 @@ function mobMat(){
    ${_mcard('',`<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
       ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
       ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}
-      ${m.engineer?`<span class="badge">👤 ${esc(m.engineer)}</span>`:''}</div>
+      ${m.engineer?`<span class="badge">${icon('user',12)} ${esc(m.engineer)}</span>`:''}</div>
       ${low!=null?`<div class="hint" style="margin-top:7px">Lowest delivered ${esc(money(low))} ${CUR}${
         budgetOf(m)!=null?(()=>{const v=varianceOf(low,budgetOf(m));return v==null?'':` · ${v>0?'+':''}${v}% vs budget`;})():''}</div>`:''}`)}
    ${optsOf(m.id).length?_mcard('Pricing options',optsOf(m.id).map(o=>{
@@ -7361,7 +7533,7 @@ function mobAlerts(){
      const un=!flaggedForMe(n.read);
      return `<div class="mcard ${un?'munread':''}" onclick="readNotif(${n.id})">
        <div style="display:flex;gap:9px">
-         <div style="font-size:19px;line-height:1.1">${NOTIF_ICON[n.kind]||'🔔'}</div>
+         <div style="font-size:19px;line-height:1.1">${icon(NOTIF_ICON[n.kind]||'bell',14)}</div>
          <div style="flex:1;min-width:0">
            <div style="font-weight:${un?'700':'500'};font-size:13px">${esc(n.title)}</div>
            ${n.body?`<div class="hint" style="margin-top:3px">${esc(n.body)}</div>`:''}
@@ -7400,8 +7572,8 @@ function mobMore(){
      `<div class="mrow tap" onclick="setMobile(false,true)"><div class="k">🖥 Open the desktop version</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="mobTheme()"><div class="k">◐ Light / dark</div><div class="v">›</div></div>`)}
    ${_mcard('More',
-     `<div class="mrow tap" onclick="mobGo('vens')"><div class="k">🏷 Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
-      <div class="mrow tap" onclick="mobGo('feed')"><div class="k">📜 Updates</div><div class="v">›</div></div>
+     `<div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
+      <div class="mrow tap" onclick="mobGo('feed')"><div class="k">${icon('feed',12)} Updates</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="appLogout()"><div class="k" style="color:var(--critical)">⎋ Sign out</div><div class="v"></div></div>`)}
    <div class="mnote">The desktop version has everything: comparison sheets with Excel paste, technical evaluation, draft POs, imports and reports. It is the same data — this phone view is the part you need while you are away from a desk.</div>`;}
 /* chosen once at start-up, and again if the screen changes shape */
@@ -7419,15 +7591,20 @@ function mobBoot(){
   window.addEventListener('hashchange',()=>{const p=_mobHashPref();if(p!==null&&p!==MOBILE)setMobile(p,false);});}
 function mobTheme(){
   const r=document.documentElement;
-  const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
-  r.setAttribute('data-theme',dark?'light':'dark');}
+  const t=r.getAttribute('data-theme')==='dark'?'light':'dark';
+  r.setAttribute('data-theme',t);
+  try{localStorage.setItem('trk_theme',t);}catch(e){}}
 
-/* ================= THEME + STARTUP ================= */
+document.querySelectorAll('.icslot').forEach(e=>{e.outerHTML=icon(e.dataset.ic,16);});
+/* ================= THEME + STARTUP =================
+   Dark is the house style now. The toggle stays for anyone who wants the
+   light one, and whichever you pick is remembered on this machine. */
+const _setTheme=t=>{document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('trk_theme',t);}catch(e){}};
 document.getElementById('themeBtn').addEventListener('click',()=>{
-  const r=document.documentElement;
-  const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
-  r.setAttribute('data-theme',dark?'light':'dark');});
-if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');
+  _setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');});
+(()=>{let t=null;try{t=localStorage.getItem('trk_theme');}catch(e){}
+  document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark')?t:'dark');})();
 
 function _wireLogin(){
   const lp=document.getElementById('lpass'),lu=document.getElementById('luser');
