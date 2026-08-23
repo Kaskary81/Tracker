@@ -5099,6 +5099,79 @@ function renderTermsTab(w,m,ls,low){
    <div class="statusbar"><span>${ls.length} vendor(s) · ${fxUsed.length?fxUsed.length+' foreign currency(ies)':'single currency'}</span><span class="spacer"></span><span>double-click any cell to edit · the grand total and the time to site drive the material module</span></div>`}`;
 }
 
+/* ---- RFQ revisions ------------------------------------------------------
+   Reinstated: these four were cut by mistake when the design and engineering
+   modules were removed. They live here now, with the rest of the RFQ work. */
+async function copyBoqTo(mid,fromRev,toRev){
+  const src=boqOf(mid,fromRev,null);
+  if(!src.length)return 0;
+  let n=0;
+  for(const i of src){
+    const base={materialId:mid,revId:String(toRev),optId:_oid(i.optId),no:i.no,description:i.description,
+      spec:i.spec||'',unit:i.unit,qty:i.qty,remarks:i.remarks||''};
+    let row;
+    if(_isLive()){row=await apiInsert('citems',base);if(!row)continue;}
+    else row={id:nextId('citems'),...base};
+    DB.citems=DB.citems||[];DB.citems.push(row);
+    txPush({t:'ins',tbl:'citems',row:_rowCopy(row)});
+    n++;}
+  return n;}
+async function addRfqRev(materialId){
+  const m=DB.materials.find(x=>x.id===materialId);if(!m)return;
+  const rr=rfqRevsFor(m);
+  const first=!rr.length;
+  const n=first?0:revNum(rr[rr.length-1])+1;
+  const base={materialId,rev:'R'+n,issued:first?(m.rfqDate||''):'',quotesDue:'',
+    reason:first?'Original RFQ issue':'',issuedTo:vendorsFor(m).map(v=>v.manufacturer).join(', '),notes:''};
+  let row;
+  if(_isLive()){row=await apiInsert('rfqrevs',base);if(!row)return;}
+  else row={id:nextId('rfqrevs'),...base};
+  DB.rfqrevs.push(row);
+  txPush({t:'ins',tbl:'rfqrevs',row:_rowCopy(row)},'New RFQ revision');
+  logAct('Created','rfqrevs',row.id,'','','');
+  /* the new revision starts as a copy of the bill that went out before it */
+  const prev=first?null:rr[rr.length-1];
+  const copied=prev?await copyBoqTo(materialId,prev.id,row.id):0;
+  notify('procurement','rfq','RFQ '+row.rev+' issued — '+matName(materialId),
+    copied?('The bill of quantities was carried over from '+prev.rev+' — '+copied+' item(s). Price this revision in the comparison sheet.')
+          :'Collect the vendors\u2019 prices for this revision in the comparison sheet.',materialId);
+  if(copied)setTimeout(()=>toast(row.rev+' created — '+copied+' item(s) copied from '+prev.rev),0);
+  refreshData();
+  return row;
+}
+async function ensureRev0(materialId,when){
+  const m=DB.materials.find(x=>x.id===materialId);
+  if(!m||rfqRevsFor(m).length)return null;
+  const auto=txBegin('RFQ R0 created');
+  const row=await addRfqRev(materialId);
+  if(row&&when&&row.issued!==when)_setCell('rfqrevs',row.id,'issued',when);
+  if(auto)txEnd();
+  refreshData();
+  toast('RFQ R0 recorded for “'+String(m.desc||'').slice(0,32)+'” — it is the current revision');
+  return row;}
+function removeRfqRev(id){
+  const rv=(DB.rfqrevs||[]).find(x=>x.id===id);if(!rv)return;
+  const imp=deleteImpact('rfqrevs',id);
+  msgBox('Delete RFQ revision?','🗑',`RFQ revision <b>${esc(rv.rev)}</b> will be removed.`+
+    (imp.total?`<div style="margin-top:9px">Everything issued with it goes too:</div>
+       <ul style="margin:6px 0 0 16px;line-height:1.9">${imp.lines.map(l=>'<li>'+esc(l)+'</li>').join('')}</ul>
+       <div class="hint" style="margin-top:8px">Earlier revisions and their prices are untouched.</div>`
+      :'<div class="hint" style="margin-top:8px">Nothing was issued against it yet.</div>'),[
+    ['Cancel',null,''],['Delete',()=>{
+      const auto=txBegin('Delete RFQ revision '+rv.rev);
+      const nRates=imp.map.crates?imp.map.crates.size:0,nItems=imp.map.citems?imp.map.citems.size:0;
+      notify('procurement','del','RFQ '+rv.rev+' deleted — '+matName(rv.materialId),
+        (nItems?nItems+' bill item(s)':'No bill items')+(nRates?' and '+nRates+' price(s)':'')+' went with it. Earlier revisions still stand.',rv.materialId);
+      Object.keys(imp.map).filter(t=>t!=='rfqrevs').forEach(t=>{
+        const ids=new Set([...imp.map[t].keys()]);
+        imp.map[t].forEach(r=>{txPush({t:'del',tbl:t,row:_rowCopy(r)});if(_isLive())apiDelete(t,r.id);});
+        DB[t]=(DB[t]||[]).filter(r=>!ids.has(r.id));});
+      txPush({t:'del',tbl:'rfqrevs',row:_rowCopy(rv)});
+      logAct('Deleted','rfqrevs',id,'','','');if(_isLive())apiDelete('rfqrevs',id);
+      DB.rfqrevs=(DB.rfqrevs||[]).filter(x=>x.id!==id);
+      recomputeStageDates(rv.materialId);
+      if(auto)txEnd();refreshData();},'danger']]);
+}
 /* ================= PRICE ANALYSIS =================
    Every rate is entered in the vendor's own currency, so nothing here compares
    raw rates: each is converted at that vendor's own rate of exchange first.
