@@ -232,6 +232,18 @@ table.rtbl td.em{font-weight:650}
 .msgbtns{display:flex;justify-content:flex-end;gap:8px;padding:8px 4px 2px;flex:none;
   border-top:1px solid var(--grid);background:var(--surface);position:sticky;bottom:0}
 /* ===== price analysis ===== */
+table.anmat td.num{font-variant-numeric:tabular-nums}
+/* painted with a shadow, not a background: the striping on even rows is a
+   more specific rule and would otherwise win on half the lines */
+td.anlow{color:var(--goodtext);font-weight:700;box-shadow:inset 0 0 0 99px var(--priced)}
+td.ancool{color:var(--ink2)}
+td.anwarm{color:var(--serious);font-weight:600}
+td.anhot{color:var(--critical);font-weight:700}
+td.anna{color:var(--muted)}
+td.anzero{color:var(--warn);font-weight:700}
+table.anmat tfoot td{background:var(--surface2);
+  border-top:2px solid var(--ring);font-weight:600}
+
 .anscroll{flex:1;overflow:auto;min-height:0}
 .anscroll .gridwrap{flex:none;overflow:visible}
 .anwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin:2px 0 10px}
@@ -2174,7 +2186,7 @@ function tablePDF(t,title){
      the unnamed strips that hold the tick box and the row's delete cross go,
      because those are buttons, not columns */
   let stats=[],ui=[];
-  if(simple){
+  if(simple&&t.getAttribute('data-nostats')!=='1'){
     const filled=_pdfKeep(t);
     if(filled.length>=2)stats=tblStats(t,filled);}
   const c=t.cloneNode(true);
@@ -2232,6 +2244,10 @@ function tablePDF(t,title){
    'th{background:#eef1f5;font-weight:700;font-size:'+HS+';text-transform:uppercase;letter-spacing:.02em}'+
    'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
    '.hint{color:#666}.chip,.badge{border:1px solid #ccc;border-radius:8px;padding:1px 5px;font-size:10.5px}'+
+   'td.anlow{color:#0a7d3c;font-weight:700;background:#e9f8ef}'+
+   'td.anwarm{color:#b45309;font-weight:600}td.anhot{color:#b91c1c;font-weight:700}'+
+   'td.anzero{color:#b45309;font-weight:700}td.anna{color:#999}'+
+   'tfoot td{background:#f2f4f7;font-weight:700;border-top:2px solid #999}'+
    '.note{color:#888;font-size:10.5px;margin-top:11px}'+
    '</style></head><body><h1>'+esc(title||'Table')+'</h1><div class="sub">'+esc(head)+
    ' · printed '+esc(new Date().toLocaleString())+'</div>'+cards+c.outerHTML+note+
@@ -5232,39 +5248,43 @@ function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
       <div class="hint" style="margin-top:6px">a rate of zero is treated as not priced, never as free</div>
     </div>`:''}
    </div>
-   ${outs.length?`<div class="anhead">Outliers — ${outs.length} quote(s) ${AN_OUT}% or more off the middle</div>
-   <div class="gridwrap"><table class="grid">
-     <thead><tr><th style="width:300px">Line</th><th style="width:150px">Vendor</th>
-       <th class="num" style="width:110px">His rate</th><th class="num" style="width:110px">Middle</th>
-       <th class="num" style="width:90px">Off by</th><th class="num" style="width:110px">On the qty</th></tr></thead>
-     <tbody>${outs.slice(0,40).map(o=>`<tr>
-       <td class="wrap">${esc(String(o.row.i.description||'').slice(0,110))}</td>
-       <td>${esc(o.q.ven)}${o.q.cur!==CUR?`<span class="hint"> ${esc(o.q.cur)}</span>`:''}</td>
-       <td class="num">${sar(o.q.sar)}</td>
-       <td class="num"><span class="hint">${sar(o.row.med)}</span></td>
-       <td class="num" style="color:${o.dev>0?'var(--critical)':'var(--goodtext)'};font-weight:600">${pct(o.dev)}</td>
-       <td class="num">${o.row.q==null?'<span class="hint">—</span>':sar(Math.round((o.q.sar-o.row.med)*o.row.q*100)/100)}</td>
-     </tr>`).join('')}</tbody>
-   </table></div>`:''}
-   <div class="anhead">Every line, widest spread first</div>
-   <div class="gridwrap"><table class="grid">
-     <thead><tr><th style="width:290px">Line</th><th class="num" style="width:62px">Qty</th>
-       <th class="num" style="width:52px">Quotes</th>
-       <th class="num" style="width:105px">Lowest</th><th class="num" style="width:105px">Middle</th>
-       <th class="num" style="width:105px">Average</th><th class="num" style="width:105px">Highest</th>
-       <th class="num" style="width:80px">Spread</th>
-       <th style="width:130px">Cheapest</th><th style="width:130px">Dearest</th></tr></thead>
+   <div class="anhead">Every line against the cheapest quote on it</div>
+   <div class="gridwrap"><table class="grid anmat" data-nostats="1">
+     <thead><tr>
+       <th style="width:262px">Line</th>
+       <th class="num" style="width:56px">Qty</th>
+       <th class="num" style="width:104px">Cheapest</th>
+       ${ls.map(l=>`<th class="num" style="width:104px">${esc(venName(l.vendorId))}${
+         curOf(l)!==CUR?`<br><span class="hint">${esc(curOf(l))} @ ${esc(String(fxOf(l)))}</span>`:''}</th>`).join('')}
+     </tr></thead>
      <tbody>${sorted.map(r=>`<tr>
-       <td class="wrap">${esc(String(r.i.description||'').slice(0,110))}</td>
+       <td class="wrap">${esc(String(r.i.description||'').slice(0,96))}</td>
        <td class="num">${r.q==null?'<span class="hint">—</span>':esc(String(r.i.qty))}</td>
-       <td class="num">${r.priced.length}${r.missing?`<span class="hint">/${ls.length}</span>`:''}</td>
-       <td class="num">${sar(r.lo)}</td><td class="num">${sar(r.med)}</td>
-       <td class="num">${sar(r.avg)}</td><td class="num">${sar(r.hi)}</td>
-       <td class="num" style="font-weight:600;color:${r.spread>=200?'var(--critical)':r.spread>=100?'var(--serious)':'var(--ink2)'}">${r.spread==null?'—':r.spread.toFixed(0)+'%'}</td>
-       <td>${r.cheap?esc(r.cheap.ven):'<span class="hint">—</span>'}</td>
-       <td>${r.dear&&r.priced.length>1?esc(r.dear.ven):'<span class="hint">—</span>'}</td>
+       <td class="num"><b>${sar(r.lo)}</b><div class="hint">${r.cheap?esc(r.cheap.ven):''}</div></td>
+       ${ls.map(l=>{
+         const q=r.quotes.find(x=>x.l.id===l.id);
+         if(!q)return '<td class="num anna">—</td>';
+         if(q.sar<=0)return '<td class="num anzero" title="entered as zero — treated as not priced">0</td>';
+         if(r.lo==null||r.lo<=0)return `<td class="num">${sar(q.sar)}</td>`;
+         const d=Math.round((q.sar/r.lo-1)*1000)/10;
+         if(d<=0)return `<td class="num anlow" title="${esc(sar(q.sar))} ${CUR}">lowest</td>`;
+         const cls=d>=100?'anhot':d>=50?'anwarm':'ancool';
+         return `<td class="num ${cls}" title="${esc(sar(q.sar))} ${CUR}${r.q!=null?' · '+esc(sar(Math.round((q.sar-r.lo)*r.q*100)/100))+' more on the quantity':''}">+${d.toFixed(0)}%</td>`;}).join('')}
      </tr>`).join('')}</tbody>
+     <tfoot><tr class="anfoot">
+       <td><b>Delivered total</b><div class="hint">goods + charges to site</div></td>
+       <td class="num"></td>
+       <td class="num"><b>${single?sar(single.t):'—'}</b><div class="hint">${single?esc(single.ven):''}</div></td>
+       ${ls.map(l=>{const x=totals.find(y=>y.l.id===l.id);
+         if(!x)return '<td class="num anna">—</td>';
+         if(!single||single.t<=0)return `<td class="num">${sar(x.t)}</td>`;
+         const d=Math.round((x.t/single.t-1)*1000)/10;
+         if(d<=0)return `<td class="num anlow" title="${esc(sar(x.t))} ${CUR}">lowest</td>`;
+         return `<td class="num ${d>=100?'anhot':d>=50?'anwarm':'ancool'}" title="${esc(sar(x.t))} ${CUR}">+${d.toFixed(0)}%</td>`;}).join('')}
+     </tr></tfoot>
    </table></div>
+   <div class="pickrow" style="margin-top:6px">
+     <span class="hint">each cell is how much more that vendor asks than the cheapest quote on that line · hover any cell for the figure itself · <b>lowest</b> marks who is cheapest · a cell reading <b>0</b> was entered as zero and is treated as not priced${outs.length?' · '+outs.length+' cell(s) sit '+AN_OUT+'% or more off the middle of the pack and are shown in red':''}</span>
    </div>
    <div class="statusbar"><span>${withQ.length} priced line(s) · widest spread ${sorted.length&&sorted[0].spread!=null?sorted[0].spread.toFixed(0)+'%':'—'}</span>
      <span class="spacer"></span><span>use the export bar above any table to take it to Excel or A3</span></div>`}`;
