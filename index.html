@@ -232,6 +232,13 @@ table.rtbl td.em{font-weight:650}
 .msgbtns{display:flex;justify-content:flex-end;gap:8px;padding:8px 4px 2px;flex:none;
   border-top:1px solid var(--grid);background:var(--surface);position:sticky;bottom:0}
 /* ===== price analysis ===== */
+table.govtbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+table.govtbl th{position:static;background:transparent;border-bottom:1px solid var(--grid);
+  padding:4px 8px;font-size:9.5px;color:var(--muted)}
+table.govtbl td{padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+table.govtbl tr:last-child td{border-bottom:none}
+table.govtbl .linkchip{margin-left:4px}
+
 table.anmat td.num{font-variant-numeric:tabular-nums}
 /* painted with a shadow, not a background: the striping on even rows is a
    more specific rule and would otherwise win on half the lines */
@@ -5131,6 +5138,100 @@ function _anOutliers(rows){
       if(Math.abs(d)>=AN_OUT)out.push({row:r,q:q,dev:d});});});
   return out.sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
 }
+
+/* ---- what actually decides the award ----------------------------------
+   A vendor's gap to the lowest is almost never spread evenly: two or three
+   lines usually carry most of it. Those are the ones worth querying, and the
+   ones where a supplier who has read the scope differently shows up. */
+const GOV_SHARE=0.8;
+function govFor(l,rows){
+  const out=[];
+  rows.forEach(r=>{
+    if(r.q==null||r.lo==null||r.lo<=0)return;
+    const q=r.quotes.find(x=>x.l.id===l.id);
+    if(!q||q.sar<=0)return;
+    const over=Math.round((q.sar-r.lo)*r.q*100)/100;
+    out.push({r:r,q:q,over:over,pct:Math.round((q.sar/r.lo-1)*1000)/10});});
+  const above=out.filter(x=>x.over>0).sort((a,b)=>b.over-a.over);
+  const gap=Math.round(above.reduce((a,b)=>a+b.over,0)*100)/100;
+  let run=0;const gov=[];
+  for(const x of above){gov.push(x);run+=x.over;if(gap>0&&run/gap>=GOV_SHARE)break;}
+  return {gap:gap,gov:gov,covers:gap>0?Math.round(run/gap*1000)/10:0,
+          n:above.length,lines:out.length,
+          lowestOn:out.filter(x=>x.over<=0).length};
+}
+/* the sheet the supplier is sent: his own figures, and how far above the
+   lowest he is as a percentage — never anybody else's rate */
+function govSheet(mid,linkId,how){
+  const m=DB.materials.find(x=>x.id===mid);if(!m)return;
+  const l=(DB.links||[]).find(x=>x.id===linkId);if(!l)return;
+  const w=[...windows.values()].find(x=>x.kind==='cmp'&&x.params.recId===mid);
+  const rev=w?String(w.state.rev||currentRevId(mid)):String(currentRevId(mid));
+  const copt=w?String(w.state.opt||''):'';
+  const its=boqOf(mid,rev,copt);
+  const ls=linksForMaterial(m);
+  const g=govFor(l,_anRows(m,its,ls,rev,copt));
+  if(!g.gov.length){toast(venName(l.vendorId)+' is at or below the lowest on every line — nothing to query');return;}
+  const title='Price clarification — '+(m.desc||'')+' — '+venName(l.vendorId);
+  const head=[['Item','Unit','Qty','Your rate ('+curOf(l)+')','Your amount ('+curOf(l)+')',
+               'Above lowest','Your revised rate','Your comment / assumption']];
+  const body=g.gov.map(x=>[
+    String(x.r.i.description||''), String(x.r.i.unit||''), String(x.r.i.qty||''),
+    String(x.q.raw), String(Math.round(x.q.raw*x.r.q*100)/100),
+    '+'+x.pct.toFixed(0)+'%','','']);
+  if(how==='xlsx'){
+    const aoa=head.concat(body);
+    ensureXLSX().then(()=>{
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols']=[{wch:60},{wch:8},{wch:9},{wch:15},{wch:16},{wch:13},{wch:17},{wch:42}];
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'Clarification');
+      XLSX.writeFile(wb,tblFileName(title)+'.xlsx');
+      toast('Query sheet for '+venName(l.vendorId)+' — '+g.gov.length+' item(s)');
+    }).catch(()=>{
+      const csv='﻿'+aoa.map(r=>r.map(v=>/[",\n]/.test(String(v))?'"'+String(v).replace(/"/g,'""')+'"':v).join(',')).join('\r\n');
+      dl(new Blob([csv],{type:'text/csv;charset=utf-8'}),tblFileName(title)+'.csv');
+      toast('No internet for the Excel writer — a CSV was saved instead');});
+    return;}
+  const win=window.open('','_blank');
+  if(!win){toast('Allow pop-ups for this site and press it again');return;}
+  const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+
+   '@page{size:A3 landscape;margin:14mm}'+
+   'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+   'body{font:12.5px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0}'+
+   'h1{font-size:19px;margin:0 0 3px}.sub{color:#666;font-size:11.5px;margin:0 0 4px}'+
+   '.ask{margin:12px 0 14px;padding:10px 13px;border:1px solid #d6dbe3;border-radius:9px;background:#f7f9fb;font-size:12.5px;max-width:1100px}'+
+   'table{border-collapse:collapse;width:100%;margin-top:4px}'+
+   'th,td{border:1px solid #bbb;padding:7px 9px;text-align:left;vertical-align:top;font-size:12px}'+
+   'th{background:#eef1f5;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.02em}'+
+   'td.n,th.n{text-align:right;white-space:nowrap}tr{break-inside:avoid}thead{display:table-header-group}'+
+   '.fill{background:#fffdf2}.sig{margin-top:22px;font-size:12px;color:#444}'+
+   '.sig div{margin-top:20px;border-top:1px solid #999;width:280px;padding-top:4px}'+
+   '</style></head><body>'+
+   '<h1>'+esc(title)+'</h1>'+
+   '<div class="sub">'+esc([proj.name,proj.subtitle].filter(Boolean).join(' · '))+
+     ' · '+esc(revLabel(mid,rev))+' · issued '+esc(new Date().toLocaleDateString())+'</div>'+
+   '<div class="ask">The items below are the ones that decide this comparison — together they account for '+
+     '<b>'+g.covers.toFixed(0)+'%</b> of the difference between your offer and the lowest we hold. '+
+     'Against each we have shown only your own rate and how far above the lowest quotation it sits, as a percentage. '+
+     'Please confirm the scope you have priced against each item and, where you wish, enter a revised rate. '+
+     'If any item has been read differently from our intention, say so in the comment column — we would rather correct an '+
+     'understanding than lose a competitive offer.</div>'+
+   '<table><thead><tr><th>Item</th><th>Unit</th><th class="n">Qty</th>'+
+     '<th class="n">Your rate ('+esc(curOf(l))+')</th><th class="n">Your amount ('+esc(curOf(l))+')</th>'+
+     '<th class="n">Above lowest</th><th class="n">Your revised rate</th><th style="width:270px">Your comment / assumption</th></tr></thead><tbody>'+
+   g.gov.map(x=>'<tr><td>'+esc(String(x.r.i.description||''))+'</td>'+
+     '<td>'+esc(String(x.r.i.unit||''))+'</td>'+
+     '<td class="n">'+esc(String(x.r.i.qty||''))+'</td>'+
+     '<td class="n">'+esc(money(x.q.raw))+'</td>'+
+     '<td class="n">'+esc(money(Math.round(x.q.raw*x.r.q*100)/100))+'</td>'+
+     '<td class="n">+'+x.pct.toFixed(0)+'%</td>'+
+     '<td class="n fill"></td><td class="fill"></td></tr>').join('')+
+   '</tbody></table>'+
+   '<div class="sig">Priced and confirmed by<div>name · position · date</div></div>'+
+   '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},150);}<\/scr'+'ipt></body></html>');
+  win.document.close();}
 function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
   const rows=_anRows(m,its,ls,rev,copt);
   const withQ=rows.filter(r=>r.priced.length);
@@ -5236,6 +5337,29 @@ function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
             <td class="fv">${sar(x.was)} → ${sar(x.now)}
             <span style="color:${d>0?'var(--critical)':'var(--goodtext)'}">${d==null?'':pct(d)}</span></td></tr>`;}).join('')}
       </table>
+    </div>`:''}
+    ${totals.length>1?`<div class="anpanel" style="grid-column:1/-1">
+      <h4>What decides this award — and what to ask each supplier</h4>
+      <table class="grid govtbl">
+        <thead><tr><th style="width:130px">Vendor</th><th class="num" style="width:120px">Behind lowest by</th>
+          <th style="width:auto">The items that carry it</th><th class="num" style="width:74px">Share</th>
+          <th class="num" style="width:210px">Query sheet</th></tr></thead>
+        <tbody>${totals.slice(1).map(x=>{const g=govFor(x.l,rows);
+          if(!g.gov.length)return `<tr><td>${esc(x.ven)}</td><td class="num">—</td>
+            <td colspan="3"><span class="hint">at or below the lowest on every line he priced</span></td></tr>`;
+          return `<tr>
+            <td><b>${esc(x.ven)}</b><div class="hint">lowest on ${g.lowestOn} line(s)</div></td>
+            <td class="num"><b>${sar(g.gap)}</b><div class="hint">on the goods</div></td>
+            <td class="wrap">${g.gov.map(y=>`<div>${esc(String(y.r.i.description||'').slice(0,72))}
+              <span class="hint">+${y.pct.toFixed(0)}% · ${sar(y.over)} more</span></div>`).join('')}
+              <div class="hint">${g.gov.length} of ${g.n} line(s) he is above on</div></td>
+            <td class="num"><b>${g.covers.toFixed(0)}%</b></td>
+            <td class="num">
+              <span class="linkchip" onclick="govSheet(${m.id},${x.l.id},'pdf')">${icon('doc',12)} A3 / PDF</span>
+              <span class="linkchip" onclick="govSheet(${m.id},${x.l.id},'xlsx')">${icon('doc',12)} Excel</span></td>
+          </tr>`;}).join('')}</tbody>
+      </table>
+      <div class="hint" style="margin-top:7px">the sheet carries his own rates and how far above the lowest he sits <b>as a percentage only</b> — no other supplier’s figures leave the office. It leaves him room to enter a revised rate and say what he understood the scope to be.</div>
     </div>`:''}
     ${(zeroLines.length||unpriced.length||partial.length||noQty.length)?`<div class="anpanel">
       <h4>Worth checking before award</h4>
