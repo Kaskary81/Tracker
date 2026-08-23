@@ -4547,9 +4547,20 @@ function recomputeStageDates(mid){
     dTarget:ls.some(l=>revisedTotal(l)!=null),
     dAward:ls.some(l=>isYes(l.selected))};
   const auto=txBegin('Stage dates rechecked');
-  let cleared=[];
+  let cleared=[],restored=[];
   /* the offers date follows the vendors' quotation dates, always */
   if(has.dQuote&&qd&&m.dQuote!==qd)_setCell('materials',m.id,'dQuote',qd);
+  /* A stage the material has reached must carry the date it reached it on.
+     Without this the level below moves the stage forward while the date stays
+     empty — the register then shows "Technically Evaluated" with no evaluation
+     date — and a date cleared when a vendor arrived never comes back when he
+     leaves again, though the memory kept for exactly that is sitting there. */
+  Object.keys(has).forEach(k=>{
+    if(!has[k]||m[k]||k==='dQuote')return;
+    const r=_stampValue(m,k,'');
+    _setCell('materials',m.id,k,r.d);
+    rememberStage(m,k,r.d);
+    if(r.restored)restored.push(k);});
   Object.keys(has).forEach(k=>{if(!has[k]&&m[k]){
     /* the date is kept aside in stageMem — clearing it here does not forget it */
     if(k==='dTech'&&!_replaying)notify('procurement','eval','Evaluation suspended — '+(m.desc||''),
@@ -4564,7 +4575,9 @@ function recomputeStageDates(mid){
     :((m.dRfq||m.rfqDate||ls.length>0)?'RFQ Issued':'Not Started');
   if(AUTO_STAGES.includes(m.stage||'Not Started')&&m.stage!==level)_setCell('materials',m.id,'stage',level);
   if(auto)txEnd();
-  if(cleared.length)setTimeout(()=>toast('“'+String(m.desc||'').slice(0,32)+'” — '+cleared.length+' stage date(s) cleared, stage now '+level),0);}
+  if(cleared.length)setTimeout(()=>toast('“'+String(m.desc||'').slice(0,32)+'” — '+cleared.length+' stage date(s) cleared, stage now '+level),0);
+  if(restored.length&&!_replaying)setTimeout(()=>toast('“'+String(m.desc||'').slice(0,32)+'” — '+
+    restored.map(k=>STAGE_DATE_LABEL[k]||k).join(', ')+' restored to the date it was earned'),0);}
 function shortlistMissing(l){
   const miss=[];
   const m=DB.materials.find(x=>x.id===l.materialId);
