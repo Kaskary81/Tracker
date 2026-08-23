@@ -5166,12 +5166,18 @@ function govSheet(mid,linkId,how){
   const m=DB.materials.find(x=>x.id===mid);if(!m)return;
   const l=(DB.links||[]).find(x=>x.id===linkId);if(!l)return;
   const w=[...windows.values()].find(x=>x.kind==='cmp'&&x.params.recId===mid);
-  const rev=w?String(w.state.rev||currentRevId(mid)):String(currentRevId(mid));
-  const copt=w?String(w.state.opt||''):'';
+  const rev=w&&w.state.rev!==undefined?String(w.state.rev):String(currentRevId(mid));
+  const copt=(w&&w.state.opt!==undefined)?String(w.state.opt):(hasOpts(mid)?String(optInForce(mid)||''):'');
   const its=boqOf(mid,rev,copt);
   const ls=linksForMaterial(m);
+  /* the sheet must describe the revision on screen, not the vendor's newest */
+  if(totalForRev(l,rev,copt)==null){
+    const other=lastPricedRev(l,copt);
+    toast(venName(l.vendorId)+' has not priced '+revLabel(mid,rev)+
+      (other!=null&&_rid(other)!==_rid(rev)?' — his prices are on '+revLabel(mid,String(other)):''));
+    return;}
   const g=govFor(l,_anRows(m,its,ls,rev,copt));
-  if(!g.gov.length){toast(venName(l.vendorId)+' is at or below the lowest on every line — nothing to query');return;}
+  if(!g.gov.length){toast(venName(l.vendorId)+' is at or below the lowest on every line of '+revLabel(mid,rev)+' — nothing to query');return;}
   const title='Price clarification — '+(m.desc||'')+' — '+venName(l.vendorId);
   const head=[['Item','Unit','Qty','Your rate ('+curOf(l)+')','Your amount ('+curOf(l)+')',
                'Above lowest','Your revised rate','Your comment / assumption']];
@@ -5233,6 +5239,7 @@ function govSheet(mid,linkId,how){
    '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},150);}<\/scr'+'ipt></body></html>');
   win.document.close();}
 function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
+  const opts=optsOf(m.id);
   const rows=_anRows(m,its,ls,rev,copt);
   const withQ=rows.filter(r=>r.priced.length);
   const outs=_anOutliers(rows);
@@ -5256,8 +5263,13 @@ function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
   splitCharges=Math.round(splitCharges*100)/100;
   const splitDeliv=Math.round((splitGoods+splitCharges)*100)/100;
   const totals=ls.map(l=>({l:l,ven:venName(l.vendorId),
-      g:goodsSAR(l,_rid(lastPricedRev(l,copt)),copt),t:vendorTotal(l,copt)}))
+      g:goodsSAR(l,rev,copt),t:totalForRev(l,rev,copt)}))
     .filter(x=>x.t!=null&&x.t>0).sort((a,b)=>a.t-b.t);
+  /* who is on the sheet but has not priced this revision at all */
+  const notOnRev=ls.filter(l=>totalForRev(l,rev,copt)==null)
+    .map(l=>({ven:venName(l.vendorId),
+      elsewhere:lastPricedRev(l,copt)!=null&&_rid(lastPricedRev(l,copt))!==_rid(rev)
+        ?revLabel(m.id,String(lastPricedRev(l,copt))):null}));
   const single=totals.length?totals[0]:null;
   const gainG=(single&&splitOk&&single.g!=null)?Math.round((single.g-splitGoods)*100)/100:null;
   const gain=(single&&splitOk&&splitDeliv>0)?Math.round((single.t-splitDeliv)*100)/100:null;
@@ -5266,15 +5278,14 @@ function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
   /* what moved after the target price went out */
   const moved=[];
   ls.forEach(l=>{
-    let was=0,now=0,n=0;
-    its.forEach(i=>{
-      const q=qtyOf(i);if(q==null)return;
-      const a=rateOf(l.id,i.id,_rid(lastPricedRev(l,copt)));
-      const b=rate2Of(l.id,i.id);
-      if(a==null||b==null)return;
-      was+=q*a;now+=q*b;n++;});
-    if(n)moved.push({ven:venName(l.vendorId),n:n,was:Math.round(was*fxOf(l)*100)/100,
-      now:Math.round(now*fxOf(l)*100)/100});});
+    const was=goodsSAR(l,rev,copt),g1=goodsRevisedForRev(l,rev,copt);
+    if(was==null||g1==null)return;
+    const now=Math.round(g1*fxOf(l)*100)/100;
+    let n=0;
+    /* rate2 hangs off the vendor's own priced row, exactly as the target tab
+       reads it — this counts the same lines that tab totals */
+    its.forEach(i=>{if(rate2Of(l.id,i.id)!=null)n++;});
+    if(n)moved.push({ven:venName(l.vendorId),n:n,was:was,now:now});});
   const zeroLines=rows.filter(r=>r.zeros.length);
   const unpriced=rows.filter(r=>!r.quotes.length);
   const partial=rows.filter(r=>r.quotes.length&&r.missing>0);
@@ -5292,7 +5303,17 @@ function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
      <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===4?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
-   ${!withQ.length?'<div class="empty">Nothing is priced on this revision yet — the analysis needs at least one rate.</div>':`
+   <div class="pickrow">
+     ${opts.length?`<select onchange="cmpOpt('${w.id}',this.value)" title="Each option is a scope of its own — totals are never added across them">${
+        opts.map(o=>`<option value="${o.id}" ${String(o.id)===copt?'selected':''}>Option ${esc(o.code)}${o.name?' — '+esc(o.name):''}${String(o.id)===optInForce(m.id)?' (in force)':''}</option>`).join('')}</select>`:''}
+     ${revs.length?`<select onchange="cmpRev('${w.id}',this.value)" title="Prices are held per RFQ revision — the analysis is worked out on the one you choose">
+        ${revs.map(r=>`<option value="${r.id}" ${String(r.id)===rev?'selected':''}>RFQ ${esc(r.rev)}${r.issued?' · '+esc(fmtDate(r.issued)):''}${String(r.id)===currentRevId(m.id)?' (current)':''}</option>`).join('')}
+        <option value="" ${rev===''?'selected':''}>Before any revision</option></select>`:''}
+     <span class="hint">everything below is worked out on <b>${esc(revLabel(m.id,rev))}</b> alone — a vendor who has not priced this revision is left out of the totals${
+       notOnRev.length?': '+notOnRev.map(x=>esc(x.ven)+(x.elsewhere?' <span class="hint">(priced '+esc(x.elsewhere)+')</span>':' <span class="hint">(no price yet)</span>')).join(', '):''}</span>
+   </div>
+   ${!withQ.length?`<div class="empty">Nothing is priced on ${esc(revLabel(m.id,rev))} yet — the analysis needs at least one rate. ${
+      notOnRev.some(x=>x.elsewhere)?'Prices do exist on '+esc([...new Set(notOnRev.map(x=>x.elsewhere).filter(Boolean))].join(', '))+' — switch revision above.':''}</div>`:`
    <div class="pickrow">
      <span class="hint">every rate is converted to ${CUR} at the vendor’s own rate of exchange before it is compared · a line is an outlier at ${AN_OUT}% or more from the middle of the pack, and only where three or more vendors priced it</span>
    </div>
