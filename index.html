@@ -231,6 +231,18 @@ table.rtbl td.em{font-weight:650}
 .msgbody .txt b{color:var(--ink)}
 .msgbtns{display:flex;justify-content:flex-end;gap:8px;padding:8px 4px 2px;flex:none;
   border-top:1px solid var(--grid);background:var(--surface);position:sticky;bottom:0}
+/* ===== price analysis ===== */
+.anscroll{flex:1;overflow:auto;min-height:0}
+.anscroll .gridwrap{flex:none;overflow:visible}
+.anwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin:2px 0 10px}
+.anpanel{border:1px solid var(--ring);border-radius:12px;padding:11px 13px;background:var(--surface2)}
+.anpanel h4{margin:0 0 7px;font-size:10.5px;font-weight:750;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--heading)}
+table.fig2{width:100%;border-collapse:collapse}
+table.fig2 td{padding:2px 0;font-size:12px;vertical-align:baseline;color:var(--ink2)}
+table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:nowrap}
+.anhead{font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--heading);margin:12px 0 6px}
 /* ===== Engineering Activity finish (dark only) ===== */
 /* the full-screen layers paint their own ground, so the violet wash has to
    be given to each of them or it only shows behind the desktop */
@@ -4657,7 +4669,7 @@ function offer2Cell(l){
   return `<td class="num"><span class="linkchip" title="Open the target price section" onclick="event.stopPropagation();openTarget(${l.materialId})"><b>${esc(money(t1))}</b>${
     (low!=null&&t1===low)?' <span class="chip">best</span>':''}${cut?` <span class="hint" style="color:var(--goodtext,var(--good))">−${cut}%</span>`:''}${
     (tgt!=null&&t1<=tgt)?' <span class="chip">meets target</span>':''}</span></td>`;}
-const CMP_TABS=['Comparison','Terms · currency · delivery','Target price & revised offers','Draft PO & contract review'];
+const CMP_TABS=['Comparison','Terms · currency · delivery','Target price & revised offers','Draft PO & contract review','Price analysis'];
 function _cmpTab(mid,i){openCompare(mid);
   const win=[...windows.values()].find(x=>x.kind==='cmp'&&x.params.recId===mid);
   if(win){win.state.tab=i;renderWin(win);focusWin(win.id);}}
@@ -4794,8 +4806,9 @@ function renderCmpWin(w){
   const totals=ls.map(l=>({l,t:vendorTotal(l,copt)}));
   const low=lowestTotal(m.id,copt);
   const priced=totals.filter(x=>x.t!=null).sort((a,b)=>a.t-b.t);
-  const ti=Math.min(w.state.tab||0,3);
+  const ti=Math.min(w.state.tab||0,4);
   const cw=Math.max(96,Math.min(360,w.state.cw||190));
+  if(ti===4){renderAnalysisTab(w,m,its,ls,rev,copt,revs);return;}
   if(ti===3){renderDraftsTab(w,m,ls);return;}
   if(ti===2){renderTargetTab(w,m,its,ls,low,rev,copt,revs);return;}
   if(ti===1){renderTermsTab(w,m,ls,low);return;}
@@ -5061,6 +5074,200 @@ function renderTermsTab(w,m,ls,low){
      </tbody>
    </table></div>
    <div class="statusbar"><span>${ls.length} vendor(s) · ${fxUsed.length?fxUsed.length+' foreign currency(ies)':'single currency'}</span><span class="spacer"></span><span>double-click any cell to edit · the grand total and the time to site drive the material module</span></div>`}`;
+}
+
+/* ================= PRICE ANALYSIS =================
+   Every rate is entered in the vendor's own currency, so nothing here compares
+   raw rates: each is converted at that vendor's own rate of exchange first.
+   Otherwise a Euro line would look cheaper than a riyal one for no reason. */
+function _anRows(m,its,ls,rev,copt){
+  const par=markParents(its);
+  return its.filter(i=>!par.has(i.id)).map(i=>{
+    const q=qtyOf(i);
+    const quotes=[];
+    ls.forEach(l=>{
+      const r=rateOf(l.id,i.id,_rid(rev));
+      if(r==null)return;
+      quotes.push({l:l,ven:venName(l.vendorId),raw:r,cur:curOf(l),
+                   sar:Math.round(r*fxOf(l)*100)/100});});
+    const priced=quotes.filter(x=>x.sar>0);
+    const zeros=quotes.filter(x=>x.sar<=0);
+    const vals=priced.map(x=>x.sar).sort((a,b)=>a-b);
+    const med=vals.length?(vals.length%2?vals[(vals.length-1)/2]
+      :Math.round((vals[vals.length/2-1]+vals[vals.length/2])/2*100)/100):null;
+    const lo=vals.length?vals[0]:null,hi=vals.length?vals[vals.length-1]:null;
+    const avg=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*100)/100:null;
+    const cheap=priced.length?priced.slice().sort((a,b)=>a.sar-b.sar)[0]:null;
+    const dear=priced.length?priced.slice().sort((a,b)=>b.sar-a.sar)[0]:null;
+    return {i:i,q:q,quotes:quotes,priced:priced,zeros:zeros,lo:lo,hi:hi,avg:avg,med:med,
+            spread:(lo!=null&&lo>0&&hi!=null)?Math.round((hi-lo)/lo*1000)/10:null,
+            cheap:cheap,dear:dear,missing:ls.length-quotes.length};});
+}
+/* an outlier is a quote a long way off the middle of the pack, and only where
+   there are enough quotes for a middle to mean anything */
+const AN_OUT=50;
+function _anOutliers(rows){
+  const out=[];
+  rows.forEach(r=>{
+    if(r.priced.length<3||r.med==null||r.med<=0)return;
+    r.priced.forEach(q=>{
+      const d=Math.round((q.sar-r.med)/r.med*1000)/10;
+      if(Math.abs(d)>=AN_OUT)out.push({row:r,q:q,dev:d});});});
+  return out.sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
+}
+function renderAnalysisTab(w,m,its,ls,rev,copt,revs){
+  const rows=_anRows(m,its,ls,rev,copt);
+  const withQ=rows.filter(r=>r.priced.length);
+  const outs=_anOutliers(rows);
+  /* The split award: every line from whoever is cheapest on it. Goods and
+     charges are kept apart on both sides, because a lump-sum freight is
+     charged once per vendor — using two vendors means paying two of them,
+     which can swallow the saving on the goods. */
+  let splitGoods=0,splitOk=true;
+  const wins={},shareCur={};   /* goods won from each vendor, in his own currency */
+  withQ.forEach(r=>{
+    if(r.q==null||r.cheap==null){splitOk=false;return;}
+    splitGoods+=r.q*r.cheap.sar;
+    wins[r.cheap.ven]=(wins[r.cheap.ven]||0)+1;
+    const k=r.cheap.l.id;
+    shareCur[k]=(shareCur[k]||0)+r.q*r.cheap.raw;});
+  splitGoods=Math.round(splitGoods*100)/100;
+  let splitCharges=0;
+  Object.keys(shareCur).forEach(k=>{
+    const l=ls.find(x=>String(x.id)===String(k));
+    if(l)splitCharges+=chargesSAR(l,shareCur[k]);});
+  splitCharges=Math.round(splitCharges*100)/100;
+  const splitDeliv=Math.round((splitGoods+splitCharges)*100)/100;
+  const totals=ls.map(l=>({l:l,ven:venName(l.vendorId),
+      g:goodsSAR(l,_rid(lastPricedRev(l,copt)),copt),t:vendorTotal(l,copt)}))
+    .filter(x=>x.t!=null&&x.t>0).sort((a,b)=>a.t-b.t);
+  const single=totals.length?totals[0]:null;
+  const gainG=(single&&splitOk&&single.g!=null)?Math.round((single.g-splitGoods)*100)/100:null;
+  const gain=(single&&splitOk&&splitDeliv>0)?Math.round((single.t-splitDeliv)*100)/100:null;
+  const winList=Object.keys(wins).sort((a,b)=>wins[b]-wins[a]);
+  const nVend=Object.keys(shareCur).length;
+  /* what moved after the target price went out */
+  const moved=[];
+  ls.forEach(l=>{
+    let was=0,now=0,n=0;
+    its.forEach(i=>{
+      const q=qtyOf(i);if(q==null)return;
+      const a=rateOf(l.id,i.id,_rid(lastPricedRev(l,copt)));
+      const b=rate2Of(l.id,i.id);
+      if(a==null||b==null)return;
+      was+=q*a;now+=q*b;n++;});
+    if(n)moved.push({ven:venName(l.vendorId),n:n,was:Math.round(was*fxOf(l)*100)/100,
+      now:Math.round(now*fxOf(l)*100)/100});});
+  const zeroLines=rows.filter(r=>r.zeros.length);
+  const unpriced=rows.filter(r=>!r.quotes.length);
+  const partial=rows.filter(r=>r.quotes.length&&r.missing>0);
+  const noQty=rows.filter(r=>r.q==null&&r.priced.length);
+  const pct=v=>v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
+  const sar=v=>v==null?'—':money(v);
+  const sorted=withQ.slice().sort((a,b)=>(b.spread??-1)-(a.spread??-1));
+  w.el.querySelector('.wincontent').innerHTML=`
+   <div class="recheader">
+     ${stageBadge(m.stage)}
+     <span class="badge">${withQ.length} priced line(s) of ${rows.length}</span>
+     <span class="badge">${totals.length} vendor(s) with a total</span>
+     ${revs.length>1?`<span class="badge">${esc(revLabel(m.id,rev))}</span>`:''}
+     ${outs.length?`<span class="badge"><span class="dot" style="background:var(--warn)"></span>${outs.length} outlier(s)</span>`:''}
+     <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
+   </div>
+   <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===4?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
+   ${!withQ.length?'<div class="empty">Nothing is priced on this revision yet — the analysis needs at least one rate.</div>':`
+   <div class="pickrow">
+     <span class="hint">every rate is converted to ${CUR} at the vendor’s own rate of exchange before it is compared · a line is an outlier at ${AN_OUT}% or more from the middle of the pack, and only where three or more vendors priced it</span>
+   </div>
+   <div class="anscroll">
+   <div class="anwrap">
+    <div class="anpanel">
+      <h4>If the award were split line by line</h4>
+      ${single?`<table class="fig2">
+        <tr><td>cheapest single vendor</td><td class="fv">${esc(single.ven)}</td></tr>
+        <tr><td>his goods</td><td class="fv">${sar(single.g)}</td></tr>
+        <tr><td>his charges to site</td><td class="fv">${sar(Math.round((single.t-(single.g||0))*100)/100)}</td></tr>
+        <tr><td><b>delivered</b></td><td class="fv"><b>${sar(single.t)} ${CUR}</b></td></tr>
+        <tr><td colspan="2" style="height:7px"></td></tr>
+        ${!splitOk?`<tr><td colspan="2"><span class="hint">some priced lines carry no quantity, so a split cannot be totalled</span></td></tr>`:`
+        <tr><td>split across ${nVend} vendor(s) — goods</td><td class="fv">${sar(splitGoods)}</td></tr>
+        <tr><td>their charges to site</td><td class="fv">${sar(splitCharges)}</td></tr>
+        <tr><td><b>delivered</b></td><td class="fv"><b>${sar(splitDeliv)} ${CUR}</b></td></tr>
+        <tr><td colspan="2" style="height:7px"></td></tr>
+        <tr><td>saving on the goods alone</td><td class="fv" style="color:${gainG>0?'var(--goodtext)':'var(--ink2)'}">${sar(gainG)}</td></tr>
+        <tr><td><b>saving delivered</b></td><td class="fv"><b style="color:${gain>0?'var(--goodtext)':'var(--critical)'}">${sar(gain)} ${CUR}</b></td></tr>`}
+      </table>
+      ${winList.length?`<div class="hint" style="margin-top:8px">lines won: ${winList.map(v=>esc(v)+' <b>'+wins[v]+'</b>').join(' · ')}</div>`:''}
+      <div class="hint" style="margin-top:6px">${(gain!=null&&gainG!=null&&gain<gainG)
+        ?'the goods are cheaper split, but '+nVend+' deliveries mean '+nVend+' lots of freight — '+sar(Math.round((gainG-gain)*100)/100)+' of the saving goes back out that way. '
+        :''}a lump-sum charge is counted once per vendor used, not shared out. A split award is not always practical either — one delivery, one warranty, one point of contact often wins. This is the price of that decision, not a recommendation.</div>`
+      :'<div class="hint">No vendor has a complete total yet.</div>'}
+    </div>
+    <div class="anpanel">
+      <h4>Where the offers stand</h4>
+      <table class="fig2">
+        ${totals.map((x,i)=>`<tr><td>${i===0?'<b>'+esc(x.ven)+'</b>':esc(x.ven)}${
+            curOf(x.l)!==CUR?`<span class="hint"> quoted ${esc(curOf(x.l))} @ ${esc(String(fxOf(x.l)))}</span>`:''}</td>
+          <td class="fv">${sar(x.t)}${i===0?' <span class="chip" style="color:var(--goodtext)">lowest</span>':
+            `<span class="hint"> +${Math.round((x.t/totals[0].t-1)*1000)/10}%</span>`}</td></tr>`).join('')}
+      </table>
+    </div>
+    ${moved.length?`<div class="anpanel">
+      <h4>Movement after the target price</h4>
+      <table class="fig2">
+        ${moved.map(x=>{const d=x.was>0?Math.round((x.now/x.was-1)*1000)/10:null;
+          return `<tr><td>${esc(x.ven)} <span class="hint">${x.n} line(s)</span></td>
+            <td class="fv">${sar(x.was)} → ${sar(x.now)}
+            <span style="color:${d>0?'var(--critical)':'var(--goodtext)'}">${d==null?'':pct(d)}</span></td></tr>`;}).join('')}
+      </table>
+    </div>`:''}
+    ${(zeroLines.length||unpriced.length||partial.length||noQty.length)?`<div class="anpanel">
+      <h4>Worth checking before award</h4>
+      <table class="fig2">
+        ${zeroLines.length?`<tr><td>priced at zero</td><td class="fv">${zeroLines.length} line(s)</td></tr>`:''}
+        ${unpriced.length?`<tr><td>nobody priced</td><td class="fv">${unpriced.length} line(s)</td></tr>`:''}
+        ${partial.length?`<tr><td>not every vendor priced</td><td class="fv">${partial.length} line(s)</td></tr>`:''}
+        ${noQty.length?`<tr><td>priced but no quantity</td><td class="fv">${noQty.length} line(s)</td></tr>`:''}
+      </table>
+      <div class="hint" style="margin-top:6px">a rate of zero is treated as not priced, never as free</div>
+    </div>`:''}
+   </div>
+   ${outs.length?`<div class="anhead">Outliers — ${outs.length} quote(s) ${AN_OUT}% or more off the middle</div>
+   <div class="gridwrap"><table class="grid">
+     <thead><tr><th style="width:300px">Line</th><th style="width:150px">Vendor</th>
+       <th class="num" style="width:110px">His rate</th><th class="num" style="width:110px">Middle</th>
+       <th class="num" style="width:90px">Off by</th><th class="num" style="width:110px">On the qty</th></tr></thead>
+     <tbody>${outs.slice(0,40).map(o=>`<tr>
+       <td class="wrap">${esc(String(o.row.i.description||'').slice(0,110))}</td>
+       <td>${esc(o.q.ven)}${o.q.cur!==CUR?`<span class="hint"> ${esc(o.q.cur)}</span>`:''}</td>
+       <td class="num">${sar(o.q.sar)}</td>
+       <td class="num"><span class="hint">${sar(o.row.med)}</span></td>
+       <td class="num" style="color:${o.dev>0?'var(--critical)':'var(--goodtext)'};font-weight:600">${pct(o.dev)}</td>
+       <td class="num">${o.row.q==null?'<span class="hint">—</span>':sar(Math.round((o.q.sar-o.row.med)*o.row.q*100)/100)}</td>
+     </tr>`).join('')}</tbody>
+   </table></div>`:''}
+   <div class="anhead">Every line, widest spread first</div>
+   <div class="gridwrap"><table class="grid">
+     <thead><tr><th style="width:290px">Line</th><th class="num" style="width:62px">Qty</th>
+       <th class="num" style="width:52px">Quotes</th>
+       <th class="num" style="width:105px">Lowest</th><th class="num" style="width:105px">Middle</th>
+       <th class="num" style="width:105px">Average</th><th class="num" style="width:105px">Highest</th>
+       <th class="num" style="width:80px">Spread</th>
+       <th style="width:130px">Cheapest</th><th style="width:130px">Dearest</th></tr></thead>
+     <tbody>${sorted.map(r=>`<tr>
+       <td class="wrap">${esc(String(r.i.description||'').slice(0,110))}</td>
+       <td class="num">${r.q==null?'<span class="hint">—</span>':esc(String(r.i.qty))}</td>
+       <td class="num">${r.priced.length}${r.missing?`<span class="hint">/${ls.length}</span>`:''}</td>
+       <td class="num">${sar(r.lo)}</td><td class="num">${sar(r.med)}</td>
+       <td class="num">${sar(r.avg)}</td><td class="num">${sar(r.hi)}</td>
+       <td class="num" style="font-weight:600;color:${r.spread>=200?'var(--critical)':r.spread>=100?'var(--serious)':'var(--ink2)'}">${r.spread==null?'—':r.spread.toFixed(0)+'%'}</td>
+       <td>${r.cheap?esc(r.cheap.ven):'<span class="hint">—</span>'}</td>
+       <td>${r.dear&&r.priced.length>1?esc(r.dear.ven):'<span class="hint">—</span>'}</td>
+     </tr>`).join('')}</tbody>
+   </table></div>
+   </div>
+   <div class="statusbar"><span>${withQ.length} priced line(s) · widest spread ${sorted.length&&sorted[0].spread!=null?sorted[0].spread.toFixed(0)+'%':'—'}</span>
+     <span class="spacer"></span><span>use the export bar above any table to take it to Excel or A3</span></div>`}`;
 }
 function renderDraftsTab(w,m,ls){
   const short=ls.filter(l=>isYes(l.priceShortlisted)||l.poSent||poCmts(l).length);
