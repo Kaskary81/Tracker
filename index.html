@@ -7793,6 +7793,17 @@ function mobEdit(tbl,id,key,label){
     field=`<select id="mev" style="${st}">${opts.map(o=>{
       const val=Array.isArray(o)?o[0]:o,lab=Array.isArray(o)?o[1]:o;
       return `<option value="${esc(val)}" ${String(val)===v?'selected':''}>${esc(String(lab||'')||'— none —')}</option>`;}).join('')}</select>`;
+  } else if(spec==='selectMat'){
+    /* the same chooser as the desktop: pick the material this task belongs to */
+    const opts=['',...(DB.materials||[]).map(m=>m.desc)];
+    if(!opts.includes(v))opts.splice(1,0,v);
+    field=`<select id="mev" style="${st}">${opts.map(o=>
+      `<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o||'— none —')}</option>`).join('')}</select>`;
+  } else if(spec==='pickMat'||spec==='pickVen'){
+    const list=spec==='pickMat'?(DB.materials||[]).map(x=>[x.id,x.desc])
+                               :(DB.rfqs||[]).map(x=>[x.id,x.manufacturer]);
+    field=`<select id="mev" style="${st}"><option value="">— none —</option>${list.map(([oid,nm])=>
+      `<option value="${esc(oid)}" ${String(oid)===v?'selected':''}>${esc(nm||'')}</option>`).join('')}</select>`;
   } else if(spec==='textarea')field=`<textarea id="mev" style="${st};height:120px">${esc(v)}</textarea>`;
   else if(spec==='date')field=`<input id="mev" type="date" value="${esc(v)}" style="${st}">`;
   else field=`<input id="mev" type="text" value="${esc(v)}" style="${st}">`;
