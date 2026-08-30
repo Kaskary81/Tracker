@@ -8097,7 +8097,84 @@ function mobLongPress(el,tbl,id,label){
 /* a tap that followed a long press must not also open the record */
 function mobTap(fn){ if(_lp.fired){_lp.fired=false;return;} fn(); }
 
+
+/* One supplier's offer on one material: his own analysis, the clarification
+   sheet, and the option to take him off this material. */
+function mobOfferMenu(linkId,label){
+  const l=(DB.links||[]).find(x=>x.id===linkId);
+  if(!l){toast('That offer has gone');return;}
+  const m=(DB.materials||[]).find(x=>x.id===l.materialId)||{};
+  const priced=vendorTotal(l)!=null;
+  const acts=[['Open the vendor',()=>mobGo('ven',l.vendorId)]];
+  if(priced){
+    acts.push(['His price analysis (PDF)',()=>pdfVendorOffer(linkId)]);
+    acts.push(['Price clarification (PDF)',()=>govSheet(l.materialId,linkId,'pdf')]);
+    acts.push(['Price clarification (Excel)',()=>govSheet(l.materialId,linkId,'xlsx')]);
+  }
+  acts.push(['Record the offer date',()=>mobEdit('links',linkId,'quoteDate','Offer received')]);
+  acts.push([isYes(l.selected)?'Unselect this vendor':'Select this vendor',()=>{
+    _setCell('links',linkId,'selected',isYes(l.selected)?'':'Yes');refreshData();}]);
+  if(canGrid('rfqs'))acts.push(['Remove from '+(m.desc||'this material'),
+    ()=>confirmDelete('links',linkId)]);
+
+  const wrap=document.createElement('div');
+  wrap.className='msheet';
+  wrap.innerHTML='<div class="msheetcard"><div class="msheettitle">'+
+    esc(label||venName(l.vendorId))+(priced?' — '+esc(money(vendorTotal(l)))+' '+CUR:'')+
+    '</div><div class="msheetlist">'+acts.map((a,i)=>
+      '<button class="msheetbtn'+(/^Remove/.test(a[0])?' danger':'')+'" data-a="'+i+'">'+
+      esc(a[0])+'</button>').join('')+
+    '<button class="msheetbtn cancel" data-a="-1">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.a; close(); if(i>=0)setTimeout(()=>acts[i][1](),140);});
+  requestAnimationFrame(()=>wrap.classList.add('on'));
+}
+
+/* This supplier's own sheet: every line he priced, what he charged, and how
+   far that sits above the lowest on the line — printed on the app template. */
+function pdfVendorOffer(linkId){
+  const l=(DB.links||[]).find(x=>x.id===linkId);
+  if(!l){toast('That offer has gone');return;}
+  const m=(DB.materials||[]).find(x=>x.id===l.materialId);
+  if(!m){toast('That material has gone');return;}
+  const ls=(DB.links||[]).filter(x=>x.materialId===m.id);
+  const rev=lastPricedRev(l);
+  if(rev==null){toast(venName(l.vendorId)+' has not priced this material');return;}
+  const its=boqOf(m.id,rev);
+  const rows=_anRows(m,its,ls,rev,undefined);
+  const m2=v=>v==null||v===''?'':Number(v).toLocaleString('en-US',
+    {minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const body=rows.map(r=>{
+    const mine=r.quotes.find(q=>q.l.id===l.id);
+    if(!mine)return '';
+    const over=(r.lo!=null&&r.lo>0)?Math.round((mine.sar-r.lo)/r.lo*1000)/10:null;
+    const cls=over==null?'':(over<=0?'anlow':(over>=50?'anhot':(over>=15?'anwarm':'')));
+    return '<tr><td>'+esc(r.i.no||'')+'</td><td>'+esc(r.i.description||'')+'</td><td>'+
+      esc(r.i.unit||'')+'</td><td class="num">'+(r.q??'')+'</td>'+
+      '<td class="num">'+m2(mine.raw)+'</td>'+
+      '<td class="num">'+m2(r.q!=null?Math.round(mine.raw*r.q*100)/100:null)+'</td>'+
+      '<td class="num '+cls+'">'+(over==null?'':(over<=0?'lowest':'+'+over+'%'))+'</td></tr>';
+  }).join('');
+
+  const tbl=document.createElement('table');
+  tbl.setAttribute('data-nostats','1');
+  tbl.innerHTML='<thead><tr><th>#</th><th>Description</th><th>Unit</th><th class="num">Qty</th>'+
+    '<th class="num">Rate ('+curOf(l)+')</th><th class="num">Amount ('+curOf(l)+')</th>'+
+    '<th class="num">Against the lowest</th></tr></thead><tbody>'+body+'</tbody>'+
+    '<tfoot><tr><td colspan="5">Total in '+CUR+', charges included</td>'+
+    '<td class="num" colspan="2">'+m2(vendorTotal(l))+'</td></tr></tfoot>';
+  tbl.style.position='absolute'; tbl.style.left='-99999px';
+  document.body.appendChild(tbl);
+  try{ tablePDF(tbl,(m.desc||'Material')+' — '+venName(l.vendorId)+' — price analysis'); }
+  finally{ setTimeout(()=>tbl.remove(),1500); }
+}
+
 function mobCardMenu(tbl,id,label){
+  if(tbl==='offer'){ mobOfferMenu(id,label); return; }
   /* Each kind of record gets the actions that make sense for it, mirroring what
      the desktop offers, with the destructive one last and marked. */
   const VIEW={materials:'mat',rfqs:'ven',tasks:'task',submittals:'sub'}[tbl];
@@ -8361,7 +8438,8 @@ function mobMat(){
    ${_mcard('Vendors · '+ls.length,ls.length?ls.map(l=>{
        const t=vendorTotal(l),best=(t!=null&&low!=null&&t===low);
        const c=compSummary(l);
-       return `<div class="mrow tap" onclick="mobGo('ven',${l.vendorId})">
+       return `<div class="mrow tap" data-lp="offer:${l.id}"
+         data-lplabel="${esc(venName(l.vendorId))}" onclick="mobTap(()=>mobGo('ven',${l.vendorId}))">
          <div class="k" style="max-width:52%"><b style="color:var(--ink);font-size:13px">${esc(venName(l.vendorId))}</b>
            <div class="hint"><span class="linkchip" title="Record the date his offer arrived"
              onclick="event.stopPropagation();mobEdit('links',${l.id},'quoteDate','Offer received — '+${JSON.stringify(venName(l.vendorId))})">${
