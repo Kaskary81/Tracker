@@ -2202,6 +2202,46 @@ function tblStats(t,keep){
         lines:[['lowest',money2(lo)],['average',money2(av)],['highest',money2(hi)],
                ['lowest to highest',money2(hi-lo)]]});}}
   return out;}
+
+/* When the browser will not give us a window — most phones, most of the time —
+   the report is printed from this page instead: it is dropped into a frame,
+   printed, and taken away again. */
+function _printInPage(title,head,cards,tableHTML,cols,dense,FS,HS,PAD){
+  const css='@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:'+(dense?'10mm':'12mm')+'}'+
+   'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}'+
+   'body{font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0;text-align:center}'+
+   'h1{font-size:'+(dense?'18px':'22px')+';margin:0 0 3px}'+
+   '.sub{color:#666;font-size:12px;margin:0 0 14px}'+
+   '.cards{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 13px}'+
+   '.card{border:1px solid #d6dbe3;border-radius:10px;padding:9px 16px;min-width:150px;background:#f7f9fb}'+
+   '.card .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'+
+   '.card .v{font-size:18px;font-weight:700;margin-top:3px}'+
+   'table{border-collapse:collapse;margin:0 auto;width:100%;text-align:left}'+
+   'th,td{border:1px solid #bbb;padding:'+PAD+';text-align:left;vertical-align:top;font-size:'+FS+'}'+
+   'th{background:#eef1f5;font-weight:700;font-size:'+HS+';text-transform:uppercase}'+
+   'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
+   'td.anlow{color:#0a7d3c;font-weight:700;background:#e9f8ef}'+
+   'td.anwarm{color:#b45309;font-weight:600}td.anhot{color:#b91c1c;font-weight:700}'+
+   'tfoot td{background:#f2f4f7;font-weight:700;border-top:2px solid #999}';
+  const f=document.createElement('iframe');
+  f.setAttribute('aria-hidden','true');
+  f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  const d=f.contentDocument;
+  d.open();
+  d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Report')+
+    '</title><style>'+css+'</style></head><body><h1>'+esc(title||'Report')+'</h1>'+
+    '<div class="sub">'+esc(head)+' · printed '+esc(new Date().toLocaleString())+'</div>'+
+    cards+tableHTML+'</body></html>');
+  d.close();
+  setTimeout(()=>{
+    try{ f.contentWindow.focus(); f.contentWindow.print(); }
+    catch(e){ toast('Could not open the print dialogue'); }
+    setTimeout(()=>f.remove(),60000);
+  },300);
+  toast('Choose “Save as PDF” in the print dialogue');
+}
+
 function tablePDF(t,title){
   if(!t||!t.tHead||!t.tHead.rows[0]){toast('Nothing to print in this table');return;}
   /* a table with merged or stacked headings cannot be trimmed by column
@@ -2239,7 +2279,6 @@ function tablePDF(t,title){
   const dense=(_pdfRows(t).length>14||cols>10);
   const FS=dense?'11px':'12px',HS=dense?'10px':'11px',PAD=dense?'5px 7px':'7px 9px';
   const win=window.open('','_blank');
-  if(!win){toast('Allow pop-ups for this site and press PDF again');return;}
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   const head=[proj.name,proj.subtitle].filter(Boolean).join(' · ');
   const cards=stats.length>1?('<div class="cards">'+stats.map(s=>
@@ -2249,6 +2288,8 @@ function tablePDF(t,title){
         '<tr><td class="fl">'+esc(l[0])+'</td><td class="fv">'+esc(l[1])+'</td></tr>').join('')+'</table>':'')+
       '</div>').join('')+'</div>'):'';
   const note='';
+  /* no window granted — print from this page instead of leaving a blank tab */
+  if(!win){ _printInPage(title,head,cards,c.outerHTML,cols,dense,FS,HS,PAD); return; }
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Table')+'</title><style>'+
    '@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:'+(dense?'10mm':'12mm')+'}'+
    'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
@@ -2323,8 +2364,9 @@ function mobClarify(mid){
   const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
   wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
   wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.a; close();
-    if(i>=0)setTimeout(()=>acts[i][1](),150);});
+    const i=+b.dataset.a;
+    if(i>=0)acts[i][1]();
+    close();});
   requestAnimationFrame(()=>wrap.classList.add('on'));
 }
 
@@ -8129,7 +8171,7 @@ function mobOfferMenu(linkId,label){
   const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
   wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
   wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.a; close(); if(i>=0)setTimeout(()=>acts[i][1](),140);});
+    const i=+b.dataset.a; if(i>=0)acts[i][1](); close();});
   requestAnimationFrame(()=>wrap.classList.add('on'));
 }
 
@@ -8239,8 +8281,9 @@ function mobCardMenu(tbl,id,label){
   const close=()=>{ wrap.classList.remove('on'); setTimeout(()=>wrap.remove(),160); };
   wrap.addEventListener('click',e=>{ if(e.target===wrap)close(); });
   wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.a; close();
-    if(i>=0)setTimeout(()=>acts[i][1](),120);
+    const i=+b.dataset.a;
+    if(i>=0)acts[i][1]();
+    close();
   });
   requestAnimationFrame(()=>wrap.classList.add('on'));
 }
@@ -8261,7 +8304,7 @@ function mobClarifyVendor(vid){
   const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
   wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
   wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.a; close(); if(i>=0)setTimeout(()=>acts[i][1](),150);});
+    const i=+b.dataset.a; if(i>=0)acts[i][1](); close();});
   requestAnimationFrame(()=>wrap.classList.add('on'));
 }
 
