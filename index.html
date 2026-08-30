@@ -8098,35 +8098,96 @@ function mobLongPress(el,tbl,id,label){
 function mobTap(fn){ if(_lp.fired){_lp.fired=false;return;} fn(); }
 
 function mobCardMenu(tbl,id,label){
-  const VIEW={materials:'mat',rfqs:'ven',tasks:'task'}[tbl];
+  /* Each kind of record gets the actions that make sense for it, mirroring what
+     the desktop offers, with the destructive one last and marked. */
+  const VIEW={materials:'mat',rfqs:'ven',tasks:'task',submittals:'sub'}[tbl];
   const acts=[];
-  acts.push(['Open','box',()=>mobGo(VIEW,id)]);
+  acts.push(['Open',()=>mobGo(VIEW,id)]);
+
   if(tbl==='materials'){
-    acts.push(['Comparison & price analysis (PDF)','doc',()=>pdfComparison(id)]);
-    acts.push(['Price clarification to a vendor','doc',()=>mobClarify(id)]);
-    acts.push(['Export all prices (Excel)','money',()=>exportComparison()]);
-    acts.push(['Copy the description','doc',()=>{
+    acts.push(['Comparison & price analysis (PDF)',()=>pdfComparison(id)]);
+    acts.push(['Price clarification to a vendor',()=>mobClarify(id)]);
+    acts.push(['Export all prices (Excel)',()=>exportComparison()]);
+    acts.push(['Change the stage',()=>mobEdit('materials',id,'stage','Stage')]);
+    acts.push(['Copy the description',()=>{
       const m=(DB.materials||[]).find(x=>x.id===id);
       if(m&&typeof copyText==='function')copyText(m.desc||'');}]);
   }
-  if(canGrid(tbl))acts.push(['Delete','trash',()=>{
+
+  if(tbl==='rfqs'){
+    const v=(DB.rfqs||[]).find(x=>x.id===id)||{};
+    const mats=(DB.links||[]).filter(l=>l.vendorId===id);
+    acts.push(['Materials quoted — '+mats.length,()=>{
+      MOB.view='mats'; MOB.id=null; MOB.q=v.manufacturer||''; MOB.f='';
+      mobRender(); }]);
+    if(mats.length===1)
+      acts.push(['Price clarification',()=>govSheet(mats[0].materialId,mats[0].id,'pdf')]);
+    else if(mats.length>1)
+      acts.push(['Price clarification…',()=>mobClarifyVendor(id)]);
+    if(v.email)acts.push(['Email '+v.email,()=>{location.href='mailto:'+v.email;}]);
+    if(v.phone)acts.push(['Call '+v.phone,()=>{location.href='tel:'+v.phone;}]);
+    acts.push(['Copy the name',()=>{ if(typeof copyText==='function')copyText(v.manufacturer||''); }]);
+  }
+
+  if(tbl==='tasks'){
+    const t=(DB.tasks||[]).find(x=>x.id===id)||{};
+    if(t.status!=='Closed')
+      acts.push(['Mark it closed',()=>{_setCell('tasks',id,'status','Closed');refreshData();}]);
+    else
+      acts.push(['Reopen it',()=>{_setCell('tasks',id,'status','Open');refreshData();}]);
+    acts.push(['Change the status',()=>mobEdit('tasks',id,'status','Status')]);
+    acts.push(['Change the material',()=>mobEdit('tasks',id,'material','Material')]);
+    acts.push(['Change who is responsible',()=>mobEdit('tasks',id,'engineer','Engineer')]);
+    acts.push(['Set the target date',()=>mobEdit('tasks',id,'target','Target date')]);
+  }
+
+  if(tbl==='submittals'){
+    acts.push(['Change the status',()=>mobEdit('submittals',id,'status','Status')]);
+    acts.push(['Change the material',()=>mobEdit('submittals',id,'materialId','Material')]);
+    acts.push(['Date it was submitted',()=>mobEdit('submittals',id,'submittedDate','Submitted')]);
+    acts.push(['Date it came back',()=>mobEdit('submittals',id,'returnedDate','Returned')]);
+  }
+
+  if(canGrid(tbl))acts.push(['Delete',()=>{
     if(typeof confirmDelete==='function')confirmDelete(tbl,id);
     else toast('Deleting is not available here');}]);
-  const html=`<div class="msheetlist">${acts.map((a,i)=>
-    `<button class="msheetbtn${a[0]==='Delete'?' danger':''}" data-a="${i}">${a[0]}</button>`).join('')}
-    <button class="msheetbtn cancel" data-a="-1">Cancel</button></div>`;
+
   const wrap=document.createElement('div');
   wrap.className='msheet';
-  wrap.innerHTML=`<div class="msheetcard"><div class="msheettitle">${esc(String(label||'').slice(0,70))}</div>${html}</div>`;
+  wrap.innerHTML=`<div class="msheetcard"><div class="msheettitle">${esc(String(label||'').slice(0,70))}</div>
+    <div class="msheetlist">${acts.map((a,i)=>
+      `<button class="msheetbtn${a[0]==='Delete'?' danger':''}" data-a="${i}">${esc(a[0])}</button>`).join('')}
+      <button class="msheetbtn cancel" data-a="-1">Cancel</button></div></div>`;
   document.body.appendChild(wrap);
   const close=()=>{ wrap.classList.remove('on'); setTimeout(()=>wrap.remove(),160); };
   wrap.addEventListener('click',e=>{ if(e.target===wrap)close(); });
   wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.a; close();
-    if(i>=0)setTimeout(()=>acts[i][2](),120);
+    if(i>=0)setTimeout(()=>acts[i][1](),120);
   });
   requestAnimationFrame(()=>wrap.classList.add('on'));
 }
+/* a vendor quoting several materials — which one is being queried? */
+function mobClarifyVendor(vid){
+  const mats=(DB.links||[]).filter(l=>l.vendorId===vid&&vendorTotal(l)!=null);
+  if(!mats.length){toast('No priced offer from this vendor yet');return;}
+  const acts=mats.map(l=>{
+    const m=(DB.materials||[]).find(x=>x.id===l.materialId)||{};
+    return [(m.desc||'material')+' — PDF',()=>govSheet(l.materialId,l.id,'pdf')];});
+  const wrap=document.createElement('div');
+  wrap.className='msheet';
+  wrap.innerHTML='<div class="msheetcard"><div class="msheettitle">Price clarification — '+
+    esc(venName(vid))+'</div><div class="msheetlist">'+
+    acts.map((a,i)=>'<button class="msheetbtn" data-a="'+i+'">'+esc(a[0])+'</button>').join('')+
+    '<button class="msheetbtn cancel" data-a="-1">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.a; close(); if(i>=0)setTimeout(()=>acts[i][1](),150);});
+  requestAnimationFrame(()=>wrap.classList.add('on'));
+}
+
 /* attach to every card the phone has just drawn */
 function wireMobCards(){
   document.querySelectorAll('#mbody [data-lp]').forEach(el=>{
