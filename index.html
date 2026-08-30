@@ -6153,7 +6153,10 @@ function appLogin(){
   const u=String((document.getElementById('luser')||{}).value||'').trim().toLowerCase();
   if(!u){const m0=document.getElementById('lmsg');if(m0)m0.textContent='Choose your name from the list.';return;}
   const p=String((document.getElementById('lpass')||{}).value||'');
-  const hit=(USERS||[]).find(x=>String(x.username||'').toLowerCase()===u&&String(x.password||'')===p);
+  /* Sign-in goes through Supabase Auth, where passwords are stored one-way.
+     This local list is only used to match the chosen name to a person — it no
+     longer compares a stored password, so none needs to be kept. */
+  const hit=(USERS||[]).find(x=>String(x.username||'').toLowerCase()===u);
   const msg=document.getElementById('lmsg');
   if(!hit){if(msg)msg.textContent='That user name and password do not match.';return;}
   USER=hit;
@@ -6194,12 +6197,12 @@ function renderUsersWin(w){
        ${etd('users',u.id,'username',esc(u.username))}
        ${etd('users',u.id,'name',esc(u.name))}
        ${etd('users',u.id,'role',stageBadge(u.role,u.role==='admin'?'var(--good)':'var(--accent)'))}
-       ${etd('users',u.id,'password',esc(u.password))}
+       <td class="hint" title="Passwords are stored one-way in Supabase Authentication and cannot be displayed. Use Reset password there.">— set in Authentication —</td>
        <td class="num" title="Create this account in Supabase → Authentication → Users, with the password below">${
          u.username?`<span class="linkchip" onclick="event.stopPropagation();copyText('${esc(String(u.username).toLowerCase())}@'+AUTH_DOMAIN_LABEL())">${esc(String(u.username).toLowerCase())}@\u200b${esc(AUTH_DOMAIN_LABEL())}</span>`:'<span class="hint">set a user name first</span>'}</td>
        <td class="rowactions">${(USERS||[]).length>1?`<button class="iconbtn" title="Delete user" onclick="removeUser(${u.id})">✕</button>`:''}</td></tr>`).join('')}</tbody>
    </table></div>
-   <div class="statusbar"><span>${(USERS||[]).length} user(s)</span><span class="spacer"></span><span>in the published version each person picks their name and types this password — create the account shown, with that password, in Supabase → Authentication</span></div>`;}
+   <div class="statusbar"><span>${(USERS||[]).length} user(s)</span><span class="spacer"></span><span>each person picks their name and types their own password; accounts and passwords live in Supabase → Authentication, where they are stored one-way and cannot be read back</span></div>`;}
 async function addUser(){
   const base={username:'user'+((USERS||[]).length+1),password:'change-me',name:'New user',role:'procurement',email:''};
   let row;
