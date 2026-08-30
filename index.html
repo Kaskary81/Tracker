@@ -7734,7 +7734,20 @@ function mobBack(){
   if(p){MOB.view=p.view;MOB.id=p.id;MOB.q=p.q;MOB.f=p.f;}
   else {MOB.view='home';MOB.id=null;MOB.q='';MOB.f='';}
   mobRender();}
-function mobQ(v){MOB.q=v;mobRenderBody();}
+function mobQ(v){
+  MOB.q=v;
+  /* Redraw the body but keep the very input being typed into: remember where
+     the caret is, restore focus afterwards, and let the browser keep the
+     keyboard open. Rebuilding the whole body closed it on every keystroke. */
+  const box=document.querySelector('#mbody .msearch');
+  const pos=box?box.selectionStart:null;
+  mobRenderBody();
+  const now=document.querySelector('#mbody .msearch');
+  if(now){
+    now.focus({preventScroll:true});
+    if(pos!=null){ try{ now.setSelectionRange(pos,pos); }catch(e){} }
+  }
+}
 function mobF(v){MOB.f=(MOB.f===v?'':v);mobRender();}
 /* ---- small building blocks ---- */
 const _mrow=(k,v,tap)=>`<div class="mrow${tap?' tap':''}" ${tap?'onclick="'+tap+'"':''}>
