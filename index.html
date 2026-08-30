@@ -2409,13 +2409,15 @@ function pdfComparison(mid){
         const win=(low!=null&&t!=null&&Math.abs(t-low)<0.005);
         return '<td class="num'+(win?' anlow':'')+'">'+m2(t)+'</td>';}).join('')+'</tr></tfoot>';
 
-  document.body.appendChild(tbl);
-  tbl.style.position='absolute'; tbl.style.left='-99999px';
-  try{
-    tablePDF(tbl,(m.desc||'Material')+' — comparison and price analysis');
-  } finally {
-    setTimeout(()=>tbl.remove(),1500);
-  }
+  const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
+  _printInPage((m.desc||'Material')+' — comparison and price analysis',
+    [proj.name,proj.subtitle].filter(Boolean).join(' · '),
+    '<div class="cards"><div class="card"><div class="k">Vendors priced</div>'+
+      '<div class="v">'+priced.length+'</div></div>'+
+      '<div class="card"><div class="k">Lowest</div><div class="v">'+
+      esc(money(low))+' '+CUR+'</div></div>'+
+      '<div class="card"><div class="k">Lines</div><div class="v">'+its.length+'</div></div></div>',
+    tbl.outerHTML, 4+priced.length, its.length>14, '12px','11px','7px 9px');
 }
 
 function exportComparison(){
@@ -8209,10 +8211,16 @@ function pdfVendorOffer(linkId){
     '<th class="num">Against the lowest</th></tr></thead><tbody>'+body+'</tbody>'+
     '<tfoot><tr><td colspan="5">Total in '+CUR+', charges included</td>'+
     '<td class="num" colspan="2">'+m2(vendorTotal(l))+'</td></tr></tfoot>';
-  tbl.style.position='absolute'; tbl.style.left='-99999px';
-  document.body.appendChild(tbl);
-  try{ tablePDF(tbl,(m.desc||'Material')+' — '+venName(l.vendorId)+' — price analysis'); }
-  finally{ setTimeout(()=>tbl.remove(),1500); }
+  const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
+  _printInPage((m.desc||'Material')+' — '+venName(l.vendorId)+' — price analysis',
+    [proj.name,proj.subtitle].filter(Boolean).join(' · '),
+    '<div class="cards"><div class="card"><div class="k">His total</div>'+
+      '<div class="v">'+esc(money(vendorTotal(l)))+' '+CUR+'</div></div>'+
+      '<div class="card"><div class="k">Lines priced</div><div class="v">'+
+      rows.filter(r=>r.quotes.some(q=>q.l.id===l.id)).length+'</div></div>'+
+      '<div class="card"><div class="k">Lowest on</div><div class="v">'+
+      rows.filter(r=>r.cheap&&r.cheap.l.id===l.id).length+'</div></div></div>',
+    tbl.outerHTML, 7, its.length>14, '12px','11px','7px 9px');
 }
 
 function mobCardMenu(tbl,id,label){
