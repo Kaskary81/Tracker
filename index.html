@@ -7818,11 +7818,14 @@ function mobRender(){
   if(!USER)return;
   const t=document.getElementById('mtitle'),sb=document.getElementById('msub'),bk=document.getElementById('mback');
   const titles={home:'Trackers',mats:'Materials',mat:'Material',tasks:'Tasks',task:'Task',
-    alerts:'Notifications',feed:'Updates',vens:'Vendors',ven:'Vendor',more:'More',projects:'Projects'};
+    alerts:'Notifications',feed:'Updates',vens:'Vendors',ven:'Vendor',more:'More',projects:'Projects',
+    subs:'Material approvals',sub:'Approval',dash:'Dashboard'};
   let ttl=titles[MOB.view]||'Trackers',sub=curProject().name;
   if(MOB.view==='mat'){const m=DB.materials.find(x=>x.id===MOB.id);ttl=m?(m.desc||'Material'):'Material';sub=m?(m.discipline||''):'';}
   if(MOB.view==='ven'){const v=DB.rfqs.find(x=>x.id===MOB.id);ttl=v?(v.manufacturer||'Vendor'):'Vendor';sub='vendor';}
   if(MOB.view==='task'){const x=DB.tasks.find(y=>y.id===MOB.id);ttl=x?(x.taskDesc||'Task'):'Task';sub=x?(x.engineer||''):'';}
+  if(MOB.view==='sub'){const x=(DB.submittals||[]).find(y=>y.id===MOB.id);
+    ttl=x?(x.submDesc||x.docNo||'Approval'):'Approval';sub=x?(x.status||''):'';}
   if(t)t.textContent=ttl;
   if(sb)sb.textContent=sub||'';
   if(bk)bk.style.visibility=MOB.stack.length?'visible':'hidden';
@@ -7903,10 +7906,75 @@ function wireMobCards(){
   });
 }
 
+
+/* ============================================================
+   Brought over from the desktop: material approvals (submittals),
+   a dashboard, and undo/redo. The phone had none of the three.
+   ============================================================ */
+function mobSubs(){
+  const q=String(MOB.q||'').toLowerCase();
+  let list=(DB.submittals||[]).slice();
+  if(MOB.f)list=list.filter(x=>(x.status||'Not Submitted')===MOB.f);
+  if(q)list=list.filter(x=>{
+    const m=(DB.materials||[]).find(y=>y.id===x.materialId)||{};
+    return [x.submDesc,x.docNo,x.submType,m.desc].join(' ').toLowerCase().indexOf(q)>=0;});
+  const chips=[['','All']].concat(SUB_STATUSES.map(x=>[x,x]));
+  return `<input class="msearch" placeholder="Search approvals…" value="${esc(MOB.q)}" oninput="mobQ(this.value)">
+   ${_mchips(chips,MOB.f,'mobF')}
+   ${list.length?list.map(x=>{
+     const m=(DB.materials||[]).find(y=>y.id===x.materialId);
+     return `<div class="mcard tap" data-lp="submittals:${x.id}"
+        data-lplabel="${esc(x.submDesc||x.docNo||'')}" onclick="mobTap(()=>mobGo('sub',${x.id}))">
+       <div class="mtitle">${esc(x.submDesc||x.docNo||'(no description)')}</div>
+       <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:3px 0 6px">
+         ${stageBadge(x.status||'Not Submitted')}${x.submType?stageBadge(x.submType):''}</div>
+       <div class="msub2">${m?esc(m.desc):'<span class="hint">no material chosen</span>'}${
+         x.submittedDate?' · sent '+esc(fmtDate(x.submittedDate)):''}</div></div>`;}).join('')
+     :'<div class="mempty">Nothing here.</div>'}`;
+}
+function mobSub(){
+  const x=(DB.submittals||[]).find(y=>y.id===MOB.id);
+  if(!x)return '<div class="mempty">That approval has been deleted.</div>';
+  const m=(DB.materials||[]).find(y=>y.id===x.materialId);
+  const E=(k,l)=>_mrow(l,esc(x[k]||'')||'',`mobEdit('submittals',${x.id},'${k}')`);
+  const D=(k,l)=>_mrow(l,esc(fmtDate(x[k]))||'',`mobEdit('submittals',${x.id},'${k}')`);
+  return `${_mcard('',`<div style="display:flex;flex-wrap:wrap;gap:5px">
+      ${stageBadge(x.status||'Not Submitted')}</div>
+     <div class="mtitle" style="margin-top:8px">${esc(x.submDesc||x.docNo||'(no description)')}</div>`)}
+   ${_mcard('Approval',
+     E('docNo','Document number')+E('submType','Type')+E('status','Status')+
+     _mrow('Material',m?esc(m.desc):'<span class="hint">— none —</span>',
+           `mobEdit('submittals',${x.id},'materialId')`)+
+     D('submittedDate','Submitted')+D('returnedDate','Returned'))}
+   ${_mcard('Notes', E('history','History'))}
+   <div class="mnote">Tap any line with a value to change it — it saves as you go.</div>`;
+}
+function mobDash(){
+  const M=DB.materials||[],T=DB.tasks||[],R=DB.rfqs||[],S=DB.submittals||[],L=DB.links||[];
+  const cnt=(a,f)=>a.filter(f).length;
+  const overdue=cnt(T,t=>t.status!=='Closed'&&t.target&&daysSince(t.target)>0);
+  const row=(k,v,cls)=>`<div class="mrow"><div class="k">${k}</div><div class="v ${cls||''}">${v}</div></div>`;
+  const stages=STAGES.filter(st=>cnt(M,m=>m.stage===st))
+    .map(st=>row(esc(st),cnt(M,m=>m.stage===st)+' <span class="hint">'+pctOf(cnt(M,m=>m.stage===st),M.length)+'</span>')).join('');
+  const disc={};M.forEach(m=>{const k=m.discipline||'—';disc[k]=(disc[k]||0)+1;});
+  const dl=Object.entries(disc).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([k,c])=>row(esc(k),c+' <span class="hint">'+pctOf(c,M.length)+'</span>')).join('');
+  return `${_mcard('Where it stands',
+      row('Materials tracked',M.length)+
+      row('Awarded',cnt(M,m=>m.stage==='Awarded'))+
+      row('Vendors registered',R.length)+
+      row('Approvals logged',S.length)+
+      row('Open tasks',cnt(T,t=>t.status!=='Closed'))+
+      row('Overdue tasks',overdue,overdue?'bad':''))}
+   ${_mcard('By stage',stages||'<div class="hint" style="padding:8px">Nothing yet.</div>')}
+   ${_mcard('By discipline',dl||'<div class="hint" style="padding:8px">Nothing yet.</div>')}`;
+}
+
 function mobRenderBody(){
   const el=document.getElementById('mbody');if(!el||!USER)return;
   const V={home:mobHome,mats:mobMats,mat:mobMat,tasks:mobTasks,task:mobTask,
-    alerts:mobAlerts,feed:mobFeed,vens:mobVens,ven:mobVen,more:mobMore,projects:mobProjects};
+    alerts:mobAlerts,feed:mobFeed,vens:mobVens,ven:mobVen,more:mobMore,projects:mobProjects,
+    subs:mobSubs,sub:mobSub,dash:mobDash};
   el.innerHTML=(V[MOB.view]||mobHome)();
   wireMobCards();}
 
@@ -7936,7 +8004,9 @@ function mobHome(){
      `${canGrid('materials')?`<div class="mrow tap" onclick="mobTab('mats')"><div class="k">${icon('box',12)} Materials</div><div class="v">${M.length} ›</div></div>`:''}
       <div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
       ${canGrid('tasks')?`<div class="mrow tap" onclick="mobTab('tasks')"><div class="k">✓ Tasks</div><div class="v">${T.filter(t=>t.status!=='Closed').length} open ›</div></div>`:''}
-      <div class="mrow tap" onclick="mobTab('alerts')"><div class="k">${icon('bell',12)} Notifications</div><div class="v">${un?un+' unread':'all read'} ›</div></div>
+      <div class="mrow tap" onclick="mobGo('subs')"><div class="k">${icon('doc',12)} Material approvals</div><div class="v">${(DB.submittals||[]).length} ›</div></div>
+    <div class="mrow tap" onclick="mobGo('dash')"><div class="k">${icon('chart',12)} Dashboard</div><div class="v">›</div></div>
+    <div class="mrow tap" onclick="mobTab('alerts')"><div class="k">${icon('bell',12)} Notifications</div><div class="v">${un?un+' unread':'all read'} ›</div></div>
       <div class="mrow tap" onclick="mobTab('feed')"><div class="k">${icon('feed',12)} Updates</div><div class="v">${(DB.activity||[]).length} ›</div></div>`)}
    <div class="mnote">${priced} vendor quotation(s) priced in this project. The full workspace — comparison sheets, evaluation, draft POs — is on the desktop version, and everything you change here shows there straight away.</div>`;}
 function mobStage(st){MOB.stack.push({view:MOB.view,id:MOB.id,q:MOB.q,f:MOB.f});
@@ -8147,11 +8217,16 @@ function mobMore(){
    ${_mcard('View',
      `<div class="mrow tap" onclick="setMobile(false,true)"><div class="k">🖥 Open the desktop version</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="mobTheme()"><div class="k">◐ Light / dark</div><div class="v">›</div></div>`)}
+   ${_mcard('Correct a mistake',
+     `<div class="mrow tap" onclick="undo();mobRender();toast('Undone')"><div class="k">↶ Undo the last change</div><div class="v">›</div></div>
+      <div class="mrow tap" onclick="redo();mobRender();toast('Redone')"><div class="k">↷ Redo</div><div class="v">›</div></div>`)}
    ${_mcard('More',
-     `<div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
+     `<div class="mrow tap" onclick="mobGo('dash')"><div class="k">${icon('chart',12)} Dashboard</div><div class="v">›</div></div>
+      <div class="mrow tap" onclick="mobGo('subs')"><div class="k">${icon('doc',12)} Material approvals</div><div class="v">${(DB.submittals||[]).length} ›</div></div>
+      <div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
       <div class="mrow tap" onclick="mobGo('feed')"><div class="k">${icon('feed',12)} Updates</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="appLogout()"><div class="k" style="color:var(--critical)">⎋ Sign out</div><div class="v"></div></div>`)}
-   <div class="mnote">The desktop version has everything: comparison sheets with Excel paste, technical evaluation, draft POs, imports and reports. It is the same data — this phone view is the part you need while you are away from a desk.</div>`;}
+   <div class="mnote">The desktop version still holds the heavy work: comparison sheets with Excel paste, technical evaluation, draft POs, imports and reports. It is the same data — this phone view is the part you need while you are away from a desk.</div>`;}
 /* chosen once at start-up, and again if the screen changes shape */
 let _mobBooted=false;
 function mobBoot(){
