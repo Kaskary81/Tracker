@@ -2299,6 +2299,35 @@ function _cmpMaterials(){
 /* A PDF of one material's comparison and price analysis — the same numbers,
    laid out to be printed or sent. Built as a document the browser prints,
    so it needs nothing installed and works on a phone. */
+
+/* The price clarification sheet the desktop offers per vendor: his own rates
+   and how far above the lowest each one is — never anyone else's figures.
+   On the phone you pick the vendor first. */
+function mobClarify(mid){
+  const m=(DB.materials||[]).find(x=>x.id===mid);
+  if(!m){toast('That material has gone');return;}
+  const ls=(DB.links||[]).filter(l=>l.materialId===mid&&vendorTotal(l)!=null);
+  if(!ls.length){toast('No priced offer to query yet');return;}
+  const acts=[];
+  ls.forEach(l=>{
+    acts.push([venName(l.vendorId)+' — PDF', ()=>govSheet(mid,l.id,'pdf')]);
+    acts.push([venName(l.vendorId)+' — Excel', ()=>govSheet(mid,l.id,'xlsx')]);
+  });
+  const wrap=document.createElement('div');
+  wrap.className='msheet';
+  wrap.innerHTML='<div class="msheetcard"><div class="msheettitle">Price clarification — '+
+    esc(m.desc||'')+'</div><div class="msheetlist">'+
+    acts.map((a,i)=>'<button class="msheetbtn" data-a="'+i+'">'+esc(a[0])+'</button>').join('')+
+    '<button class="msheetbtn cancel" data-a="-1">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const close=()=>{wrap.classList.remove('on');setTimeout(()=>wrap.remove(),160);};
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close();});
+  wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.a; close();
+    if(i>=0)setTimeout(()=>acts[i][1](),150);});
+  requestAnimationFrame(()=>wrap.classList.add('on'));
+}
+
 function pdfComparison(mid){
   const m=(DB.materials||[]).find(x=>x.id===mid);
   if(!m){toast('That material has gone');return;}
@@ -8097,6 +8126,7 @@ function mobCardMenu(tbl,id,label){
   acts.push(['Open','box',()=>mobGo(VIEW,id)]);
   if(tbl==='materials'){
     acts.push(['Comparison & price analysis (PDF)','doc',()=>pdfComparison(id)]);
+    acts.push(['Price clarification to a vendor','doc',()=>mobClarify(id)]);
     acts.push(['Export all prices (Excel)','money',()=>exportComparison()]);
     acts.push(['Copy the description','doc',()=>{
       const m=(DB.materials||[]).find(x=>x.id===id);
