@@ -443,6 +443,26 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 .mempty{text-align:center;color:var(--muted);padding:34px 18px;font-size:13px;line-height:1.5}
 .mnote{font-size:11.5px;color:var(--muted);line-height:1.45;padding:2px 2px 10px}
 .munread{border-left:3px solid var(--accent)}
+
+/* the action sheet a long press brings up */
+.msheet{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);
+  display:flex;align-items:flex-end;opacity:0;transition:opacity .16s}
+.msheet.on{opacity:1}
+.msheetcard{width:100%;background:var(--surface);border-radius:18px 18px 0 0;
+  padding:10px 12px calc(14px + env(safe-area-inset-bottom));
+  transform:translateY(14px);transition:transform .18s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 -12px 40px rgba(0,0,0,.4)}
+.msheet.on .msheetcard{transform:translateY(0)}
+.msheettitle{font-size:12.5px;color:var(--muted);padding:6px 6px 10px;
+  border-bottom:1px solid var(--ring);margin-bottom:6px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msheetbtn{display:block;width:100%;text-align:left;background:transparent;border:none;
+  color:var(--text);font:inherit;font-size:15px;padding:13px 8px;border-radius:10px;cursor:pointer}
+.msheetbtn:active{background:var(--chip)}
+.msheetbtn.danger{color:var(--critical)}
+.msheetbtn.cancel{text-align:center;color:var(--muted);margin-top:6px;
+  border-top:1px solid var(--ring);border-radius:0}
+.mcard.tap{-webkit-touch-callout:none}
 </style>
 </head>
 <body>
@@ -7805,11 +7825,79 @@ function mobTabs(){
   el.innerHTML=T.map(([v,i,l])=>`<button class="${MOB.view===v?'on':''}" onclick="mobTab('${v}')"><b>${icon(i,19)}</b>${l}</button>`).join('');}
 function mobTab(v){MOB.stack=[];MOB.view=v;MOB.id=null;MOB.q='';MOB.f='';
   const b=document.getElementById('mbody');if(b)b.scrollTop=0;mobRender();}
+
+/* ============================================================
+   Long press on a card, the way a phone expects: hold for about
+   half a second and a sheet of actions comes up. A short tap still
+   opens the record, and a drag still scrolls — the press is
+   cancelled the moment the finger moves.
+   ============================================================ */
+let _lp={timer:null,fired:false,x:0,y:0};
+function mobLongPress(el,tbl,id,label){
+  const cancel=()=>{ if(_lp.timer){clearTimeout(_lp.timer);_lp.timer=null;} };
+  const start=e=>{
+    const t=(e.touches&&e.touches[0])||e;
+    _lp.fired=false; _lp.x=t.clientX; _lp.y=t.clientY;
+    cancel();
+    _lp.timer=setTimeout(()=>{
+      _lp.fired=true;
+      if(navigator.vibrate)try{navigator.vibrate(12);}catch(_){}
+      mobCardMenu(tbl,id,label);
+    },500);
+  };
+  const move=e=>{
+    const t=(e.touches&&e.touches[0])||e;
+    if(Math.abs(t.clientX-_lp.x)>10||Math.abs(t.clientY-_lp.y)>10)cancel();
+  };
+  el.addEventListener('touchstart',start,{passive:true});
+  el.addEventListener('touchmove',move,{passive:true});
+  el.addEventListener('touchend',cancel);
+  el.addEventListener('touchcancel',cancel);
+  el.addEventListener('contextmenu',e=>{e.preventDefault();mobCardMenu(tbl,id,label);});
+}
+/* a tap that followed a long press must not also open the record */
+function mobTap(fn){ if(_lp.fired){_lp.fired=false;return;} fn(); }
+
+function mobCardMenu(tbl,id,label){
+  const VIEW={materials:'mat',rfqs:'ven',tasks:'task'}[tbl];
+  const acts=[];
+  acts.push(['Open','box',()=>mobGo(VIEW,id)]);
+  if(tbl==='materials')acts.push(['Copy the description','doc',()=>{
+    const m=(DB.materials||[]).find(x=>x.id===id);
+    if(m&&typeof copyText==='function')copyText(m.desc||'');}]);
+  if(canGrid(tbl))acts.push(['Delete','trash',()=>{
+    if(typeof confirmDelete==='function')confirmDelete(tbl,id);
+    else toast('Deleting is not available here');}]);
+  const html=`<div class="msheetlist">${acts.map((a,i)=>
+    `<button class="msheetbtn${a[0]==='Delete'?' danger':''}" data-a="${i}">${a[0]}</button>`).join('')}
+    <button class="msheetbtn cancel" data-a="-1">Cancel</button></div>`;
+  const wrap=document.createElement('div');
+  wrap.className='msheet';
+  wrap.innerHTML=`<div class="msheetcard"><div class="msheettitle">${esc(String(label||'').slice(0,70))}</div>${html}</div>`;
+  document.body.appendChild(wrap);
+  const close=()=>{ wrap.classList.remove('on'); setTimeout(()=>wrap.remove(),160); };
+  wrap.addEventListener('click',e=>{ if(e.target===wrap)close(); });
+  wrap.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.a; close();
+    if(i>=0)setTimeout(()=>acts[i][2](),120);
+  });
+  requestAnimationFrame(()=>wrap.classList.add('on'));
+}
+/* attach to every card the phone has just drawn */
+function wireMobCards(){
+  document.querySelectorAll('#mbody [data-lp]').forEach(el=>{
+    if(el._lpwired)return; el._lpwired=1;
+    const [tbl,id]=el.dataset.lp.split(':');
+    mobLongPress(el,tbl,+id,el.dataset.lplabel||'');
+  });
+}
+
 function mobRenderBody(){
   const el=document.getElementById('mbody');if(!el||!USER)return;
   const V={home:mobHome,mats:mobMats,mat:mobMat,tasks:mobTasks,task:mobTask,
     alerts:mobAlerts,feed:mobFeed,vens:mobVens,ven:mobVen,more:mobMore,projects:mobProjects};
-  el.innerHTML=(V[MOB.view]||mobHome)();}
+  el.innerHTML=(V[MOB.view]||mobHome)();
+  wireMobCards();}
 
 /* ---- home ---- */
 function mobHome(){
@@ -7854,7 +7942,8 @@ function mobMats(){
    ${_mchips(chips,MOB.f,'mobF')}
    ${list.length?list.map(m=>{
      const ls=linksForMaterial(m),low=lowestTotal(m.id);
-     return `<div class="mcard tap" onclick="mobGo('mat',${m.id})">
+     return `<div class="mcard tap" data-lp="materials:${m.id}"
+       data-lplabel="${esc(m.desc||'')}" onclick="mobTap(()=>mobGo('mat',${m.id}))">
        <div class="mtitle">${esc(m.desc||'(no description)')}</div>
        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:3px 0 6px">
          ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
@@ -7932,7 +8021,8 @@ function mobVens(){
   if(q)list=list.filter(v=>String(v.manufacturer||'').toLowerCase().indexOf(q)>=0);
   return `<input class="msearch" placeholder="Search vendors…" value="${esc(MOB.q)}" oninput="mobQ(this.value)">
    ${list.length?list.map(v=>{const ls=linksForVendor(v);
-     return `<div class="mcard tap" onclick="mobGo('ven',${v.id})">
+     return `<div class="mcard tap" data-lp="rfqs:${v.id}"
+       data-lplabel="${esc(v.manufacturer||v.vendor||'')}" onclick="mobTap(()=>mobGo('ven',${v.id}))">
        <div class="mtitle">${esc(v.manufacturer||'(vendor)')}</div>
        <div class="hint">${ls.length} material(s)${ls.filter(offerIn).length?' · '+ls.filter(offerIn).length+' offer(s) in':''}</div></div>`;}).join('')
     :'<div class="mempty">No vendor matches that.</div>'}`;}
@@ -7965,7 +8055,8 @@ function mobTasks(){
    ${_mchips([['mine','Mine'],['open','All open'],['late','Overdue'],['all','Everything']],f,'mobTaskF')}
    ${list.length?list.map(t=>{
      const d=t.target?-daysSince(t.target):null;
-     return `<div class="mcard tap" onclick="mobGo('task',${t.id})">
+     return `<div class="mcard tap" data-lp="tasks:${t.id}"
+       data-lplabel="${esc(t.taskDesc||t.desc||'')}" onclick="mobTap(()=>mobGo('task',${t.id}))">
        <div class="mtitle">${esc(t.taskDesc||'(task)')}</div>
        <div style="display:flex;flex-wrap:wrap;gap:5px;margin:3px 0 6px">${stageBadge(t.status,TASK_COLOR[t.status])}${
          t.priority?`<span class="badge">${esc(t.priority)}</span>`:''}</div>
