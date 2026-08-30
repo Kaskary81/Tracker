@@ -2329,6 +2329,10 @@ function mobClarify(mid){
 }
 
 function pdfComparison(mid){
+  /* The desktop's own report template — tablePDF() — so the sheet carries the
+     project heading, the summary cards and the same styling as every other
+     printed table in the app. It is given a real table to print, built off
+     screen from the comparison the analysis tab shows. */
   const m=(DB.materials||[]).find(x=>x.id===mid);
   if(!m){toast('That material has gone');return;}
   const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
@@ -2336,67 +2340,40 @@ function pdfComparison(mid){
   if(!priced.length){toast('Nothing is priced for this material yet');return;}
   const rev=lastPricedRev(priced[0]);
   const its=boqOf(m.id,rev), par=markParents(its);
-  const rows=_anRows(m,its,ls,rev,undefined);
   const low=lowestTotal(m.id);
-  const money0=v=>v==null||v===''?'':Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const m2=v=>v==null||v===''?'':Number(v).toLocaleString('en-US',
+    {minimumFractionDigits:2,maximumFractionDigits:2});
 
-  const head='<tr><th>#</th><th>Description</th><th>Unit</th><th class="n">Qty</th>'+
-    priced.map(l=>'<th class="n">'+esc(venName(l.vendorId))+'</th>').join('')+'</tr>';
-  const body=its.map(i=>{
-    const isPar=par.has(i.id);
-    return '<tr'+(isPar?' class="hd"':'')+'><td>'+esc(i.no||'')+'</td><td>'+esc(i.description||'')+
-      '</td><td>'+esc(i.unit||'')+'</td><td class="n">'+(isPar?'':(qtyOf(i)??''))+'</td>'+
-      priced.map(l=>{
-        if(isPar)return '<td></td>';
-        const a=amountOf(l,i,lastPricedRev(l));
-        return '<td class="n">'+(a==null?'':money0(a))+'</td>';}).join('')+'</tr>';}).join('');
-  const totRow='<tr class="tot"><td colspan="4">Total in '+CUR+', charges included</td>'+
-    priced.map(l=>{const t=vendorTotal(l);
-      const win=(low!=null&&t!=null&&Math.abs(t-low)<0.005);
-      return '<td class="n'+(win?' win':'')+'">'+money0(t)+(win?' ★':'')+'</td>';}).join('')+'</tr>';
+  const tbl=document.createElement('table');
+  tbl.setAttribute('data-nostats','1');
+  tbl.innerHTML=
+    '<thead><tr><th>#</th><th>Description</th><th>Unit</th><th class="num">Qty</th>'+
+      priced.map(l=>'<th class="num">'+esc(venName(l.vendorId))+'</th>').join('')+'</tr></thead>'+
+    '<tbody>'+its.map(i=>{
+      const isPar=par.has(i.id);
+      const cheapest=(()=>{ if(isPar)return null;
+        let best=null; priced.forEach(l=>{const a=amountOf(l,i,lastPricedRev(l));
+          if(a!=null&&(best==null||a<best.a))best={a:a,id:l.id};}); return best;})();
+      return '<tr><td>'+esc(i.no||'')+'</td><td>'+esc(i.description||'')+'</td><td>'+
+        esc(i.unit||'')+'</td><td class="num">'+(isPar?'':(qtyOf(i)??''))+'</td>'+
+        priced.map(l=>{
+          if(isPar)return '<td></td>';
+          const a=amountOf(l,i,lastPricedRev(l));
+          const win=cheapest&&cheapest.id===l.id&&priced.length>1;
+          return '<td class="num'+(win?' anlow':'')+'">'+m2(a)+'</td>';}).join('')+'</tr>';
+    }).join('')+'</tbody>'+
+    '<tfoot><tr><td colspan="4">Total in '+CUR+', charges included</td>'+
+      priced.map(l=>{const t=vendorTotal(l);
+        const win=(low!=null&&t!=null&&Math.abs(t-low)<0.005);
+        return '<td class="num'+(win?' anlow':'')+'">'+m2(t)+'</td>';}).join('')+'</tr></tfoot>';
 
-  const anal=rows.filter(r=>r.priced.length).map(r=>
-    '<tr><td>'+esc(r.i.no||'')+'</td><td>'+esc(r.i.description||'')+'</td>'+
-    '<td class="n">'+(r.q??'')+'</td><td class="n">'+money0(r.lo)+'</td>'+
-    '<td>'+esc(r.cheap?r.cheap.ven:'')+'</td><td class="n">'+money0(r.hi)+'</td>'+
-    '<td class="n">'+money0(r.med)+'</td><td class="n">'+(r.spread==null?'':r.spread+'%')+'</td></tr>').join('');
-
-  const terms=priced.map(l=>'<tr><td>'+esc(venName(l.vendorId))+'</td><td>'+esc(curOf(l))+
-    '</td><td>'+esc(l.incotermFinal||l.incoterm||'')+'</td><td>'+esc(l.payment||'')+
-    '</td><td>'+esc(l.origin||'')+'</td><td>'+
-    esc([l.durFrom,l.durTo].filter(Boolean).join('–')+(l.durUnit?' '+l.durUnit:''))+
-    '</td><td class="n">'+money0(vendorTotal(l))+'</td></tr>').join('');
-
-  const html='<!doctype html><meta charset="utf-8"><title>'+esc(m.desc||'Comparison')+'</title>'+
-   '<style>@page{size:A4 landscape;margin:12mm}'+
-   'body{font:10.5px/1.45 Helvetica,Arial,sans-serif;color:#000}'+
-   'h1{font-size:15px;margin:0 0 2px}h2{font-size:11.5px;margin:16px 0 5px}'+
-   '.meta{font-size:9.5px;color:#555;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin-bottom:10px}'+
-   'table{width:100%;border-collapse:collapse;margin-bottom:4px}'+
-   'th,td{border:.5px solid #999;padding:3px 5px;text-align:left;vertical-align:top}'+
-   'th{background:#e8e8e8;font-size:9.5px}.n{text-align:right}'+
-   'tr.hd td{background:#f4f4f4;font-weight:bold}'+
-   'tr.tot td{font-weight:bold;border-top:1.4px solid #000}'+
-   '.win{background:#e8f5ec}.note{font-size:9px;color:#555;margin-top:3px}</style>'+
-   '<h1>'+esc(m.desc||'')+' — comparison and price analysis</h1>'+
-   '<div class="meta"><b>Project</b> '+esc(curProject().name)+' &nbsp;·&nbsp; <b>Discipline</b> '+
-     esc(m.discipline||'—')+' &nbsp;·&nbsp; <b>Stage</b> '+esc(m.stage||'—')+
-     ' &nbsp;·&nbsp; <b>Vendors priced</b> '+priced.length+
-     ' &nbsp;·&nbsp; <b>Issued</b> '+fmtDate(new Date().toISOString().slice(0,10))+'</div>'+
-   '<h2>1. Comparison — amounts in '+CUR+'</h2><table><thead>'+head+'</thead><tbody>'+body+totRow+'</tbody></table>'+
-   '<div class="note">★ marks the lowest total. Headings are totalled, never priced.</div>'+
-   '<h2>2. Terms</h2><table><thead><tr><th>Vendor</th><th>Currency</th><th>Incoterm</th>'+
-     '<th>Payment</th><th>Origin</th><th>Delivery</th><th class="n">Total ('+CUR+')</th></tr></thead>'+
-     '<tbody>'+terms+'</tbody></table>'+
-   '<h2>3. Price analysis — line by line</h2><table><thead><tr><th>#</th><th>Description</th>'+
-     '<th class="n">Qty</th><th class="n">Lowest rate</th><th>Cheapest</th><th class="n">Highest</th>'+
-     '<th class="n">Median</th><th class="n">Spread</th></tr></thead><tbody>'+anal+'</tbody></table>';
-
-  const win=window.open('','_blank');
-  if(!win){toast('Allow pop-ups to produce the PDF');return;}
-  win.document.write(html); win.document.close();
-  setTimeout(()=>{try{win.focus();win.print();}catch(e){}},400);
-  toast('Choose “Save as PDF” in the print dialogue');
+  document.body.appendChild(tbl);
+  tbl.style.position='absolute'; tbl.style.left='-99999px';
+  try{
+    tablePDF(tbl,(m.desc||'Material')+' — comparison and price analysis');
+  } finally {
+    setTimeout(()=>tbl.remove(),1500);
+  }
 }
 
 function exportComparison(){
