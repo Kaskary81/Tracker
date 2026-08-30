@@ -544,6 +544,7 @@ window.APP_CONFIG = {
     <button class="tbbtn" onclick="openTaskBoard()" title="Tasks"><span class="icslot" data-ic="check"></span>Tasks</button>
   </span>
   <span id="nav-procurement" style="display:none">
+    <button class="tbbtn" onclick="exportComparison()" title="Export comparison and price analysis to Excel"><span class="icslot" data-ic="money"></span>Export prices</button>
     <button class="tbbtn" onclick="openGrid('compare')" title="Comparison Sheets"><span class="icslot" data-ic="money"></span>Comparison Sheets</button>
     <button class="tbbtn" onclick="openGrid('targets')" title="Target Prices"><span class="icslot" data-ic="target"></span>Target Prices</button>
     <button class="tbbtn" onclick="openGrid('materials')" title="Materials"><span class="icslot" data-ic="box"></span>Materials</button>
@@ -2285,6 +2286,105 @@ function copyTable(wid,ti){
   const aoa=tableAOA(t);
   copyText(aoa.map(r=>r.map(v=>/[\t\n"]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join('\t')).join('\n'),
     'Copied '+(aoa.length-1)+' row(s) with headers — paste into Excel');}
+
+/* ============================================================
+   Comparison and price analysis, out to Excel. It uses the app's
+   own totalling — vendorTotal, goodsSAR, chargesSAR — so the
+   workbook says exactly what the screen says.
+   ============================================================ */
+function _cmpMaterials(){
+  return (DB.materials||[]).filter(m=>
+    (DB.links||[]).some(l=>l.materialId===m.id && vendorTotal(l)!=null));
+}
+function exportComparison(){
+  const mats=_cmpMaterials();
+  if(!mats.length){toast('Nothing is priced yet');return;}
+  ensureXLSX().then(()=>{
+    const wb=XLSX.utils.book_new();
+    const used={};
+    const sheet=(name,aoa)=>{
+      let n=String(name).replace(/[\\\/?*\[\]:]/g,' ').slice(0,28)||'Sheet';
+      used[n]=(used[n]||0)+1; if(used[n]>1)n=n.slice(0,25)+' '+used[n];
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols']=(aoa[0]||[]).map((h,c)=>
+        ({wch:Math.min(48,Math.max(9,...aoa.map(r=>String(r[c]==null?'':r[c]).length)))}));
+      XLSX.utils.book_append_sheet(wb,ws,n);
+    };
+
+    /* 1 — the summary every meeting asks for */
+    const sum=[['Material','Discipline','Stage','Vendors priced','Lowest total ('+CUR+')',
+                'Lowest vendor','Selected vendor','Spread %']];
+    mats.forEach(m=>{
+      const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
+      const priced=ls.map(l=>({l,t:vendorTotal(l)})).filter(x=>x.t!=null&&x.t>0)
+        .sort((a,b)=>a.t-b.t);
+      if(!priced.length)return;
+      const lo=priced[0], hi=priced[priced.length-1];
+      const sel=ls.find(l=>l.selected);
+      sum.push([m.desc||'', m.discipline||'', m.stage||'', priced.length,
+        lo.t, venName(lo.l.vendorId), sel?venName(sel.vendorId):'',
+        priced.length>1?Math.round((hi.t-lo.t)/lo.t*100):0]);
+    });
+    sheet('Summary',sum);
+
+    /* 2 — every vendor's offer, side by side */
+    const pa=[['Material','Vendor','Currency','Goods ('+CUR+')','Charges ('+CUR+')',
+               'Total ('+CUR+')','Lowest?','Incoterm','Payment','Origin','Delivery','Quote date']];
+    mats.forEach(m=>{
+      const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
+      const low=lowestTotal(m.id);
+      ls.forEach(l=>{
+        const t=vendorTotal(l); if(t==null)return;
+        const rev=lastPricedRev(l);
+        const g=rev==null?null:goodsSAR(l,rev);
+        pa.push([m.desc||'', venName(l.vendorId), curOf(l),
+          g==null?'':g, (g==null||t==null)?'':Math.round((t-g)*100)/100, t,
+          (low!=null&&Math.abs(t-low)<0.005)?'lowest':'',
+          l.incotermFinal||l.incoterm||'', l.payment||'', l.origin||'',
+          [l.durFrom,l.durTo].filter(Boolean).join('–')+(l.durUnit?' '+l.durUnit:''),
+          l.quoteDate||'']);
+      });
+    });
+    sheet('Price analysis',pa);
+
+    /* 3 — one sheet per material: the priced bill of quantities */
+    mats.forEach(m=>{
+      const ls=(DB.links||[]).filter(l=>l.materialId===m.id&&vendorTotal(l)!=null);
+      if(!ls.length)return;
+      const rev=lastPricedRev(ls[0]);
+      const its=boqOf(m.id,rev);
+      if(!its.length)return;
+      const head=['#','Description','Unit','Qty'];
+      ls.forEach(l=>head.push(venName(l.vendorId)+' rate',venName(l.vendorId)+' amount'));
+      const rows=[head];
+      const par=markParents(its);
+      its.forEach(i=>{
+        const r=[i.no||'', i.description||'', i.unit||'', par.has(i.id)?'':qtyOf(i)];
+        ls.forEach(l=>{
+          if(par.has(i.id)){r.push('','');return;}
+          const rv=lastPricedRev(l);
+          const rate=rateOf(l.id,i.id,rv), amt=amountOf(l,i,rv);
+          r.push(rate==null?'':rate, amt==null?'':amt);
+        });
+        rows.push(r);
+      });
+      const tot=['','Total in the vendor\u2019s currency','',''];
+      ls.forEach(l=>{const rv=lastPricedRev(l);tot.push('',rv==null?'':goodsForRev(l,rv));});
+      rows.push(tot);
+      const tot2=['','Total in '+CUR+', with charges','',''];
+      ls.forEach(l=>{tot2.push('',vendorTotal(l));});
+      rows.push(tot2);
+      sheet(m.desc||('Material '+m.id),rows);
+    });
+
+    const name='Comparison and price analysis — '+curProject().name;
+    XLSX.writeFile(wb,name.replace(/[^\w\- ]+/g,'').slice(0,60)+'.xlsx');
+    toast('Exported '+mats.length+' priced material(s)');
+  }).catch(e=>{
+    toast('Could not build the workbook: '+(e&&e.message||e));
+  });
+}
+
 function exportTableXLSX(wid,ti,name){
   const t=winTable(wid,ti);if(!t){toast('No table to export here');return;}
   const aoa=tableAOA(t);
@@ -8221,7 +8321,8 @@ function mobMore(){
      `<div class="mrow tap" onclick="undo();mobRender();toast('Undone')"><div class="k">↶ Undo the last change</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="redo();mobRender();toast('Redone')"><div class="k">↷ Redo</div><div class="v">›</div></div>`)}
    ${_mcard('More',
-     `<div class="mrow tap" onclick="mobGo('dash')"><div class="k">${icon('chart',12)} Dashboard</div><div class="v">›</div></div>
+     `<div class="mrow tap" onclick="exportComparison()"><div class="k">${icon('money',12)} Export comparison &amp; prices</div><div class="v">›</div></div>
+      <div class="mrow tap" onclick="mobGo('dash')"><div class="k">${icon('chart',12)} Dashboard</div><div class="v">›</div></div>
       <div class="mrow tap" onclick="mobGo('subs')"><div class="k">${icon('doc',12)} Material approvals</div><div class="v">${(DB.submittals||[]).length} ›</div></div>
       <div class="mrow tap" onclick="mobGo('vens')"><div class="k">${icon('tag',12)} Vendors</div><div class="v">${(DB.rfqs||[]).length} ›</div></div>
       <div class="mrow tap" onclick="mobGo('feed')"><div class="k">${icon('feed',12)} Updates</div><div class="v">›</div></div>
