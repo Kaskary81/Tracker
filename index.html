@@ -544,7 +544,6 @@ window.APP_CONFIG = {
     <button class="tbbtn" onclick="openTaskBoard()" title="Tasks"><span class="icslot" data-ic="check"></span>Tasks</button>
   </span>
   <span id="nav-procurement" style="display:none">
-    <button class="tbbtn" onclick="exportComparison()" title="Export comparison and price analysis to Excel"><span class="icslot" data-ic="money"></span>Export prices</button>
     <button class="tbbtn" onclick="openGrid('compare')" title="Comparison Sheets"><span class="icslot" data-ic="money"></span>Comparison Sheets</button>
     <button class="tbbtn" onclick="openGrid('targets')" title="Target Prices"><span class="icslot" data-ic="target"></span>Target Prices</button>
     <button class="tbbtn" onclick="openGrid('materials')" title="Materials"><span class="icslot" data-ic="box"></span>Materials</button>
@@ -2296,6 +2295,81 @@ function _cmpMaterials(){
   return (DB.materials||[]).filter(m=>
     (DB.links||[]).some(l=>l.materialId===m.id && vendorTotal(l)!=null));
 }
+
+/* A PDF of one material's comparison and price analysis — the same numbers,
+   laid out to be printed or sent. Built as a document the browser prints,
+   so it needs nothing installed and works on a phone. */
+function pdfComparison(mid){
+  const m=(DB.materials||[]).find(x=>x.id===mid);
+  if(!m){toast('That material has gone');return;}
+  const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
+  const priced=ls.filter(l=>vendorTotal(l)!=null);
+  if(!priced.length){toast('Nothing is priced for this material yet');return;}
+  const rev=lastPricedRev(priced[0]);
+  const its=boqOf(m.id,rev), par=markParents(its);
+  const rows=_anRows(m,its,ls,rev,undefined);
+  const low=lowestTotal(m.id);
+  const money0=v=>v==null||v===''?'':Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const head='<tr><th>#</th><th>Description</th><th>Unit</th><th class="n">Qty</th>'+
+    priced.map(l=>'<th class="n">'+esc(venName(l.vendorId))+'</th>').join('')+'</tr>';
+  const body=its.map(i=>{
+    const isPar=par.has(i.id);
+    return '<tr'+(isPar?' class="hd"':'')+'><td>'+esc(i.no||'')+'</td><td>'+esc(i.description||'')+
+      '</td><td>'+esc(i.unit||'')+'</td><td class="n">'+(isPar?'':(qtyOf(i)??''))+'</td>'+
+      priced.map(l=>{
+        if(isPar)return '<td></td>';
+        const a=amountOf(l,i,lastPricedRev(l));
+        return '<td class="n">'+(a==null?'':money0(a))+'</td>';}).join('')+'</tr>';}).join('');
+  const totRow='<tr class="tot"><td colspan="4">Total in '+CUR+', charges included</td>'+
+    priced.map(l=>{const t=vendorTotal(l);
+      const win=(low!=null&&t!=null&&Math.abs(t-low)<0.005);
+      return '<td class="n'+(win?' win':'')+'">'+money0(t)+(win?' ★':'')+'</td>';}).join('')+'</tr>';
+
+  const anal=rows.filter(r=>r.priced.length).map(r=>
+    '<tr><td>'+esc(r.i.no||'')+'</td><td>'+esc(r.i.description||'')+'</td>'+
+    '<td class="n">'+(r.q??'')+'</td><td class="n">'+money0(r.lo)+'</td>'+
+    '<td>'+esc(r.cheap?r.cheap.ven:'')+'</td><td class="n">'+money0(r.hi)+'</td>'+
+    '<td class="n">'+money0(r.med)+'</td><td class="n">'+(r.spread==null?'':r.spread+'%')+'</td></tr>').join('');
+
+  const terms=priced.map(l=>'<tr><td>'+esc(venName(l.vendorId))+'</td><td>'+esc(curOf(l))+
+    '</td><td>'+esc(l.incotermFinal||l.incoterm||'')+'</td><td>'+esc(l.payment||'')+
+    '</td><td>'+esc(l.origin||'')+'</td><td>'+
+    esc([l.durFrom,l.durTo].filter(Boolean).join('–')+(l.durUnit?' '+l.durUnit:''))+
+    '</td><td class="n">'+money0(vendorTotal(l))+'</td></tr>').join('');
+
+  const html='<!doctype html><meta charset="utf-8"><title>'+esc(m.desc||'Comparison')+'</title>'+
+   '<style>@page{size:A4 landscape;margin:12mm}'+
+   'body{font:10.5px/1.45 Helvetica,Arial,sans-serif;color:#000}'+
+   'h1{font-size:15px;margin:0 0 2px}h2{font-size:11.5px;margin:16px 0 5px}'+
+   '.meta{font-size:9.5px;color:#555;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin-bottom:10px}'+
+   'table{width:100%;border-collapse:collapse;margin-bottom:4px}'+
+   'th,td{border:.5px solid #999;padding:3px 5px;text-align:left;vertical-align:top}'+
+   'th{background:#e8e8e8;font-size:9.5px}.n{text-align:right}'+
+   'tr.hd td{background:#f4f4f4;font-weight:bold}'+
+   'tr.tot td{font-weight:bold;border-top:1.4px solid #000}'+
+   '.win{background:#e8f5ec}.note{font-size:9px;color:#555;margin-top:3px}</style>'+
+   '<h1>'+esc(m.desc||'')+' — comparison and price analysis</h1>'+
+   '<div class="meta"><b>Project</b> '+esc(curProject().name)+' &nbsp;·&nbsp; <b>Discipline</b> '+
+     esc(m.discipline||'—')+' &nbsp;·&nbsp; <b>Stage</b> '+esc(m.stage||'—')+
+     ' &nbsp;·&nbsp; <b>Vendors priced</b> '+priced.length+
+     ' &nbsp;·&nbsp; <b>Issued</b> '+fmtDate(new Date().toISOString().slice(0,10))+'</div>'+
+   '<h2>1. Comparison — amounts in '+CUR+'</h2><table><thead>'+head+'</thead><tbody>'+body+totRow+'</tbody></table>'+
+   '<div class="note">★ marks the lowest total. Headings are totalled, never priced.</div>'+
+   '<h2>2. Terms</h2><table><thead><tr><th>Vendor</th><th>Currency</th><th>Incoterm</th>'+
+     '<th>Payment</th><th>Origin</th><th>Delivery</th><th class="n">Total ('+CUR+')</th></tr></thead>'+
+     '<tbody>'+terms+'</tbody></table>'+
+   '<h2>3. Price analysis — line by line</h2><table><thead><tr><th>#</th><th>Description</th>'+
+     '<th class="n">Qty</th><th class="n">Lowest rate</th><th>Cheapest</th><th class="n">Highest</th>'+
+     '<th class="n">Median</th><th class="n">Spread</th></tr></thead><tbody>'+anal+'</tbody></table>';
+
+  const win=window.open('','_blank');
+  if(!win){toast('Allow pop-ups to produce the PDF');return;}
+  win.document.write(html); win.document.close();
+  setTimeout(()=>{try{win.focus();win.print();}catch(e){}},400);
+  toast('Choose “Save as PDF” in the print dialogue');
+}
+
 function exportComparison(){
   const mats=_cmpMaterials();
   if(!mats.length){toast('Nothing is priced yet');return;}
@@ -2327,7 +2401,7 @@ function exportComparison(){
     });
     sheet('Summary',sum);
 
-    /* 2 — every vendor's offer, side by side */
+    /* 2 — the offers, with the terms that go with them */
     const pa=[['Material','Vendor','Currency','Goods ('+CUR+')','Charges ('+CUR+')',
                'Total ('+CUR+')','Lowest?','Incoterm','Payment','Origin','Delivery','Quote date']];
     mats.forEach(m=>{
@@ -2345,7 +2419,52 @@ function exportComparison(){
           l.quoteDate||'']);
       });
     });
-    sheet('Price analysis',pa);
+    sheet('Offers',pa);
+
+    /* 3 — the price analysis the desktop tab shows: line by line, with the
+       cheapest on each, the spread, and what a split award would save */
+    const an=[['Material','Item','Description','Unit','Qty','Vendors priced',
+               'Lowest rate','Cheapest vendor','Highest rate','Average','Median',
+               'Spread %','Line value at the lowest']];
+    const split=[['Material','Single lowest vendor','Single lowest total',
+                  'Split award total','Saving by splitting','Vendors in the split',
+                  'Outlier lines (>'+AN_OUT+'%)']];
+    mats.forEach(m=>{
+      const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
+      const priced=ls.filter(l=>vendorTotal(l)!=null);
+      if(!priced.length)return;
+      const rev=lastPricedRev(priced[0]);
+      const its=boqOf(m.id,rev);
+      const rows=_anRows(m,its,ls,rev,undefined);
+      rows.forEach(r=>{
+        if(!r.priced.length)return;
+        an.push([m.desc||'', r.i.no||'', r.i.description||'', r.i.unit||'',
+          r.q==null?'':r.q, r.priced.length,
+          r.lo==null?'':r.lo, r.cheap?r.cheap.ven:'', r.hi==null?'':r.hi,
+          r.avg==null?'':r.avg, r.med==null?'':r.med,
+          r.spread==null?'':r.spread,
+          (r.q!=null&&r.cheap)?Math.round(r.q*r.cheap.sar*100)/100:'']);
+      });
+      /* the split award, totalled the way the analysis tab totals it */
+      let g=0,ok=true; const shareCur={},wins={};
+      rows.filter(r=>r.priced.length).forEach(r=>{
+        if(r.q==null||r.cheap==null){ok=false;return;}
+        g+=r.q*r.cheap.sar; wins[r.cheap.ven]=1;
+        shareCur[r.cheap.l.id]=(shareCur[r.cheap.l.id]||0)+r.q*r.cheap.raw;});
+      let ch=0; Object.keys(shareCur).forEach(k=>{
+        const l=ls.find(x=>String(x.id)===String(k));
+        if(l)ch+=chargesSAR(l,shareCur[k]);});
+      const splitTotal=ok?Math.round((g+ch)*100)/100:null;
+      const totals=ls.map(l=>({ven:venName(l.vendorId),t:vendorTotal(l)}))
+        .filter(x=>x.t!=null&&x.t>0).sort((a,b)=>a.t-b.t);
+      const one=totals[0]||null;
+      split.push([m.desc||'', one?one.ven:'', one?one.t:'',
+        splitTotal==null?'':splitTotal,
+        (one&&splitTotal!=null)?Math.round((one.t-splitTotal)*100)/100:'',
+        Object.keys(wins).length, _anOutliers(rows).length]);
+    });
+    sheet('Price analysis',an);
+    sheet('Split award',split);
 
     /* 3 — one sheet per material: the priced bill of quantities */
     mats.forEach(m=>{
@@ -7976,9 +8095,13 @@ function mobCardMenu(tbl,id,label){
   const VIEW={materials:'mat',rfqs:'ven',tasks:'task'}[tbl];
   const acts=[];
   acts.push(['Open','box',()=>mobGo(VIEW,id)]);
-  if(tbl==='materials')acts.push(['Copy the description','doc',()=>{
-    const m=(DB.materials||[]).find(x=>x.id===id);
-    if(m&&typeof copyText==='function')copyText(m.desc||'');}]);
+  if(tbl==='materials'){
+    acts.push(['Comparison & price analysis (PDF)','doc',()=>pdfComparison(id)]);
+    acts.push(['Export all prices (Excel)','money',()=>exportComparison()]);
+    acts.push(['Copy the description','doc',()=>{
+      const m=(DB.materials||[]).find(x=>x.id===id);
+      if(m&&typeof copyText==='function')copyText(m.desc||'');}]);
+  }
   if(canGrid(tbl))acts.push(['Delete','trash',()=>{
     if(typeof confirmDelete==='function')confirmDelete(tbl,id);
     else toast('Deleting is not available here');}]);
