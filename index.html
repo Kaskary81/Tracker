@@ -22,19 +22,21 @@
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  /* the Engineering Activity palette, value for value */
-  --page1:#150e26; --page2:#0a0613;
-  --glass:rgba(23,16,41,.92); --surface:#1b1330; --surface2:#221739; --field:rgba(18,12,33,.85);
-  --ink:#f5f2ff; --ink2:#bdb2d8; --muted:#8b81a8;
-  --grid:#332552; --ring:#3f2d67;
-  --accent:#a855f7; --accent2:#7c3aed;
-  --accent-soft:rgba(168,85,247,.15); --accent-soft2:rgba(168,85,247,.26);
-  --good:#34d399; --warn:#fbbf24; --serious:#fb923c; --critical:#f43f5e; --goodtext:#34d399;
-  --chip:#251a42; --heading:#c4b5fd;
-  --priced:rgba(52,211,153,.15); --priced2:rgba(52,211,153,.26);
-  --shadow:0 14px 40px rgba(10,4,26,.6);
-  --shadow-focus:0 22px 60px rgba(10,4,26,.78),0 3px 12px rgba(0,0,0,.5);
+  /* the LOD tracker's dark palette, value for value */
+  --page1:#101216; --page2:#0b0c0f;
+  --glass:rgba(26,26,25,.94); --surface:#1a1a19; --surface2:#2c2c2a; --field:#111110;
+  --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent2:#2a6fc4;
+  --accent-soft:rgba(57,135,229,.14); --accent-soft2:rgba(57,135,229,.22);
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#d03b3b; --goodtext:#0ca30c;
+  --chip:#2c2c2a; --heading:#c3c2b7;
+  --priced:rgba(12,163,12,.15); --priced2:rgba(12,163,12,.26);
+  --sel:rgba(57,135,229,.20); --selb:#3987e5;
+  --shadow:0 10px 34px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.4);
+  --shadow-focus:0 18px 50px rgba(0,0,0,.65),0 3px 10px rgba(0,0,0,.45);
 }
+
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 :root{--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1);
@@ -43,8 +45,8 @@ body{font-family:system-ui,-apple-system,"Segoe UI","Noto Emoji",sans-serif;font
   background:radial-gradient(1200px 700px at 20% 0%,var(--page1),var(--page2));user-select:none}
 :root[data-theme="dark"] body{
   background:
-    radial-gradient(1100px 620px at 12% -10%,rgba(124,58,237,.22),transparent 60%),
-    radial-gradient(900px 520px at 88% 0%,rgba(168,85,247,.16),transparent 62%),
+    radial-gradient(1100px 620px at 12% -10%,rgba(57,135,229,.22),transparent 60%),
+    radial-gradient(900px 520px at 88% 0%,rgba(57,135,229,.16),transparent 62%),
     linear-gradient(180deg,var(--page1),var(--page2) 60%);
   background-attachment:fixed}
 @keyframes sheen{0%,75%{transform:translateX(-100%)}90%,100%{transform:translateX(120%)}}
@@ -71,7 +73,7 @@ button,input,select,textarea{font-family:inherit}
 .ticon .ic{vertical-align:0}
 .tglyph .ic{width:26px;height:26px}
 .ticon,.tglyph{color:var(--accent)}
-:root[data-theme="dark"] .tbbtn:hover{color:#e9d5ff}
+:root[data-theme="dark"] .tbbtn:hover{color:var(--ink)}
 /* ===== top bar ===== */
 #topbar{height:52px;display:flex;align-items:center;gap:8px;padding:0 16px;
   background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--ring);position:relative;z-index:900}
@@ -266,30 +268,30 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
 /* the full-screen layers paint their own ground, so the violet wash has to
    be given to each of them or it only shows behind the desktop */
 :root[data-theme="dark"] #loginwrap,:root[data-theme="dark"] #authwrap{
-  background:radial-gradient(900px 500px at 50% 0%,rgba(124,58,237,.25),transparent 65%),
+  background:radial-gradient(900px 500px at 50% 0%,rgba(57,135,229,.25),transparent 65%),
     linear-gradient(180deg,var(--page1),var(--page2))!important}
 :root[data-theme="dark"] #homewrap,:root[data-theme="dark"] #projwrap{
-  background:radial-gradient(1100px 620px at 12% -10%,rgba(124,58,237,.22),transparent 60%),
-    radial-gradient(900px 520px at 88% 0%,rgba(168,85,247,.16),transparent 62%),
+  background:radial-gradient(1100px 620px at 12% -10%,rgba(57,135,229,.22),transparent 60%),
+    radial-gradient(900px 520px at 88% 0%,rgba(57,135,229,.16),transparent 62%),
     linear-gradient(180deg,var(--page1),var(--page2) 60%)!important}
 :root[data-theme="dark"] #logincard,:root[data-theme="dark"] #authcard{
-  border:1px solid rgba(168,85,247,.25);border-radius:22px;
+  border:1px solid rgba(57,135,229,.25);border-radius:22px;
   background:linear-gradient(180deg,rgba(35,25,62,.96),rgba(20,14,38,.98));
   box-shadow:0 30px 90px rgba(88,28,135,.5)}
-:root[data-theme="dark"] .win{border:1px solid rgba(168,85,247,.16)}
-:root[data-theme="dark"] .win.focused{border-color:rgba(168,85,247,.34)}
+:root[data-theme="dark"] .win{border:1px solid rgba(57,135,229,.16)}
+:root[data-theme="dark"] .win.focused{border-color:rgba(57,135,229,.34)}
 :root[data-theme="dark"] .btn.primary,
 :root[data-theme="dark"] button.primary{
   background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:transparent;color:#fff}
-:root[data-theme="dark"] .btn:hover{border-color:var(--accent);color:#e9d5ff}
+:root[data-theme="dark"] .btn:hover{border-color:var(--accent);color:var(--ink)}
 :root[data-theme="dark"] .tile{position:relative;overflow:hidden;
-  border:1px solid rgba(168,85,247,.16);border-radius:15px;box-shadow:var(--shadow)}
+  border:1px solid rgba(57,135,229,.16);border-radius:15px;box-shadow:var(--shadow)}
 /* the module colours are set inline on the element, so a veil is laid over
    them rather than replacing them — each tile keeps its own hue, quietly */
 :root[data-theme="dark"] .tile{
   background-image:linear-gradient(180deg,rgba(34,24,60,.62),rgba(20,14,38,.78))!important}
-:root[data-theme="dark"] .tile:hover{border-color:rgba(168,85,247,.4)}
-:root[data-theme="dark"] .tcorner{background:rgba(168,85,247,.22);border:1px solid rgba(168,85,247,.3)}
+:root[data-theme="dark"] .tile:hover{border-color:rgba(57,135,229,.4)}
+:root[data-theme="dark"] .tcorner{background:rgba(57,135,229,.22);border:1px solid rgba(57,135,229,.3)}
 :root[data-theme="dark"] .tile .tshine{
   position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.13) 48%,transparent 66%);
@@ -302,7 +304,7 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
   border-radius:10px}
 :root[data-theme="dark"] input:focus,:root[data-theme="dark"] select:focus,
 :root[data-theme="dark"] textarea:focus{
-  border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,247,.16);outline:none}
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,135,229,.16);outline:none}
 :root[data-theme="dark"] ::-webkit-scrollbar{width:10px;height:10px}
 :root[data-theme="dark"] ::-webkit-scrollbar-track{background:transparent}
 :root[data-theme="dark"] ::-webkit-scrollbar-thumb{
@@ -8669,9 +8671,9 @@ function mobTheme(){
 
 document.querySelectorAll('.icslot').forEach(e=>{e.outerHTML=icon(e.dataset.ic,16);});
 /* ================= THEME + STARTUP =================
-   The light theme is the LOD tracker's palette, so the two apps read as one
-   set of tools; that is what opens by default now. The toggle stays for
-   anyone who prefers the dark one, and the choice is remembered here. */
+   Dark is the default, using the LOD tracker's dark palette so the two apps
+   read as one set of tools. The light toggle stays, and whichever is chosen
+   is remembered on this machine. */
 const _setTheme=t=>{document.documentElement.setAttribute('data-theme',t);
   try{localStorage.setItem('trk_theme',t);}catch(e){}};
 document.getElementById('themeBtn').addEventListener('click',()=>{
@@ -8682,13 +8684,13 @@ document.getElementById('themeBtn').addEventListener('click',()=>{
      preference is respected as before. */
   let t=null;
   try{
-    if(localStorage.getItem('trk_theme_default')!=='light'){
-      localStorage.removeItem('trk_theme');
-      localStorage.setItem('trk_theme_default','light');
+    if(localStorage.getItem('trk_theme_default')!=='dark2'){
+      localStorage.removeItem('trk_theme');      /* so the new default is seen once */
+      localStorage.setItem('trk_theme_default','dark2');
     }
     t=localStorage.getItem('trk_theme');
   }catch(e){}
-  document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark')?t:'light');})();
+  document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark')?t:'dark');})();
 
 function _wireLogin(){
   const lp=document.getElementById('lpass'),lu=document.getElementById('luser');
