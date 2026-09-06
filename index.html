@@ -558,6 +558,20 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 /* a priced offer stays green, an award green and bold */
 :root[data-theme="dark"] .ok,:root[data-theme="dark"] .good{color:var(--good)}
 :root[data-theme="dark"] .late,:root[data-theme="dark"] .bad{color:var(--critical)}
+
+/* the right-click menu on a column heading */
+.ctxmenu{position:fixed;z-index:9500;min-width:212px;padding:5px;border-radius:11px;
+  background:var(--surface2);border:1px solid rgba(255,255,255,.09);
+  box-shadow:0 18px 44px rgba(0,0,0,.6);font-size:12.5px}
+.ctxmenu .hd{padding:6px 9px 7px;color:var(--muted);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--grid);margin-bottom:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctxmenu button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:none;
+  color:var(--ink);font:inherit;text-align:left;padding:7px 9px;border-radius:7px;cursor:pointer}
+.ctxmenu button:hover:not([disabled]){background:var(--chip)}
+.ctxmenu button[disabled]{opacity:.38;cursor:default}
+.ctxmenu .kb{margin-left:auto;color:var(--muted);font-size:11px}
+.ctxmenu hr{border:none;border-top:1px solid var(--grid);margin:4px 2px}
 </style>
 </head>
 <body>
@@ -2920,7 +2934,7 @@ function renderGridBody(w){
      <thead><tr><th style="width:52px" onclick="event.stopPropagation()"><input type="checkbox" class="tickbox" title="Tick every row shown" ${
        (()=>{const t=gTicked(w),ids=rows.map(r=>r.id);return ids.length&&ids.every(x=>t.has(x))?'checked':'';})()}
        onclick="event.stopPropagation();gTickAll('${w.id}',this.checked)"></th>${vcols.map(([k,l])=>{const cw=(w.state.colw||{})[k];const st=cw?` style="width:${cw}px;min-width:${cw}px;max-width:${cw}px"`:'';
-       return `<th${st} data-ck="${k}" onclick="gsort('${w.id}','${k}')"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
+       return `<th${st} data-ck="${k}" onclick="gsort('${w.id}','${k}')" oncontextmenu="colMenu(event,'${w.id}','${k}')"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
      <tbody>${(()=>{const canMove=!!gridMoveMode(w);return rows.map(r=>{const rh=((w.state.rowhs||{})[r.id])||w.state.rowh||0;
        return `<tr data-rid="${r.id}" class="${w.state.selId===r.id?'sel':''} ${rh?'tall':''} ${cfg.rowClass?(cfg.rowClass(r)||''):''}" ${rh?`style="height:${rh}px"`:''} onclick="gsel('${w.id}',${r.id},this)">
        <td class="rowactions" style="text-align:center"><input type="checkbox" class="tickbox" ${gTicked(w).has(r.id)?'checked':''} title="Select this row" onclick="event.stopPropagation();gTick('${w.id}',${r.id},this.checked)">${
@@ -3191,6 +3205,79 @@ function colsBuiltIn(wid){
   const cw=[...windows.values()].find(x=>x.kind==='cols'&&x.params.target===wid);
   if(cw)renderColsWin(cw);
   toast('Standard columns restored');}
+
+/* ============================================================
+   Right-click a column heading — the same menu as the LOD tracker,
+   wired to this app's own sorting, ordering and hiding.
+   ============================================================ */
+let _colmenu=null;
+function closeColMenu(){ if(_colmenu){_colmenu.remove();_colmenu=null;} }
+document.addEventListener('click',closeColMenu);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeColMenu(); });
+
+function colMenu(ev,wid,k){
+  ev.preventDefault(); ev.stopPropagation(); closeColMenu();
+  const w=windows.get(wid); if(!w)return;
+  const cs=gridCols(w), i=cs.findIndex(c=>c[0]===k);
+  if(i<0)return;
+  const label=(cs[i][1]||k);
+  const sorted=w.state.sortKey===k;
+  const item=(a,hint,off)=>
+    `<button data-a="${esc(a)}"${off?' disabled':''}>${esc(a)}<span class="kb">${esc(hint||'')}</span></button>`;
+  const m=document.createElement('div');
+  m.className='ctxmenu';
+  m.innerHTML=`<div class="hd">${esc(String(label).replace(/<[^>]*>/g,''))}</div>`+
+    item('Sort A to Z', sorted&&w.state.sortDir>0?'▲ on':'▲')+
+    item('Sort Z to A', sorted&&w.state.sortDir<0?'▼ on':'▼')+
+    item('Clear the sort','',!sorted)+'<hr>'+
+    item('Move left','←',i===0)+
+    item('Move right','→',i===cs.length-1)+
+    item('Move to the front','',i===0)+'<hr>'+
+    item('Fit to the contents','')+
+    item('Reset the width','',!((w.state.colw||{})[k]))+'<hr>'+
+    item('Hide this column','', cs.length<2)+
+    item('Choose columns…','');
+  document.body.appendChild(m);
+  const r=m.getBoundingClientRect();
+  m.style.left=Math.min(ev.clientX, innerWidth-r.width-8)+'px';
+  m.style.top=Math.min(ev.clientY, innerHeight-r.height-8)+'px';
+  _colmenu=m;
+  m.addEventListener('click',e=>e.stopPropagation());
+  m.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.a; closeColMenu();
+    if(a==='Sort A to Z'){ w.state.sortKey=k; w.state.sortDir=1; renderGridBody(w); }
+    else if(a==='Sort Z to A'){ w.state.sortKey=k; w.state.sortDir=-1; renderGridBody(w); }
+    else if(a==='Clear the sort'){ w.state.sortKey=null; renderGridBody(w); }
+    else if(a==='Move left'||a==='Move right'){
+      const to=cs[i+(a==='Move left'?-1:1)];
+      if(to)colReorder(wid,k,to[0],a==='Move left');
+    }
+    else if(a==='Move to the front'){ const first=cs[0];
+      if(first&&first[0]!==k)colReorder(wid,k,first[0],true); }
+    else if(a==='Fit to the contents')  fitCol(w,k);
+    else if(a==='Reset the width'){ (w.state.colw||{})[k]=null; delete w.state.colw[k];
+      renderGridBody(w); }
+    else if(a==='Hide this column')     colToggle(wid,k,false);
+    else if(a==='Choose columns…')      openCols(wid);
+  });
+}
+/* widen a column to the longest thing in it, capped so one long remark
+   cannot push everything else off the screen */
+function fitCol(w,k){
+  const body=w.el.querySelector('.gridbody'); if(!body)return;
+  const idx=gridCols(w).findIndex(c=>c[0]===k); if(idx<0)return;
+  let max=0;
+  body.querySelectorAll('tbody tr').forEach(tr=>{
+    const td=tr.children[idx+1]; if(!td)return;
+    max=Math.max(max, (td.textContent||'').trim().length);
+  });
+  const th=body.querySelector('th[data-ck="'+k+'"]');
+  if(th)max=Math.max(max,(th.textContent||'').trim().length);
+  w.state.colw=w.state.colw||{};
+  w.state.colw[k]=Math.max(70, Math.min(460, 9+max*7.2));
+  renderGridBody(w);
+}
+
 function openCols(wid){createWindow('cols',{target:wid},{dedupeKey:'cols:'+wid,w:330,h:520});}
 function renderColsWin(w){
   const t=windows.get(w.params.target);
