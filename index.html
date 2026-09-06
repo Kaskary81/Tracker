@@ -480,6 +480,24 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 .msheetbtn.cancel{text-align:center;color:var(--muted);margin-top:6px;
   border-top:1px solid var(--ring);border-radius:0}
 .mcard.tap{-webkit-touch-callout:none}
+
+/* project cards: the same near-black surface as everything else */
+.tile.wide{background:var(--surface);border:1px solid rgba(255,255,255,.07)}
+.tile.wide:hover{border-color:rgba(255,255,255,.14);filter:none;
+  box-shadow:0 12px 26px rgba(0,0,0,.45)}
+.tile.wide.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 12px 26px rgba(0,0,0,.45)}
+.tile.wide .tshine{display:none}
+.tile.wide .tglyph{color:var(--accent)}
+.tile.wide .tcorner{background:var(--chip);color:var(--ink2);border:1px solid rgba(255,255,255,.08)}
+/* the picker sat under a heavy red wash */
+#projwrap,#homewrap,:root[data-theme="dark"] #projwrap{
+  background:linear-gradient(180deg,var(--page1),var(--page2)) fixed,var(--page2)}
+
+/* people cards above the tasks table */
+.pcard{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--ink)}
+.pcard .pshine{display:none}
+.pcard:hover{filter:none;border-color:rgba(255,255,255,.16)}
+.pcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 12px 24px rgba(0,0,0,.4)}
 </style>
 </head>
 <body>
@@ -6526,7 +6544,7 @@ function removeUser(id){
       [...windows.values()].forEach(x=>{if(x.kind==='users')renderUsersWin(x);});},'danger']]);}
 /* ---- the tiles ---- */
 const MODULE_TILES=[
-  {k:'material',glyph:'🧱',name:'Material Tracking',color:'#0f6cbd',sub:'Materials · Vendors · Submittals · Tasks',
+  {k:'material',glyph:'🧱',name:'Material Tracking',color:'#ef3b3b',sub:'Materials · Vendors · Submittals · Tasks',
    stat:()=>[`${DB.materials.length} materials · ${DB.rfqs.length} vendors`,
              `${DB.submittals.length} submittals · ${DB.tasks.length} tasks`]},
   {k:'procurement',glyph:'💰',name:'Procurement',color:'#0b6a52',sub:'Comparison sheets · target prices · awards',
@@ -6740,11 +6758,11 @@ function tbMode(wid,m){const w=windows.get(wid);if(!w)return;w.state.tmode=m;ren
 /* the animated cards that sit above the tasks table */
 function taskCardsHtml(w){
   const people=taskPeople(),mode=w.state.tmode||'both',sel=w.state.person||'';
-  const colors=['#0f6cbd','#0b6a52','#8764b8','#c04c1c','#3d4650','#b146c2','#1f6f8b','#8a5a00'];
+  /* one surface for everyone; the selected person is marked by the accent */
   const MODES=[['both','Raised or assigned'],['assigned','Assigned to them'],['raised','Raised by them']];
   const cards=people.map((nm,i)=>{
     const s=taskStat(tasksOf(nm,mode)),on=sel===nm;
-    return `<div class="pcard${on?' on':''}${(sel&&!on)?' dim':''}" style="background:${nm===UNASSIGNED?'#5a5f66':colors[i%colors.length]};animation-delay:${i*55}ms"
+    return `<div class="pcard${on?' on':''}${(sel&&!on)?' dim':''}" style="animation-delay:${i*55}ms"
       title="${esc(nm)} — click to show only their tasks" onclick="tbPick('${w.id}',${JSON.stringify(nm).replace(/"/g,'&quot;')})">
       <div class="pshine"></div>
       <div class="pname">${esc(nm)}</div>
@@ -6916,8 +6934,10 @@ function showProjects(){
   box.innerHTML=PROJECTS.map((p,i)=>{
     const s=projStats(p.id),cur=String(p.id)===String(PROJ);
     const empty=!(s.mat+s.ven+s.tsk+s.sub);
-    const colors=['#0f6cbd','#0b6a52','#8764b8','#c04c1c','#3d4650','#b146c2'];
-    return `<div class="tile wide" style="background:${colors[i%colors.length]};animation-delay:${i*70}ms" onclick="openProject('${p.id}')">
+    /* one surface for every workspace; the one you are in is marked by the
+       accent edge, not by a colour of its own */
+    return `<div class="tile wide${cur?' on':''}" style="animation-delay:${i*70}ms"
+      onclick="openProject('${p.id}')">
       <div class="tshine"></div>
       <div class="tcorner">${cur?'current':'open →'}</div>
       <div style="display:flex;align-items:center;gap:8px">
