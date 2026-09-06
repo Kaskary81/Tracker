@@ -2940,13 +2940,14 @@ function renderGridBody(w){
   const body=w.el.querySelector('.gridbody');if(!body)return;
   body.innerHTML=`
    <div class="gridwrap"><table class="grid">
-     <thead><tr><th style="width:52px" onclick="event.stopPropagation()"><input type="checkbox" class="tickbox" title="Tick every row shown" ${
+     <thead><tr><th style="width:52px" onclick="event.stopPropagation()"
+       oncontextmenu="cornerMenu(event,'${w.id}')" title="Right-click for column options"><input type="checkbox" class="tickbox" title="Tick every row shown" ${
        (()=>{const t=gTicked(w),ids=rows.map(r=>r.id);return ids.length&&ids.every(x=>t.has(x))?'checked':'';})()}
        onclick="event.stopPropagation();gTickAll('${w.id}',this.checked)"></th>${vcols.map(([k,l])=>{const cw=(w.state.colw||{})[k];const st=cw?` style="width:${cw}px;min-width:${cw}px;max-width:${cw}px"`:'';
        const _fz=w.state.freeze||0, _ci=vcols.findIndex(c=>c[0]===k);
        const _fc=_ci<_fz?(' frz'+(_ci===_fz-1?' frzlast':'')):'';
        const _fs=_ci<_fz?`left:${frozenLeft(w,vcols,_ci)}px;`:'';
-       return `<th${st?st.replace('style="','style="'+_fs):(_fs?` style="${_fs}"`:'')} class="${_fc.trim()}" data-ck="${k}" onclick="gsort('${w.id}','${k}')" oncontextmenu="colMenu(event,'${w.id}','${k}')"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
+       return `<th${st?st.replace('style="','style="'+_fs):(_fs?` style="${_fs}"`:'')} class="${_fc.trim()}" data-ck="${k}" onclick="if(event.shiftKey){colMenu(event,'${w.id}','${k}');return;}gsort('${w.id}','${k}')" oncontextmenu="colMenu(event,'${w.id}','${k}')" title="Right-click, or shift-click, for column options"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
      <tbody>${(()=>{const canMove=!!gridMoveMode(w);return rows.map(r=>{const rh=((w.state.rowhs||{})[r.id])||w.state.rowh||0;
        return `<tr data-rid="${r.id}" class="${w.state.selId===r.id?'sel':''} ${rh?'tall':''} ${cfg.rowClass?(cfg.rowClass(r)||''):''}" ${rh?`style="height:${rh}px"`:''} onclick="gsel('${w.id}',${r.id},this)">
        <td class="rowactions" style="text-align:center"><input type="checkbox" class="tickbox" ${gTicked(w).has(r.id)?'checked':''} title="Select this row" onclick="event.stopPropagation();gTick('${w.id}',${r.id},this.checked)">${
@@ -3231,6 +3232,7 @@ let _colmenu=null;
 function closeColMenu(){ if(_colmenu){_colmenu.remove();_colmenu=null;} }
 document.addEventListener('click',closeColMenu);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeColMenu(); });
+window.addEventListener('resize',closeColMenu);
 
 
 /* ---- frozen columns -----------------------------------------------------
@@ -3255,6 +3257,33 @@ function frozenLeft(w,cs,i){
     x += cw || 150;                    /* 150 is the default column width here */
   }
   return x;
+}
+
+
+/* the corner cell above the tick column — the whole-table options */
+function cornerMenu(ev,wid){
+  ev.preventDefault(); ev.stopPropagation(); closeColMenu();
+  const w=windows.get(wid); if(!w)return;
+  const m=document.createElement('div');
+  m.className='ctxmenu';
+  m.innerHTML='<div class="hd">Columns</div>'+
+    '<button data-a="cols">Choose columns…</button>'+
+    '<button data-a="unfreeze">Unfreeze all</button>'+
+    '<button data-a="widths">Reset every width</button>'+
+    '<button data-a="sort">Clear the sort</button>';
+  document.body.appendChild(m);
+  const r=m.getBoundingClientRect();
+  m.style.left=Math.min(ev.clientX, innerWidth-r.width-8)+'px';
+  m.style.top=Math.min(ev.clientY, innerHeight-r.height-8)+'px';
+  _colmenu=m;
+  m.addEventListener('click',e=>e.stopPropagation());
+  m.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.a; closeColMenu();
+    if(a==='cols')openCols(wid);
+    else if(a==='unfreeze')freezeTo(wid,0);
+    else if(a==='widths'){ w.state.colw={}; renderGridBody(w); toast('Widths reset'); }
+    else if(a==='sort'){ w.state.sortKey=null; renderGridBody(w); }
+  });
 }
 
 function colMenu(ev,wid,k){
