@@ -23,22 +23,26 @@
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  /* Black page. Windows and cards sit on it in dark grey, each one a little
-     lighter than the thing behind it, so depth comes from the steps in grey
-     rather than from borders. Red is the only accent. */
+  /* Black page, dark grey windows. RED IS RESERVED for the things you press
+     and the things that are wrong; the pipeline reads left to right in
+     blue -> teal -> amber -> orange -> green, so a glance at a column tells
+     you how far along it is. */
   --page1:#121212; --page2:#0a0a0a;
   --glass:rgba(30,30,30,.94); --surface:#1e1e1e; --surface2:#262626; --field:#171717;
   --ink:#ffffff; --ink2:#b9bec4; --muted:#8a9199;
   --grid:#2e2e2e; --ring:rgba(255,255,255,.08);
   --accent:#ef3b3b; --accent2:#d32f2f;
   --accent-soft:rgba(239,59,59,.14); --accent-soft2:rgba(239,59,59,.24);
-  --good:#3ec97a; --warn:#f5b93b; --serious:#f0873b; --critical:#ef3b3b;
-  --goodtext:#3ec97a; --chip:#2b2b2b; --heading:#b9bec4;
+  --info:#5aa9f0; --teal:#35bda6; --warn:#f5b93b; --serious:#f0873b;
+  --good:#3ec97a; --critical:#ef3b3b; --goodtext:#3ec97a;
+  --chip:#2b2b2b; --heading:#b9bec4;
   --priced:rgba(62,201,122,.15); --priced2:rgba(62,201,122,.26);
   --sel:rgba(239,59,59,.18); --selb:#ef3b3b;
   --shadow:0 12px 36px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.5);
   --shadow-focus:0 20px 56px rgba(0,0,0,.75),0 3px 12px rgba(0,0,0,.55);
 }
+:root[data-theme="dark"] body{background:var(--page2)}
+
 :root[data-theme="dark"] body{
   background:var(--page2);
 }
@@ -528,6 +532,32 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 :root[data-theme="dark"] .tile .tflip{color:var(--ink2)}
 :root[data-theme="dark"] .tile .tcorner{background:var(--chip);color:var(--ink2);
   border:1px solid rgba(255,255,255,.08)}
+
+/* Structure should not shout. Icons in the toolbar, window titles and column
+   headings are ink, not accent; red is kept for what you press and what is
+   wrong, so when something is red it means something. */
+:root[data-theme="dark"] .ticon,
+:root[data-theme="dark"] .titlebar .ticon{color:var(--ink2)}
+:root[data-theme="dark"] .tbbtn .ic,
+:root[data-theme="dark"] table.grid th .ic{color:var(--muted)}
+:root[data-theme="dark"] .tile .tglyph{color:var(--ink2)}
+/* each module keeps a hue of its own, so the home screen is not one colour */
+:root[data-theme="dark"] .tile:nth-child(1) .tglyph{color:var(--info)}
+:root[data-theme="dark"] .tile:nth-child(2) .tglyph{color:var(--teal)}
+:root[data-theme="dark"] .tile:nth-child(3) .tglyph{color:var(--warn)}
+/* the small chips that carry a value */
+:root[data-theme="dark"] .linkchip{background:rgba(90,169,240,.14);color:var(--info);
+  border:1px solid rgba(90,169,240,.28)}
+:root[data-theme="dark"] .revchip,
+:root[data-theme="dark"] .badge{background:var(--chip);color:var(--ink2);
+  border:1px solid rgba(255,255,255,.08)}
+:root[data-theme="dark"] .selinfo{color:var(--info)}
+/* a selected row is a wash, not a red block */
+:root[data-theme="dark"] table.grid tr.sel td{background:rgba(90,169,240,.13)}
+:root[data-theme="dark"] table.grid td.selanchor{box-shadow:inset 0 0 0 2px var(--info)}
+/* a priced offer stays green, an award green and bold */
+:root[data-theme="dark"] .ok,:root[data-theme="dark"] .good{color:var(--good)}
+:root[data-theme="dark"] .late,:root[data-theme="dark"] .bad{color:var(--critical)}
 </style>
 </head>
 <body>
@@ -742,7 +772,14 @@ const STAGE_MAP={"Action Required":"Not Started","Under Technical Evaluation":"O
 const mapStage=s=>{s=String(s||'').trim();return STAGES.includes(s)?s:(STAGE_MAP[s]||(s?'Not Started':''));};
 function migrateStages(){Object.keys(ALLDATA||{}).forEach(k=>((ALLDATA[k]||{}).materials||[]).forEach(m=>{const v=mapStage(m.stage);if(v!==m.stage)m.stage=v;}));}
 migrateStages();
-const STAGE_COLOR={"Not Started":"var(--muted)","RFQ Issued":"var(--accent)","Offers Received":"#0b6a52","Technically Evaluated":"var(--serious)","Shortlisted":"var(--warn)","Target Price":"var(--accent)","Awarded":"var(--good)"};
+/* the seven stages read as a journey: nothing yet, out for quote, replies in,
+   being assessed, down to a short list, price agreed, done */
+/* Critical and High earn the red; Medium is amber, Low is quiet */
+const PRIO_COLOR={"Critical":"var(--critical)","High":"var(--serious)",
+  "Medium":"var(--warn)","Low":"var(--muted)"};
+const STAGE_COLOR={"Not Started":"var(--muted)","RFQ Issued":"var(--info)",
+  "Offers Received":"var(--teal)","Technically Evaluated":"var(--warn)",
+  "Shortlisted":"var(--serious)","Target Price":"var(--accent)","Awarded":"var(--good)"};
 const TASK_COLOR={"Open":"var(--warn)","In Progress":"var(--accent)","Pending":"var(--serious)","Closed":"var(--good)"};
 const DISCIPLINES=["","Mechanical","Electrical","ICT","CIVIL","Sub-contractor"];
 const PRIORITIES=["Critical","High","Medium","Low"];
@@ -3518,7 +3555,7 @@ function renderMatWin(w){
   }
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
-     ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
+     ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]||'var(--muted)'):''}
      ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}
      ${m.engineer?`<span class="badge">${icon('user',12)} ${esc(m.engineer)}</span>`:''}
      ${subsFor(m).length?`<span class="badge">${icon('doc',12)} ${subsFor(m).length} material approval${subsFor(m).length>1?'s':''}</span>`:(m.approvalStatus?`<span class="badge">${icon('doc',12)} ${esc(m.approvalStatus)}</span>`:'')}
@@ -8514,7 +8551,7 @@ function mobMats(){
        data-lplabel="${esc(m.desc||'')}" onclick="mobTap(()=>mobGo('mat',${m.id}))">
        <div class="mtitle">${esc(m.desc||'(no description)')}</div>
        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:3px 0 6px">
-         ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
+         ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]||'var(--muted)'):''}
          ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}</div>
        <div class="hint">${ls.length} vendor(s)${low!=null?' · lowest '+esc(money(low))+' '+CUR:''}${
          m.dQuote?' · offers '+esc(fmtDate(m.dQuote)):(rfqDateOf(m)?' · RFQ '+esc(fmtDate(rfqDateOf(m))):'')}${
@@ -8534,7 +8571,7 @@ function mobMat(){
   const subs=subsFor(m),tks=tasksFor(m),revs=rfqRevsFor(m);
   return `
    ${_mcard('',`<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-      ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,m.priority==='High'||m.priority==='Critical'?'var(--critical)':'var(--muted)'):''}
+      ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]||'var(--muted)'):''}
       ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}
       ${m.engineer?`<span class="badge">${icon('user',12)} ${esc(m.engineer)}</span>`:''}</div>
       ${low!=null?`<div class="hint" style="margin-top:7px">Lowest delivered ${esc(money(low))} ${CUR}${
