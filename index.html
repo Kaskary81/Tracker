@@ -572,6 +572,15 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 .ctxmenu button[disabled]{opacity:.38;cursor:default}
 .ctxmenu .kb{margin-left:auto;color:var(--muted);font-size:11px}
 .ctxmenu hr{border:none;border-top:1px solid var(--grid);margin:4px 2px}
+
+/* frozen columns stay put while the rest scrolls sideways */
+table.grid td.frz,table.grid th.frz{position:sticky;z-index:3}
+table.grid thead th.frz{z-index:8}
+:root[data-theme="dark"] table.grid td.frz{background:var(--surface)}
+:root[data-theme="dark"] table.grid thead th.frz{background:var(--surface2)}
+:root[data-theme="dark"] table.grid tbody tr:nth-child(even) td.frz{background:#212121}
+:root[data-theme="dark"] table.grid tbody tr.sel td.frz{background:#20303f}
+table.grid td.frzlast,table.grid th.frzlast{border-right:2px solid var(--info)}
 </style>
 </head>
 <body>
@@ -2934,15 +2943,22 @@ function renderGridBody(w){
      <thead><tr><th style="width:52px" onclick="event.stopPropagation()"><input type="checkbox" class="tickbox" title="Tick every row shown" ${
        (()=>{const t=gTicked(w),ids=rows.map(r=>r.id);return ids.length&&ids.every(x=>t.has(x))?'checked':'';})()}
        onclick="event.stopPropagation();gTickAll('${w.id}',this.checked)"></th>${vcols.map(([k,l])=>{const cw=(w.state.colw||{})[k];const st=cw?` style="width:${cw}px;min-width:${cw}px;max-width:${cw}px"`:'';
-       return `<th${st} data-ck="${k}" onclick="gsort('${w.id}','${k}')" oncontextmenu="colMenu(event,'${w.id}','${k}')"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
+       const _fz=w.state.freeze||0, _ci=vcols.findIndex(c=>c[0]===k);
+       const _fc=_ci<_fz?(' frz'+(_ci===_fz-1?' frzlast':'')):'';
+       const _fs=_ci<_fz?`left:${frozenLeft(w,vcols,_ci)}px;`:'';
+       return `<th${st?st.replace('style="','style="'+_fs):(_fs?` style="${_fs}"`:'')} class="${_fc.trim()}" data-ck="${k}" onclick="gsort('${w.id}','${k}')" oncontextmenu="colMenu(event,'${w.id}','${k}')"><span class="dragrip" title="Drag to move this column" onpointerdown="colDragStart(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span>${l}${arrow(k)}<span class="colgrip" title="Drag to resize · double-click to auto-fit" onpointerdown="startColResize(event,'${w.id}','${k}')" ondblclick="resetCol(event,'${w.id}','${k}')" onclick="event.stopPropagation()"></span></th>`;}).join('')}</tr></thead>
      <tbody>${(()=>{const canMove=!!gridMoveMode(w);return rows.map(r=>{const rh=((w.state.rowhs||{})[r.id])||w.state.rowh||0;
        return `<tr data-rid="${r.id}" class="${w.state.selId===r.id?'sel':''} ${rh?'tall':''} ${cfg.rowClass?(cfg.rowClass(r)||''):''}" ${rh?`style="height:${rh}px"`:''} onclick="gsel('${w.id}',${r.id},this)">
        <td class="rowactions" style="text-align:center"><input type="checkbox" class="tickbox" ${gTicked(w).has(r.id)?'checked':''} title="Select this row" onclick="event.stopPropagation();gTick('${w.id}',${r.id},this.checked)">${
          canMove?`<span class="dragrip" title="${gridMoveMode(w)==='renumber'?'Drag to move this row — the numbering follows':'Drag to move this row — the order is kept for this register'}" onpointerdown="gridDragStart(event,'${w.id}',${r.id})"></span>`:''}<button class="iconbtn" title="Open record window" onclick="event.stopPropagation();GRIDS['${w.params.g}'].open(${r.id})">⧉</button><span class="rowgrip" title="Drag to change this row's height · double-click to auto-fit" onpointerdown="startRowResize(event,'${w.id}',${r.id})" ondblclick="resetRow(event,'${w.id}',${r.id})" onclick="event.stopPropagation()"></span></td>
-       ${vcols.map(([k,l,cls,fmt])=>{const cw=(w.state.colw||{})[k];const st=cw?` style="width:${cw}px;min-width:${cw}px;max-width:${cw}px"`:'';
+       ${vcols.map(([k,l,cls,fmt],ci)=>{const cw=(w.state.colw||{})[k];
+          const fz=w.state.freeze||0;
+          const fc=ci<fz?(' frz'+(ci===fz-1?' frzlast':'')):'';
+          const fs=ci<fz?`left:${frozenLeft(w,vcols,ci)}px;`:'';
+          const st=(cw||fs)?` style="${fs}${cw?`width:${cw}px;min-width:${cw}px;max-width:${cw}px`:''}"`:'';
           return k.startsWith('_')
-          ?`<td class="${cls||''}"${st}>${fmt(r)}</td>`
-          :`<td class="editable ${cls||''}"${st} data-t="${cfg.tbl}" data-i="${r.id}" data-k="${k}" ondblclick="beginEdit(this,'${cfg.tbl}',${r.id},'${k}')">${fmt(r)}</td>`;}).join('')}
+          ?`<td class="${cls||''}${fc}"${st}>${fmt(r)}</td>`
+          :`<td class="editable ${cls||''}${fc}"${st} data-t="${cfg.tbl}" data-i="${r.id}" data-k="${k}" ondblclick="beginEdit(this,'${cfg.tbl}',${r.id},'${k}')">${fmt(r)}</td>`;}).join('')}
      </tr>`;}).join('');})()}</tbody>
    </table></div>
    <div class="statusbar"><span>${rows.length} of ${(cfg.baseFilter?DB[cfg.tbl].filter(cfg.baseFilter):DB[cfg.tbl]).length} records${
@@ -3004,6 +3020,7 @@ function applyColPrefs(w){
   else if(GRID_DEFAULT_HIDDEN[g])GRID_DEFAULT_HIDDEN[g].forEach(k=>{w.state.hidden[k]=true;});
   else autoHideEmpty(w);
   if(pref&&Array.isArray(pref.order)&&!w.state.colOrder)w.state.colOrder=pref.order.slice();
+  if(pref&&typeof pref.freeze==='number'&&w.state.freeze==null)w.state.freeze=pref.freeze;
   if(pref&&pref.w&&!w.state.colw)w.state.colw=Object.assign({},pref.w);
   if(pref&&Array.isArray(pref.rorder)&&!w.state.rorder)w.state.rorder=pref.rorder.slice();
   w.state.autoHid=true;}
@@ -3215,6 +3232,31 @@ function closeColMenu(){ if(_colmenu){_colmenu.remove();_colmenu=null;} }
 document.addEventListener('click',closeColMenu);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeColMenu(); });
 
+
+/* ---- frozen columns -----------------------------------------------------
+   Freeze up to a column and it stays put while the rest scrolls sideways,
+   the way a spreadsheet does. The count lives with the window, and is saved
+   alongside the column order so it survives a reload. */
+function freezeTo(wid,n){
+  const w=windows.get(wid); if(!w)return;
+  const cs=gridCols(w);
+  w.state.freeze=Math.max(0,Math.min(n,cs.length));
+  savePref(w.params.g,{freeze:w.state.freeze});
+  renderGridBody(w);
+  toast(w.state.freeze?('Frozen up to '+String(cs[w.state.freeze-1][1]).replace(/<[^>]*>/g,''))
+                      :'Columns unfrozen');
+}
+/* how far from the left a frozen column sits: the tick gutter plus the width
+   of everything frozen before it */
+function frozenLeft(w,cs,i){
+  let x=52;
+  for(let j=0;j<i;j++){
+    const cw=(w.state.colw||{})[cs[j][0]];
+    x += cw || 150;                    /* 150 is the default column width here */
+  }
+  return x;
+}
+
 function colMenu(ev,wid,k){
   ev.preventDefault(); ev.stopPropagation(); closeColMenu();
   const w=windows.get(wid); if(!w)return;
@@ -3233,6 +3275,8 @@ function colMenu(ev,wid,k){
     item('Move left','←',i===0)+
     item('Move right','→',i===cs.length-1)+
     item('Move to the front','',i===0)+'<hr>'+
+    item('Freeze up to this column', (w.state.freeze||0)===i+1?'on':'')+
+    item('Unfreeze all','',!(w.state.freeze||0))+'<hr>'+
     item('Fit to the contents','')+
     item('Reset the width','',!((w.state.colw||{})[k]))+'<hr>'+
     item('Hide this column','', cs.length<2)+
@@ -3254,6 +3298,8 @@ function colMenu(ev,wid,k){
     }
     else if(a==='Move to the front'){ const first=cs[0];
       if(first&&first[0]!==k)colReorder(wid,k,first[0],true); }
+    else if(a==='Freeze up to this column') freezeTo(wid,(w.state.freeze||0)===i+1?0:i+1);
+    else if(a==='Unfreeze all')         freezeTo(wid,0);
     else if(a==='Fit to the contents')  fitCol(w,k);
     else if(a==='Reset the width'){ (w.state.colw||{})[k]=null; delete w.state.colw[k];
       renderGridBody(w); }
