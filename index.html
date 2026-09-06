@@ -701,6 +701,7 @@ window.APP_CONFIG = {
       <button onclick="closeMenus();signOut()">⎋ Sign out</button>
       <button onclick="closeMenus();importExcel()">📥 Import from Excel…</button>
       <hr>
+      <button onclick="closeMenus();alertsBox()"><span class="icslot" data-ic="bell"></span> Alerts and sound…</button>
       <button onclick="closeMenus();openLists()"><span class="icslot" data-ic="folder"></span> Lists and dropdowns…</button>
       <hr>
       <button onclick="closeMenus();setMobile(true,true)">📱 Phone view</button>
@@ -2332,32 +2333,50 @@ function tblStats(t,keep){
    the report is printed from this page instead: it is dropped into a frame,
    printed, and taken away again. */
 function _printInPage(title,head,cards,tableHTML,cols,dense,FS,HS,PAD){
-  const css='@page{size:A3 '+(cols>6?'landscape':'portrait')+';margin:'+(dense?'10mm':'12mm')+'}'+
+  /* The printed report follows the LOD tracker: a navy rule under the title,
+     the project and date on the right, small bordered figures, and a tight
+     table that fits a wide register on one page. */
+  const css='@page{size:A4 '+(cols>6?'landscape':'portrait')+';margin:10mm 8mm}'+
    'html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}'+
-   'body{font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:0;text-align:center}'+
-   'h1{font-size:'+(dense?'18px':'22px')+';margin:0 0 3px}'+
-   '.sub{color:#666;font-size:12px;margin:0 0 14px}'+
-   '.cards{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 13px}'+
-   '.card{border:1px solid #d6dbe3;border-radius:10px;padding:9px 16px;min-width:150px;background:#f7f9fb}'+
-   '.card .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}'+
-   '.card .v{font-size:18px;font-weight:700;margin-top:3px}'+
-   'table{border-collapse:collapse;margin:0 auto;width:100%;text-align:left}'+
-   'th,td{border:1px solid #bbb;padding:'+PAD+';text-align:left;vertical-align:top;font-size:'+FS+'}'+
-   'th{background:#eef1f5;font-weight:700;font-size:'+HS+';text-transform:uppercase}'+
-   'td.num,th.num{text-align:right}tr{break-inside:avoid}thead{display:table-header-group}'+
+   'body{font:8pt/1.35 system-ui,-apple-system,\'Segoe UI\',Roboto,sans-serif;color:#000;margin:0}'+
+   '.rhead{display:flex;align-items:flex-end;justify-content:space-between;'+
+     'border-bottom:2pt solid #12304f;padding-bottom:4pt;margin-bottom:6pt}'+
+   '.rhead h1{font-size:12.5pt;font-weight:700;color:#12304f;letter-spacing:-.2pt;margin:0;line-height:1.15}'+
+   '.rhead .rs{font-size:7.6pt;color:#555;margin-top:1pt}'+
+   '.rhead .rd{text-align:right;font-size:7.6pt;color:#555;line-height:1.4;white-space:nowrap}'+
+   '.rhead .rd span{font-weight:700;color:#12304f}'+
+   '.rkpis{display:flex;gap:3.5pt;margin-bottom:6pt}'+
+   '.rk{flex:1;border:.4pt solid #c3ced9;border-radius:2pt;padding:3pt 2pt;text-align:center}'+
+   '.rk .k{font-size:6.4pt;text-transform:uppercase;letter-spacing:.4pt;color:#6b7280}'+
+   '.rk .v{font-size:11pt;font-weight:700;color:#12304f;margin-top:1pt}'+
+   'table{border-collapse:collapse;width:100%;table-layout:fixed}'+
+   'th,td{border:.4pt solid #c3ced9;padding:2.5pt 3pt;text-align:left;vertical-align:top;'+
+     'font-size:7.4pt;word-wrap:break-word;overflow-wrap:anywhere}'+
+   'th{background:#eef2f6;font-weight:700;font-size:6.6pt;text-transform:uppercase;'+
+     'letter-spacing:.3pt;color:#12304f}'+
+   'tbody tr:nth-child(even) td{background:#f7f9fb}'+
+   'td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}'+
+   'tr{break-inside:avoid}thead{display:table-header-group}'+
    'td.anlow{color:#0a7d3c;font-weight:700;background:#e9f8ef}'+
    'td.anwarm{color:#b45309;font-weight:600}td.anhot{color:#b91c1c;font-weight:700}'+
-   'tfoot td{background:#f2f4f7;font-weight:700;border-top:2px solid #999}';
+   'tfoot td{background:#eef2f6;font-weight:700;border-top:1pt solid #12304f}'+
+   'table.fig{width:100%;table-layout:auto;margin-top:2pt}'+
+   'table.fig td{border:none;padding:.6pt 0;font-size:6.4pt;color:#555}'+
+   'table.fig td.fv{text-align:right;color:#000;font-weight:600}';
   const f=document.createElement('iframe');
   f.setAttribute('aria-hidden','true');
   f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(f);
   const d=f.contentDocument;
   d.open();
+  const when=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',
+    hour:'2-digit',minute:'2-digit'});
   d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Report')+
-    '</title><style>'+css+'</style></head><body><h1>'+esc(title||'Report')+'</h1>'+
-    '<div class="sub">'+esc(head)+' · printed '+esc(new Date().toLocaleString())+'</div>'+
-    cards+tableHTML+'</body></html>');
+    '</title><style>'+css+'</style></head><body>'+
+    '<div class="rhead"><div><h1>'+esc(title||'Report')+'</h1>'+
+      '<div class="rs">'+esc(head)+'</div></div>'+
+      '<div class="rd"><span>AWPT Material Tracker</span><br>printed '+esc(when)+'</div></div>'+
+    (cards||'')+tableHTML+'</body></html>');
   d.close();
   setTimeout(()=>{
     try{ f.contentWindow.focus(); f.contentWindow.print(); }
@@ -2406,8 +2425,8 @@ function tablePDF(t,title){
   const win=window.open('','_blank');
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   const head=[proj.name,proj.subtitle].filter(Boolean).join(' · ');
-  const cards=stats.length>1?('<div class="cards">'+stats.map(s=>
-      '<div class="card"><div class="k">'+esc(s.k)+'</div>'+
+  const cards=stats.length>1?('<div class="rkpis">'+stats.map(s=>
+      '<div class="rk"><div class="k">'+esc(s.k)+'</div>'+
       (s.v?'<div class="v">'+esc(s.v)+'</div>':'')+
       ((s.lines||[]).length?'<table class="fig">'+s.lines.map(l=>
         '<tr><td class="fl">'+esc(l[0])+'</td><td class="fv">'+esc(l[1])+'</td></tr>').join('')+'</table>':'')+
@@ -2537,11 +2556,11 @@ function pdfComparison(mid){
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   _printInPage((m.desc||'Material')+' — comparison and price analysis',
     [proj.name,proj.subtitle].filter(Boolean).join(' · '),
-    '<div class="cards"><div class="card"><div class="k">Vendors priced</div>'+
+    '<div class="rkpis"><div class="rk"><div class="k">Vendors priced</div>'+
       '<div class="v">'+priced.length+'</div></div>'+
-      '<div class="card"><div class="k">Lowest</div><div class="v">'+
-      esc(money(low))+' '+CUR+'</div></div>'+
-      '<div class="card"><div class="k">Lines</div><div class="v">'+its.length+'</div></div></div>',
+      '<div class="rk"><div class="k">Lowest ('+CUR+')</div><div class="v">'+
+      esc(money(low))+'</div></div>'+
+      '<div class="rk"><div class="k">Lines</div><div class="v">'+its.length+'</div></div></div>',
     tbl.outerHTML, 4+priced.length, its.length>14, '12px','11px','7px 9px');
 }
 
@@ -8011,8 +8030,106 @@ async function loadAll(){if(!sb)return;setSync('saving');
   if(typeof migrateStageMem==='function')migrateStageMem();
   if(typeof migrateBoq==='function')migrateBoq();
   DB=ALLDATA[PROJ];
-  applyProjectChrome();refreshData();setSync('ok');}
+  applyProjectChrome();refreshData();setSync('ok');
+  if(_lastSeenAct==null)freshSince();          /* set the mark, announce nothing */
+}
 function reloadAll(){loadAll();}
+
+/* ============================================================
+   Alerts — a chime, a toast, and a desktop notification when the
+   tab is in the background. Built the way the LOD tracker does it:
+   the oscillator is made on the first click, because browsers will
+   not make a sound before someone has touched the page.
+   ============================================================ */
+let AC=null;
+function audioCtx(){
+  if(AC)return AC;
+  const C=window.AudioContext||window.webkitAudioContext; if(!C)return null;
+  try{ AC=new C(); }catch(e){ return null; }
+  return AC;
+}
+document.addEventListener('pointerdown',()=>{
+  const c=audioCtx(); if(c&&c.state==='suspended')c.resume().catch(()=>{});
+});
+const ALPREF=()=>{ try{ return JSON.parse(localStorage.getItem('trk_alerts')||'{}'); }catch(e){ return {}; } };
+const ALSAVE=o=>{ try{ localStorage.setItem('trk_alerts',JSON.stringify(o)); }catch(e){} };
+function chime(){
+  const p=ALPREF(); if(p.sound===false)return;
+  const c=audioCtx(); if(!c||c.state!=='running')return;
+  const t=c.currentTime, vol=Math.max(0,Math.min(1,p.vol==null?0.35:p.vol));
+  /* two low partials a fifth apart, struck softly and left to ring */
+  [[392,0],[587.33,0.09]].forEach(([hz,at],i)=>{
+    const o=c.createOscillator(), g=c.createGain();
+    o.type='sine'; o.frequency.value=hz;
+    const peak=vol*(i?0.5:0.8), s=t+at;
+    g.gain.setValueAtTime(0.0001,s);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002,peak),s+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,s+1.15);
+    o.connect(g); g.connect(c.destination);
+    o.start(s); o.stop(s+1.2);
+  });
+}
+/* what arrived, so the alert can name it and take you there */
+let _lastSeenAct=null;
+function freshSince(){
+  const acts=(DB.activity||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  if(_lastSeenAct==null){ _lastSeenAct=acts.length?acts[0].id:0; return []; }
+  const fresh=acts.filter(a=>a.id>_lastSeenAct && String(a.who||'')!==String(USER&&USER.name||''));
+  if(acts.length)_lastSeenAct=acts[0].id;
+  return fresh;
+}
+function announce(fresh){
+  if(!fresh.length)return;
+  chime();
+  const n=fresh.length, f=fresh[0]||{};
+  const what=[f.tbl,f.recName].filter(Boolean).join(' · ')||'A record';
+  const title=n===1?what:(n+' updates');
+  const body=n===1?[f.field,f.newVal].filter(Boolean).join(': ').slice(0,90):(what+' and '+(n-1)+' more');
+  if(document.hidden&&window.Notification&&Notification.permission==='granted'){
+    try{
+      const note=new Notification(title,{body,tag:'awpt',icon:''});
+      note.onclick=()=>{ window.focus(); note.close(); openFeed&&openFeed(); };
+    }catch(e){}
+  }
+  toast(n===1?('Updated — '+what):(n+' updates just came in'));
+}
+function alertsBox(){
+  const p=ALPREF(), on=p.sound!==false, v=Math.round((p.vol==null?0.35:p.vol)*100);
+  const perm=window.Notification?Notification.permission:'unsupported';
+  msgBox('Alerts and sound','',
+    `<div class="hint" style="margin-bottom:10px">The app watches for other
+       people's changes and brings them in on its own. This is what it does when
+       something arrives.</div>
+     <label class="fl">Bell</label>
+     <label style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
+       <input type="checkbox" id="alsnd"${on?' checked':''}>
+       <span>Play a soft chime for anything new</span></label>
+     <label class="fl">Volume</label>
+     <input type="range" class="f" id="alvol" min="0" max="100" value="${v}" style="padding:0;height:26px">
+     <div style="margin-top:8px"><button class="btn" id="altest">Hear it</button></div>
+     <label class="fl" style="margin-top:12px">Desktop alerts</label>
+     <div class="hint">${perm==='granted'?'On — alerts appear when this tab is in the background.'
+        :perm==='denied'?'Blocked by the browser. Turn them back on in the padlock menu beside the address bar.'
+        :perm==='unsupported'?'This browser cannot show desktop alerts.'
+        :'Off — the browser will ask you once.'}</div>
+     ${perm==='default'?'<div style="margin-top:6px"><button class="btn" id="alask">Turn on desktop alerts</button></div>':''}
+     <div class="hint" style="margin-top:12px">Updates arrive <b>live, within a second</b>.</div>`,
+    [['Done',null,'primary']]);
+  const m=document.getElementById('msg');
+  const snd=m.querySelector('[id="alsnd"]'), vol=m.querySelector('[id="alvol"]');
+  const apply=()=>{ const q=ALPREF(); q.sound=snd.checked; q.vol=(+vol.value||0)/100; ALSAVE(q); };
+  snd.onchange=apply;
+  vol.onchange=()=>{ apply(); chime(); };
+  const t=m.querySelector('[id="altest"]'); if(t)t.onclick=()=>{ apply(); chime(); };
+  const k=m.querySelector('[id="alask"]'); if(k)k.onclick=()=>{ askForAlerts(); closeMsg(); };
+}
+function askForAlerts(){
+  if(!window.Notification)return toast('This browser cannot show desktop alerts');
+  if(Notification.permission==='granted')return toast('Desktop alerts are already on');
+  Notification.requestPermission().then(p=>
+    toast(p==='granted'?'Desktop alerts are on':'Desktop alerts stay off'));
+}
+
 let rtTimer=null;
 function subscribeRT(){if(!sb)return;
   sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},()=>{clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,500);}).subscribe();}
@@ -8025,7 +8142,8 @@ function rtRefresh(){
   /* wait for the typing to finish - but never wait for ever, or a cell left
      open in a forgotten tab would freeze this copy of the app out of date */
   if(busy&&_rtWaits<8){_rtWaits++;clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,1200);return;}
-  _rtWaits=0;loadAll();}
+  _rtWaits=0;
+  loadAll().then(()=>announce(freshSince())).catch(()=>{});}
 async function signOut(){try{if(sb)await sb.auth.signOut();}catch(e){}location.reload();}
 function exportJSON(){dl(new Blob([JSON.stringify({projects:PROJECTS,data:ALLDATA},null,2)],{type:'application/json'}),'trackers_backup.json');}
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
@@ -8481,11 +8599,11 @@ function pdfVendorOffer(linkId){
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   _printInPage((m.desc||'Material')+' — '+venName(l.vendorId)+' — price analysis',
     [proj.name,proj.subtitle].filter(Boolean).join(' · '),
-    '<div class="cards"><div class="card"><div class="k">His total</div>'+
-      '<div class="v">'+esc(money(vendorTotal(l)))+' '+CUR+'</div></div>'+
-      '<div class="card"><div class="k">Lines priced</div><div class="v">'+
+    '<div class="rkpis"><div class="rk"><div class="k">His total ('+CUR+')</div>'+
+      '<div class="v">'+esc(money(vendorTotal(l)))+'</div></div>'+
+      '<div class="rk"><div class="k">Lines priced</div><div class="v">'+
       rows.filter(r=>r.quotes.some(q=>q.l.id===l.id)).length+'</div></div>'+
-      '<div class="card"><div class="k">Lowest on</div><div class="v">'+
+      '<div class="rk"><div class="k">Lowest on</div><div class="v">'+
       rows.filter(r=>r.cheap&&r.cheap.l.id===l.id).length+'</div></div></div>',
     tbl.outerHTML, 7, its.length>14, '12px','11px','7px 9px');
 }
