@@ -516,6 +516,18 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 :root[data-theme="dark"] .pcard{background:var(--surface2)}
 :root[data-theme="dark"] #mtabs,
 :root[data-theme="dark"] .mtop{background:var(--surface);border-color:var(--grid)}
+
+/* home and project tiles: the same dark grey as the windows */
+:root[data-theme="dark"] .tile{background:var(--surface);
+  border:1px solid rgba(255,255,255,.07);color:var(--ink)}
+:root[data-theme="dark"] .tile:hover{background:var(--surface2);
+  border-color:rgba(255,255,255,.16);filter:none}
+:root[data-theme="dark"] .tile .tshine{display:none}
+:root[data-theme="dark"] .tile .tglyph{color:var(--accent)}
+:root[data-theme="dark"] .tile .tsub,
+:root[data-theme="dark"] .tile .tflip{color:var(--ink2)}
+:root[data-theme="dark"] .tile .tcorner{background:var(--chip);color:var(--ink2);
+  border:1px solid rgba(255,255,255,.08)}
 </style>
 </head>
 <body>
@@ -553,8 +565,8 @@ window.APP_CONFIG = {
     </div>
     <div id="hometiles" class="tiles"></div>
     <div style="margin-top:18px;display:flex;gap:8px;justify-content:center">
-      <button class="btn ghost" onclick="showProjects()">${icon('folder',12)} All projects</button>
-      <button class="btn ghost" onclick="hideHome();openFeed()">${icon('feed',12)} Updates feed — all changes across every module</button>
+      <button class="btn ghost" onclick="showProjects()"><span class="icslot" data-ic="folder"></span> All projects</button>
+      <button class="btn ghost" onclick="hideHome();openFeed()"><span class="icslot" data-ic="feed"></span> Updates feed — all changes across every module</button>
     </div>
   </div>
 </div>
@@ -636,7 +648,7 @@ window.APP_CONFIG = {
       <button onclick="closeMenus();signOut()">⎋ Sign out</button>
       <button onclick="closeMenus();importExcel()">📥 Import from Excel…</button>
       <hr>
-      <button onclick="closeMenus();openLists()">${icon('folder',12)} Lists and dropdowns…</button>
+      <button onclick="closeMenus();openLists()"><span class="icslot" data-ic="folder"></span> Lists and dropdowns…</button>
       <hr>
       <button onclick="closeMenus();setMobile(true,true)">📱 Phone view</button>
       <button onclick="closeMenus();showAbout()">ℹ About</button>
@@ -6576,7 +6588,8 @@ function renderHomeTiles(){
   const list=MODULE_TILES.filter(t=>can(t.k));
   box.innerHTML=list.map((t,i)=>{
     const s=t.stat();
-    return `<div class="tile${i===0?' wide':''}" style="background:${t.color};animation-delay:${i*70}ms"
+    /* one surface for every tile; the glyph carries the accent */
+    return `<div class="tile${i===0?' wide':''}" style="animation-delay:${i*70}ms"
       onclick="enterModule('${t.k}')">
       <div class="tshine"></div>
       <div class="tcorner">open →</div>
@@ -6585,7 +6598,7 @@ function renderHomeTiles(){
       <div class="tsub">${esc(t.sub)}</div>
       <div class="tflip"><div>${esc(s[0]||'')}</div><div>${esc(s[1]||'')}</div></div>
     </div>`;}).join('')+
-    (isAdmin()?`<div class="tile" style="background:#3d4650;animation-delay:${list.length*70}ms" onclick="hideHome();openUsers()">
+    (isAdmin()?`<div class="tile" style="animation-delay:${list.length*70}ms" onclick="hideHome();openUsers()">
       <div class="tshine"></div><div class="tglyph">${icon('user',26)}</div>
       <div class="tname">Users &amp; access</div>
       <div class="tsub">Accounts and what each of them may open</div>
