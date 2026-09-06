@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="theme-color" content="#333b44">
+<meta name="theme-color" content="#0a0a0a">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AWPT Material Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,24 +23,26 @@
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  /* Slate page, near-black cards, one red accent with amber beside it. */
-  --page1:#3d4650; --page2:#333b44;
-  --glass:rgba(28,28,28,.94); --surface:#1c1c1c; --surface2:#262626; --field:#161616;
+  /* Black page. Windows and cards sit on it in dark grey, each one a little
+     lighter than the thing behind it, so depth comes from the steps in grey
+     rather than from borders. Red is the only accent. */
+  --page1:#121212; --page2:#0a0a0a;
+  --glass:rgba(30,30,30,.94); --surface:#1e1e1e; --surface2:#262626; --field:#171717;
   --ink:#ffffff; --ink2:#b9bec4; --muted:#8a9199;
-  --grid:#2e2e2e; --ring:rgba(255,255,255,.09);
+  --grid:#2e2e2e; --ring:rgba(255,255,255,.08);
   --accent:#ef3b3b; --accent2:#d32f2f;
   --accent-soft:rgba(239,59,59,.14); --accent-soft2:rgba(239,59,59,.24);
   --good:#3ec97a; --warn:#f5b93b; --serious:#f0873b; --critical:#ef3b3b;
-  --goodtext:#3ec97a; --chip:#262626; --heading:#b9bec4;
+  --goodtext:#3ec97a; --chip:#2b2b2b; --heading:#b9bec4;
   --priced:rgba(62,201,122,.15); --priced2:rgba(62,201,122,.26);
   --sel:rgba(239,59,59,.18); --selb:#ef3b3b;
-  --shadow:0 12px 36px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.45);
-  --shadow-focus:0 20px 56px rgba(0,0,0,.7),0 3px 12px rgba(0,0,0,.5);
+  --shadow:0 12px 36px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.5);
+  --shadow-focus:0 20px 56px rgba(0,0,0,.75),0 3px 12px rgba(0,0,0,.55);
 }
 :root[data-theme="dark"] body{
-  /* slate page; the panels and windows sit on it in near-black */
-  background:linear-gradient(180deg,var(--page1),var(--page2)) fixed,var(--page2);
+  background:var(--page2);
 }
+
 :root[data-theme="dark"] #mob{background:transparent}
 :root[data-theme="dark"] .win,
 :root[data-theme="dark"] .mcard,
@@ -293,8 +295,8 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
   border:1px solid rgba(239,59,59,.25);border-radius:22px;
   background:linear-gradient(180deg,rgba(28,28,28,.96),rgba(18,18,18,.98));
   box-shadow:0 30px 90px rgba(0,0,0,.5)}
-:root[data-theme="dark"] .win{border:1px solid rgba(239,59,59,.16)}
-:root[data-theme="dark"] .win.focused{border-color:rgba(239,59,59,.34)}
+:root[data-theme="dark"] .win{border:1px solid rgba(255,255,255,.07)}
+:root[data-theme="dark"] .win.focused{border-color:rgba(255,255,255,.16)}
 :root[data-theme="dark"] .btn.primary,
 :root[data-theme="dark"] button.primary{
   background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:transparent;color:#fff}
@@ -491,13 +493,29 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 .tile.wide .tcorner{background:var(--chip);color:var(--ink2);border:1px solid rgba(255,255,255,.08)}
 /* the picker sat under a heavy red wash */
 #projwrap,#homewrap,:root[data-theme="dark"] #projwrap{
-  background:linear-gradient(180deg,var(--page1),var(--page2)) fixed,var(--page2)}
+  background:var(--page2)}
 
 /* people cards above the tasks table */
 .pcard{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--ink)}
 .pcard .pshine{display:none}
 .pcard:hover{filter:none;border-color:rgba(255,255,255,.16)}
 .pcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 12px 24px rgba(0,0,0,.4)}
+
+/* the steps in grey that give the app its depth:
+   page #0a0a0a  ->  window #1e1e1e  ->  toolbar/header #262626  ->  chip #2b2b2b */
+:root[data-theme="dark"] #topbar{background:var(--surface);backdrop-filter:none;
+  border-bottom:1px solid var(--grid)}
+:root[data-theme="dark"] .win{background:var(--surface);backdrop-filter:none}
+:root[data-theme="dark"] .win .wbar,
+:root[data-theme="dark"] .win .whead,
+:root[data-theme="dark"] .wtools{background:var(--surface2);border-color:var(--grid)}
+:root[data-theme="dark"] table.grid thead th{background:var(--surface2);color:var(--ink2)}
+:root[data-theme="dark"] table.grid tbody td{background:var(--surface);border-color:var(--grid)}
+:root[data-theme="dark"] table.grid tbody tr:nth-child(even) td{background:#212121}
+:root[data-theme="dark"] .tile.wide,
+:root[data-theme="dark"] .pcard{background:var(--surface2)}
+:root[data-theme="dark"] #mtabs,
+:root[data-theme="dark"] .mtop{background:var(--surface);border-color:var(--grid)}
 </style>
 </head>
 <body>
