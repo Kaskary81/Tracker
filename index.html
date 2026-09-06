@@ -15,11 +15,11 @@
   --glass:rgba(252,252,251,.94); --surface:#fcfcfb; --surface2:#f0efec; --field:#ffffff;
   --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --ring:rgba(11,11,11,.09);
-  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.10); --accent-soft2:rgba(42,120,214,.16);
+  --accent:#ef3b3b; --accent-soft:rgba(239,59,59,.10); --accent-soft2:rgba(239,59,59,.16);
   --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#d03b3b; --goodtext:#006300;
   --priced:rgba(12,163,12,.13); --priced2:rgba(12,163,12,.20);
-  --shadow:0 10px 34px rgba(15,20,30,.16),0 2px 8px rgba(15,20,30,.08);
-  --shadow-focus:0 18px 50px rgba(15,20,30,.24),0 3px 10px rgba(15,20,30,.10);
+  --shadow:0 10px 34px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.08);
+  --shadow-focus:0 18px 50px rgba(0,0,0,.24),0 3px 10px rgba(0,0,0,.10);
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
@@ -127,7 +127,7 @@ button,input,select,textarea{font-family:inherit}
 .win{position:absolute;display:flex;flex-direction:column;min-width:300px;min-height:170px;
   background:var(--glass);backdrop-filter:blur(16px);border:1px solid var(--ring);border-radius:14px;
   box-shadow:var(--shadow);overflow:hidden}
-.win.focused{box-shadow:var(--shadow-focus);border-color:rgba(42,120,214,.35)}
+.win.focused{box-shadow:var(--shadow-focus);border-color:rgba(239,59,59,.35)}
 .titlebar{height:42px;display:flex;align-items:center;gap:9px;padding:0 8px 0 14px;cursor:default;flex:none;border-bottom:1px solid var(--grid)}
 .titlebar .ticon{width:24px;height:24px;border-radius:7px;background:var(--accent-soft2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
 .titlebar .ttext{flex:1;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
@@ -291,8 +291,8 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
     linear-gradient(180deg,var(--page1),var(--page2) 60%)!important}
 :root[data-theme="dark"] #logincard,:root[data-theme="dark"] #authcard{
   border:1px solid rgba(239,59,59,.25);border-radius:22px;
-  background:linear-gradient(180deg,rgba(35,25,62,.96),rgba(20,14,38,.98));
-  box-shadow:0 30px 90px rgba(88,28,135,.5)}
+  background:linear-gradient(180deg,rgba(28,28,28,.96),rgba(18,18,18,.98));
+  box-shadow:0 30px 90px rgba(0,0,0,.5)}
 :root[data-theme="dark"] .win{border:1px solid rgba(239,59,59,.16)}
 :root[data-theme="dark"] .win.focused{border-color:rgba(239,59,59,.34)}
 :root[data-theme="dark"] .btn.primary,
@@ -304,7 +304,7 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
 /* the module colours are set inline on the element, so a veil is laid over
    them rather than replacing them — each tile keeps its own hue, quietly */
 :root[data-theme="dark"] .tile{
-  background-image:linear-gradient(180deg,rgba(34,24,60,.62),rgba(20,14,38,.78))!important}
+  background-image:linear-gradient(180deg,rgba(38,38,38,.62),rgba(18,18,18,.78))!important}
 :root[data-theme="dark"] .tile:hover{border-color:rgba(239,59,59,.4)}
 :root[data-theme="dark"] .tcorner{background:rgba(239,59,59,.22);border:1px solid rgba(239,59,59,.3)}
 :root[data-theme="dark"] .tile .tshine{
@@ -313,7 +313,7 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
   animation:sheen 6s var(--ease) infinite}
 :root[data-theme="dark"] .gridwrap{border-radius:12px}
 :root[data-theme="dark"] table.grid thead th{color:var(--heading);letter-spacing:.05em}
-:root[data-theme="dark"] table.grid tbody tr:nth-child(even) td{background:rgba(31,22,54,.5)}
+:root[data-theme="dark"] table.grid tbody tr:nth-child(even) td{background:rgba(255,255,255,.022)}
 :root[data-theme="dark"] table.grid tbody tr:hover td{background:var(--chip)}
 :root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{
   border-radius:10px}
@@ -323,8 +323,8 @@ table.fig2 td.fv{text-align:right;font-weight:600;color:var(--ink);white-space:n
 :root[data-theme="dark"] ::-webkit-scrollbar{width:10px;height:10px}
 :root[data-theme="dark"] ::-webkit-scrollbar-track{background:transparent}
 :root[data-theme="dark"] ::-webkit-scrollbar-thumb{
-  background:#3f2d67;border-radius:8px;border:2px solid transparent;background-clip:content-box}
-:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#4f3a80;background-clip:content-box}
+  background:#3a3a3a;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#4a4a4a;background-clip:content-box}
 /* ===== editing a name where you read it ===== */
 .pedit{cursor:text;border-radius:6px;padding:1px 4px;margin:0 -4px;transition:background .12s,box-shadow .12s}
 .pedit:hover{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
