@@ -170,8 +170,9 @@ table.grid td.num{font-variant-numeric:tabular-nums}
 table.grid tbody tr:hover td{background:var(--accent-soft)}
 table.grid tbody tr.priced td{background:var(--priced)}
 .tbltools{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin:0 0 6px;opacity:1}
-.tbltools .linkchip{font-size:11px;border:1px solid var(--ring);background:var(--field);border-radius:7px;padding:3px 9px;line-height:1.5;color:var(--ink);opacity:.9;transition:background .12s,opacity .12s}
-.tbltools .linkchip:hover{background:var(--hover,rgba(127,127,127,.14));opacity:1}
+.tbltools .linkchip{font-size:11px;border:1px solid transparent;background:transparent;border-radius:7px;
+  padding:3px 7px;line-height:1.5;color:var(--ink3);opacity:.75;transition:background .12s,opacity .12s,color .12s}
+.tbltools .linkchip:hover{background:var(--surface2);color:var(--ink);opacity:1}
 .tbltoolslbl{font-size:11px;color:var(--dim,#888);margin-right:2px}
 @media print{.tbltools{display:none}}
 table.grid tbody tr.priced:hover td{background:var(--priced2)}
@@ -546,8 +547,8 @@ body.mobile #authcard select,body.mobile #authcard input{font-size:16px;padding:
 :root[data-theme="dark"] .tile:nth-child(2) .tglyph{color:var(--teal)}
 :root[data-theme="dark"] .tile:nth-child(3) .tglyph{color:var(--warn)}
 /* the small chips that carry a value */
-:root[data-theme="dark"] .linkchip{background:rgba(90,169,240,.14);color:var(--info);
-  border:1px solid rgba(90,169,240,.28)}
+:root[data-theme="dark"] .linkchip{background:transparent;color:var(--ink3);border:1px solid transparent}
+.linkchip:hover{background:var(--surface2);color:var(--ink);border-color:var(--ring)}
 :root[data-theme="dark"] .revchip,
 :root[data-theme="dark"] .badge{background:var(--chip);color:var(--ink2);
   border:1px solid rgba(255,255,255,.08)}
