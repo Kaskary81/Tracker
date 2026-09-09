@@ -7748,7 +7748,7 @@ function logAct(action,tbl,recId,field,oldV,newV){
   const e={ts:_nowTs(),action,tbl,recId:recId??null,recName:actName(tbl,recId),
     field:field?((typeof FIELD_LABELS!=='undefined'&&FIELD_LABELS[field])||field):'',
     oldVal:String(oldV??'').slice(0,200),newVal:String(newV??'').slice(0,200)};
-  if(_isLive()){apiInsert('activity',e).then(r=>{if(r){DB.activity.push(r);windows.forEach(x=>{if(x.kind==='feed')renderFeedWin(x);});}});}
+  if(_isLive()){apiInsert('activity',e).then(r=>{if(r){DB.activity.push(r);try{_myActs.add(+r.id);}catch(_){}windows.forEach(x=>{if(x.kind==='feed')renderFeedWin(x);});}});}
   else{e.id=nextId('activity');DB.activity.push(e);windows.forEach(x=>{if(x.kind==='feed')renderFeedWin(x);});}
 }
 function openFeed(){createWindow('feed',{},{dedupeKey:'feed',w:1080,h:520});}
@@ -8072,11 +8072,19 @@ function chime(){
 }
 /* what arrived, so the alert can name it and take you there */
 let _lastSeenAct=null;
+/* An activity row carries ts, not `at`, and carries no author at all. Sorting
+   on `at` left the list in whatever order the database returned, so acts[0].id
+   was not the newest id and the mark never advanced — every refresh then
+   re-announced the whole log. Track the highest id instead, and remember the
+   entries this browser wrote so we do not announce our own work. */
+const _myActs=new Set();
 function freshSince(){
-  const acts=(DB.activity||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
-  if(_lastSeenAct==null){ _lastSeenAct=acts.length?acts[0].id:0; return []; }
-  const fresh=acts.filter(a=>a.id>_lastSeenAct && String(a.who||'')!==String(USER&&USER.name||''));
-  if(acts.length)_lastSeenAct=acts[0].id;
+  const acts=(DB.activity||[]);
+  const maxId=acts.reduce((m,a)=>Math.max(m,+a.id||0),0);
+  if(_lastSeenAct==null){ _lastSeenAct=maxId; return []; }
+  const fresh=acts.filter(a=>(+a.id||0)>_lastSeenAct && !_myActs.has(+a.id))
+                  .sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  if(maxId>_lastSeenAct)_lastSeenAct=maxId;
   return fresh;
 }
 function announce(fresh){
@@ -8132,8 +8140,17 @@ function askForAlerts(){
 }
 
 let rtTimer=null;
+/* THIS APP SHARES ITS DATABASE WITH THE OTHER TRACKERS (lod_*, snag_*, eng_*,
+   task_*). A schema-wide subscription therefore woke this app up — and rang its
+   bell — every time somebody edited a document in the LOD tracker. Only our own
+   tables count. */
+const RT_MINE=new Set(DB_TABLES);
 function subscribeRT(){if(!sb)return;
-  sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},()=>{clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,500);}).subscribe();}
+  sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},p=>{
+    const t=(p&&(p.table||(p.payload&&p.payload.table)))||'';
+    if(t&&!RT_MINE.has(t))return;
+    clearTimeout(rtTimer);rtTimer=setTimeout(rtRefresh,500);
+  }).subscribe();}
 /* Someone else's change must never pull the rug from under someone who is
    mid-edit: reloading rebuilds every grid, which used to close the open cell
    editor, re-fire its commit and write the same figure again. Wait instead. */
