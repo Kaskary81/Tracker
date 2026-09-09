@@ -1972,8 +1972,12 @@ document.addEventListener('keydown',e=>{
   if(e.key==='End')return move(0,maxC);
   if(e.key==='Escape'){clearSel();return;}
   if(ctrl&&(e.key==='a'||e.key==='A')){SEL.r1=0;SEL.c1=0;SEL.r2=maxR;SEL.c2=maxC;paintSel();e.preventDefault();return;}
-  if(ctrl&&(e.key==='d'||e.key==='D')){e.preventDefault();fillSel('down');return;}
-  if(ctrl&&(e.key==='r'||e.key==='R')){e.preventDefault();fillSel('right');return;}
+  /* Fill down / fill right, as in Excel. THE SHIFT KEY MUST BE EXCLUDED:
+     Ctrl+Shift+R is the browser's hard reload, and swallowing it here filled
+     the anchor cell rightwards across the selection instead — which is how a
+     description came to be overwritten with its own item number. */
+  if(ctrl&&!e.shiftKey&&(e.key==='d'||e.key==='D')){e.preventDefault();fillSel('down');return;}
+  if(ctrl&&!e.shiftKey&&(e.key==='r'||e.key==='R')){e.preventDefault();fillSel('right');return;}
   if(e.key==='Enter'||e.key==='F2'){
     const td=rows[SEL.ar]&&rows[SEL.ar].cells[SEL.ac];
     if(td&&_cellBeginEdit(td))e.preventDefault();
