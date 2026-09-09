@@ -2957,6 +2957,12 @@ function renderGrid(w){
 }
 function renderGridBody(w){
   const cfg=GRIDS[w.params.g];const rows=gridRows(w);
+  /* Rewriting the body throws away the scrolling div with it, so the table
+     jumps back to the first row. Ticking a box, sorting, resizing a column —
+     none of them should move you. Remember where each grid was and put it
+     back. renderWin does the same for the window as a whole. */
+  const _sp=(()=>{const b=w.el&&w.el.querySelector('.gridbody');
+    return b?[...b.querySelectorAll('.gridwrap')].map(g=>[g.scrollTop,g.scrollLeft]):[];})();
   if(!w.state.autoHid)applyColPrefs(w);
   const hid=w.state.hidden||{};
   const vcols=gridCols(w);
@@ -2988,9 +2994,15 @@ function renderGridBody(w){
    </table></div>
    <div class="statusbar"><span>${rows.length} of ${(cfg.baseFilter?DB[cfg.tbl].filter(cfg.baseFilter):DB[cfg.tbl]).length} records${
      cfg.cols.length-vcols.length?' · '+(cfg.cols.length-vcols.length)+' column(s) hidden':''}</span><span class="spacer"></span><span>⠿ drag a row to move it${gridNumField(w)?(gridOrderable(w)?'':' — sort by the number column first'):''} · ⠿ in a heading moves the column · drag the edges to resize · double-click to edit</span></div>`;
+  [...body.querySelectorAll('.gridwrap')].forEach((g,i)=>{
+    const p=_sp[i];if(!p)return;g.scrollTop=p[0];g.scrollLeft=p[1];});
   paintSel();
 }
-function gq(id,v){const w=windows.get(id);w.state.q=v;renderGridBody(w);}
+/* Searching and filtering DO start again at the top — the rows underneath are
+   a different set, so holding the old position would be meaningless. */
+function gq(id,v){const w=windows.get(id);w.state.q=v;renderGridBody(w);_gTop(w);}
+function _gTop(w){const b=w&&w.el&&w.el.querySelector('.gridbody');if(!b)return;
+  b.querySelectorAll('.gridwrap').forEach(g=>{g.scrollTop=0;});}
 let __colResized=false;
 function startColResize(e,wid,k){
   e.stopPropagation();e.preventDefault();
@@ -3437,7 +3449,7 @@ function resetSizes(wid){
   w.state.colw={};w.state.rowh=null;w.state.rowhs={};
   renderGridBody(w);toast('Column widths and row heights reset');}
 function resetCol(e,wid,k){e.stopPropagation();const w=windows.get(wid);if(w&&w.state.colw){delete w.state.colw[k];__colResized=true;setTimeout(()=>__colResized=false,250);renderGridBody(w);}}
-function gset(id,k,v){const w=windows.get(id);w.state[k]=v;renderGridBody(w);}
+function gset(id,k,v){const w=windows.get(id);w.state[k]=v;renderGridBody(w);_gTop(w);}
 function gsort(id,k){if(__colResized)return;const w=windows.get(id);if(w.state.sortKey===k)w.state.sortDir*=-1;else{w.state.sortKey=k;w.state.sortDir=1;}renderGridBody(w);}
 function gsel(id,rid,tr){if(__rowResized)return;const w=windows.get(id);w.state.selId=rid;
   if(tr&&tr.parentElement){tr.parentElement.querySelectorAll('tr.sel').forEach(x=>x.classList.remove('sel'));tr.classList.add('sel');}
@@ -3446,7 +3458,11 @@ function deleteSelected(id){const w=windows.get(id);if(w.state.selId!=null)confi
 /* ---- ticking rows, and clearing out the ticked ones together ---- */
 const gTicked=w=>new Set((w&&w.state.ticked)||[]);
 function gTick(wid,id,on){const w=windows.get(wid);if(!w)return;
-  const t=gTicked(w);on?t.add(id):t.delete(id);w.state.ticked=[...t];renderGridBody(w);_gToolbar(w);}
+  const keep=_keepScroll(w);
+  const t=gTicked(w);on?t.add(id):t.delete(id);w.state.ticked=[...t];renderGridBody(w);
+  /* the toolbar gains a "Delete N selected" button, which rebuilds the whole
+     window — hand it the position the grid was at before any of this */
+  _gToolbar(w);_putScroll(w,keep);}
 function gTickAll(wid,on){const w=windows.get(wid);if(!w)return;
   w.state.ticked=on?gridRows(w).map(r=>r.id):[];renderWin(w);}
 function gTickNone(wid){gTickAll(wid,false);}
