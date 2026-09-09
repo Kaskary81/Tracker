@@ -5204,19 +5204,37 @@ function shortlistTry(id,el){
       'Shortlisting is what tells procurement to send a target price, so every vendor has to be priced and assessed first.');
     return;}
   toggleChk('links',id,'priceShortlisted',true);}
+/* WHAT IS STILL MISSING BEFORE A VENDOR WOULD NORMALLY BE SELECTABLE.
+   The usual route is shortlist → target price → revised offer → select, and
+   that is still what the app asks for. But not every material goes that way:
+   a lump-sum service, a single-source item or an award agreed outside the
+   sheet has no target-price round to record. So the rule now WARNS instead of
+   refusing — you are told exactly what is missing and can go ahead anyway. */
+function selectMissing(l){
+  const miss=[];
+  if(!isYes(l.priceShortlisted))miss.push('the vendor is not shortlisted on price');
+  if(revisedTotal(l)==null)miss.push('his revised offer after the target price has not been entered');
+  return miss;}
 function selectTry(id,el){
   const l=(DB.links||[]).find(x=>x.id===id);if(!l)return;
   if(!el.checked){toggleChk('links',id,'selected',false);return;}
-  if(!selectable(l)){
-    el.checked=false;
-    const miss=[];
-    if(!isYes(l.priceShortlisted))miss.push('the vendor is not shortlisted');
-    else if(revisedTotal(l)==null)miss.push('his revised offer after the target price has not been entered');
-    blockedBox('Cannot be selected yet',venName(l.vendorId),
-      'cannot be selected for “'+matName(l.materialId)+'” because:',miss,
-      'Selecting a vendor awards the material, so the negotiated offer must be on record first.');
-    return;}
-  toggleChk('links',id,'selected',true);}
+  const miss=selectMissing(l);
+  if(!miss.length){toggleChk('links',id,'selected',true);return;}
+  el.checked=false;
+  const d=msgBox('Select this vendor anyway?','⚠',
+    `<b>${esc(venName(l.vendorId))}</b> would not normally be selectable for
+     “${esc(matName(l.materialId))}” yet, because:
+     <ul style="margin:9px 0 0 16px;line-height:1.95">${miss.map(m=>'<li>'+esc(m)+'</li>').join('')}</ul>
+     <div class="hint" style="margin-top:9px">Selecting a vendor awards him the
+       material. Going ahead is recorded in the updates log, so anyone reading
+       it later can see the award was made outside the usual route.</div>`,
+    [['Cancel',null,''],['Select anyway',()=>{
+        toggleChk('links',id,'selected',true);
+        logAct('Updated','links',l.id,'selected','',
+               'selected anyway — '+miss.join('; '));
+        toast('Selected — '+venName(l.vendorId));
+      },'danger']]);
+  if(d){d.h=Math.min(430,230+miss.length*26);applyRect(d);}}
 /* ---- revised offers after a target price ---- */
 function rate2Of(linkId,itemId){
   const l=(DB.links||[]).find(x=>x.id===linkId);
@@ -5269,8 +5287,8 @@ function selectable(l){
   return isYes(l.priceShortlisted)&&revisedTotal(l)!=null;}
 function selCell(l){
   const on=isYes(l.selected);
-  const why=!isYes(l.priceShortlisted)?'shortlist this vendor first':(revisedTotal(l)==null?'his revised offer after the target price is still missing':'');
-  return `<td class="num" title="${on?'Selected vendor — untick to release the award':(why?'Cannot be selected yet — '+esc(why):'Tick to select this vendor and award the material')}"><input type="checkbox" ${on?'checked':''} onclick="event.stopPropagation();selectTry(${l.id},this)">${on?' <span class="chip">selected</span>':''}</td>`;}
+  const why=selectMissing(l).join('; ');
+  return `<td class="num" title="${on?'Selected vendor — untick to release the award':(why?'Not ready yet ('+esc(why)+') — tick to select him anyway, you will be asked to confirm':'Tick to select this vendor and award the material')}"><input type="checkbox" ${on?'checked':''} onclick="event.stopPropagation();selectTry(${l.id},this)">${on?' <span class="chip">selected</span>':''}</td>`;}
 function _awardTo(l){
   const m=DB.materials.find(x=>x.id===l.materialId);if(!m)return;
   (DB.links||[]).filter(x=>x.materialId===l.materialId&&x.id!==l.id&&isYes(x.selected))
