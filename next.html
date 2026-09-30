@@ -14465,7 +14465,7 @@ var W=window,D=document;
 if(W.__wbLoaded)return;W.__wbLoaded=true;
 
 /* ------------------------------------------------------------ constants */
-var SECS=['summary','offers','evaluation','comparison','rfq','submittals','tasks','po','history'];
+var SECS=['summary','rfq','offers','evaluation','comparison','po','submittals','tasks','history'];   /* stage order: RFQ → offers → tech → shortlist/target → PO, then follow-up */
 var SEC_LABEL={summary:'Summary',offers:'Offers',evaluation:'Evaluation',comparison:'Comparison',rfq:'RFQ',
   submittals:'Submittals',tasks:'Tasks',po:'Purchase order',history:'History'};
 var STEP_SEC={'Not Started':'rfq','RFQ Issued':'rfq','Offers Received':'offers','Technically Evaluated':'evaluation',
@@ -15049,7 +15049,7 @@ function idxHtml(m){
 function pageHtml(m){
   var nx=nextOf(m);
   var secs='';
-  [summaryHtml,offersHtml,evaluationHtml,comparisonHtml,rfqHtml,submittalsHtml,tasksHtml,poHtml,historyHtml].forEach(function(f,i){
+  [summaryHtml,rfqHtml,offersHtml,evaluationHtml,comparisonHtml,poHtml,submittalsHtml,tasksHtml,historyHtml].forEach(function(f,i){
     try{secs+=f(m);}catch(e){secs+=secWrap(SECS[i],SEC_LABEL[SECS[i]],'','','<div class="wb-empty">Could not show this section: '+e_(String(e&&e.message||e))+'</div>');}});
   return headHtml(m)+'<div class="wb-cols"><div class="wb-main">'+leadHtml(m,nx)+secs+'</div>'+idxHtml(m)+'</div>';}
 
