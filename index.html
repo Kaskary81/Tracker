@@ -583,7 +583,7 @@ table.grid thead th.frz{z-index:8}
 :root[data-theme="dark"] table.grid tbody tr.sel td.frz{background:#20303f}
 table.grid td.frzlast,table.grid th.frzlast{border-right:2px solid var(--info)}
 </style>
-<meta name="trk-build" content="2026-09-30 · workspace 1">
+<meta name="trk-build" content="2026-09-30 · workspace 2">
 <style id="sh-shell-css">
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 /* =====================================================================
@@ -1247,6 +1247,337 @@ body.mobile .ws-splitter,body.mobile .ws-offer{display:none}
 :root[data-theme] .win .wtoolbar .btn{padding-left:8px;padding-right:8px;gap:5px}
 :root[data-theme] .win .wtoolbar input[type=text]{width:180px}
 :root[data-theme] .win .wtoolbar .sizegrp .iconbtn{padding:0 4px}
+
+/* round 2: dashboard tile titles wrap instead of being cut off in a pane */
+.db2-tl{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+
+</style>
+<style id="nv-css">
+/* ================= NAV (Engineer D, round 2) — sidebar, slim top bar, split panes =================
+   Every colour is a var() from the app's :root tokens (base file + shell.css), so both themes follow.
+   All rules are scoped to body.nv-on, which nav.js sets only on the desktop with a signed-in user:
+   the login screen and the phone view (body.mobile) are untouched. */
+body{--nv-w:0px}
+body.nv-on{--nv-w:224px}
+body.nv-on.nv-collapsed{--nv-w:60px}
+#nv-side[hidden],body:not(.nv-on) #nv-side,body.mobile #nv-side{display:none!important}
+
+/* ---------- the sidebar ---------- */
+#nv-side{position:fixed;left:0;top:0;bottom:0;width:var(--nv-w);z-index:950;display:flex;flex-direction:column;
+  background:var(--sh-glass,var(--glass));border-right:1px solid var(--sh-border,var(--ring));
+  font-family:var(--sh-font,inherit);color:var(--ink2);user-select:none;overflow:hidden}
+#nv-side button{font:inherit;color:inherit;background:none;border:none;margin:0;cursor:pointer;text-align:left}
+#nv-side button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--sh-focus,var(--accent-soft2))}
+#nv-side .ic{vertical-align:0;flex:none}
+
+/* header: app mark + project (opens the project switcher) */
+#nv-side .nv-head{min-height:52px;flex:none;display:flex;align-items:center;padding:8px 8px 4px}
+#nv-side .nv-proj{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 4px 6px 6px;border-radius:8px}
+#nv-side .nv-proj:hover{background:var(--sh-hover,var(--surface2))}
+#nv-side .nv-mark{width:28px;height:28px;flex:none;border-radius:8px;background:var(--accent);color:var(--sh-on-accent,var(--surface));
+  display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-shadow-1,none)}
+#nv-side .nv-pt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+#nv-side .nv-pname{font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;letter-spacing:-.005em;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+#nv-side .nv-psub{font-size:11px;margin-top:1px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#nv-side .nv-chev{flex:none;color:var(--muted);display:flex;opacity:.7}
+#nv-side .nv-proj:hover .nv-chev{opacity:1}
+
+/* items */
+#nv-side .nv-items{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:6px 10px 10px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+#nv-side .nv-sec{font-size:11px;font-weight:600;color:var(--muted);padding:12px 10px 4px;letter-spacing:.01em;white-space:nowrap}
+#nv-side .nv-rule{height:1px;background:var(--sh-divider,var(--grid));margin:8px 6px}
+#nv-side .nv-item{position:relative;display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;
+  font-size:13px;font-weight:500;color:var(--ink2);white-space:nowrap;flex:none;width:100%;
+  transition:background-color var(--sh-fast,.12s) var(--sh-ease,ease),color var(--sh-fast,.12s) var(--sh-ease,ease)}
+#nv-side .nv-item .nv-ic{width:18px;display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+#nv-side .nv-item .nv-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#nv-side .nv-item:hover{background:var(--sh-hover,var(--surface2));color:var(--ink)}
+#nv-side .nv-item:hover .nv-ic{color:var(--ink2)}
+#nv-side .nv-item:active{background:var(--sh-active,var(--surface2))}
+#nv-side .nv-item.nv-on{background:var(--sh-active,var(--surface2));color:var(--ink);font-weight:600}
+#nv-side .nv-item.nv-on .nv-ic{color:var(--ink)}
+/* count badges */
+#nv-side .nv-n{flex:none;min-width:22px;height:19px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink2);background:var(--sh-chip-bg,var(--surface2))}
+#nv-side .nv-n.nv-zero{color:var(--muted);font-weight:500;background:transparent}
+#nv-side .nv-item.nv-on .nv-n{color:var(--ink);background:var(--sh-hover,var(--surface2))}
+#nv-side .nv-val{flex:none;font-size:11.5px;color:var(--muted)}
+
+/* footer: home, theme, users, the signed-in user, collapse */
+#nv-side .nv-foot{flex:none;padding:8px 10px 10px;border-top:1px solid var(--sh-border,var(--ring));display:flex;flex-direction:column;gap:2px}
+#nv-side .nv-user{display:flex;align-items:center;gap:10px;padding:6px 4px 6px 6px;margin:4px 0 2px;border-radius:8px;min-width:0}
+#nv-side .nv-av{width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink);background:var(--sh-chip-bg,var(--surface2));border:1px solid var(--sh-border,var(--ring))}
+#nv-side .nv-ut{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+#nv-side .nv-uname{font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#nv-side .nv-urole{font-size:11px;color:var(--muted);white-space:nowrap}
+#nv-side .nv-out{width:30px;height:30px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+#nv-side .nv-out:hover{background:var(--sh-hover,var(--surface2));color:var(--ink)}
+#nv-side .nv-toggle{color:var(--muted);font-weight:500}
+
+/* collapsed: an icon rail */
+body.nv-collapsed #nv-side .nv-head{padding:0 10px;justify-content:center}
+body.nv-collapsed #nv-side .nv-proj{flex:none;width:40px;justify-content:center;padding:0}
+body.nv-collapsed #nv-side .nv-pt,body.nv-collapsed #nv-side .nv-chev,
+body.nv-collapsed #nv-side .nv-lbl,body.nv-collapsed #nv-side .nv-val,
+body.nv-collapsed #nv-side .nv-ut{display:none}
+body.nv-collapsed #nv-side .nv-items,body.nv-collapsed #nv-side .nv-foot{padding-left:10px;padding-right:10px}
+body.nv-collapsed #nv-side .nv-item{width:40px;height:36px;padding:0;justify-content:center}
+body.nv-collapsed #nv-side .nv-n{position:absolute;top:0;right:-5px;min-width:15px;height:14px;padding:0 3px;font-size:9.5px;
+  background:var(--sh-pop,var(--surface));border:1px solid var(--sh-border,var(--ring))}
+body.nv-collapsed #nv-side .nv-n.nv-zero{display:none}
+body.nv-collapsed #nv-side .nv-user{flex-direction:column;gap:4px;padding:4px 0;align-items:center}
+body.nv-collapsed #nv-side .nv-out{width:40px;height:30px}
+
+/* ---------- the shell moves right of the sidebar ---------- */
+body.nv-on:not(.mobile) #topbar{margin-left:var(--nv-w)}
+body.nv-on:not(.mobile) #desktop{left:var(--nv-w)}
+body.nv-on:not(.mobile) #homewrap,body.nv-on:not(.mobile) #projwrap{left:var(--nv-w)!important}
+body.nv-on:not(.mobile) #dock{max-width:calc(100% - 32px)}
+
+/* ---------- slim top bar: the sidebar now carries navigation, user, theme and sign-out ---------- */
+body.nv-on #topbar>.logo,
+body.nv-on #topbar>.tbbtn[onclick^="showProjects"],
+body.nv-on #topbar>.tbbtn[onclick^="showHome"],
+body.nv-on #topbar>.tbbtn[onclick^="openFeed"],
+body.nv-on #topbar>.tbbtn[onclick^="appLogout"],
+body.nv-on #topbar>.tbbtn[onclick^="openUsers"],
+body.nv-on #topbar #navbtn-material,
+body.nv-on #topbar #nav-material,
+body.nv-on #topbar #nav-procurement,
+body.nv-on #topbar #sh-dashbtn,
+body.nv-on #topbar #userchip,
+body.nv-on #topbar #themeBtn{display:none!important}
+:root[data-theme] body.nv-on #topbar{gap:4px;padding:0 12px 0 16px}
+body.nv-on #topbar .title{flex:0 1 auto;min-width:0;max-width:220px;margin:0 8px 0 0}
+body.nv-on #topbar .title small{display:none}
+body.nv-on #topbar>.spacer{flex:0 0 0;width:0}
+/* the omnibox is the centre of the bar */
+body.nv-on #topbar .sh-omni{flex:0 1 520px!important;width:520px;min-width:180px;margin:0 auto!important;height:34px}
+body.nv-on #topbar .sh-omni .sh-omni-txt{display:block!important}
+body.nv-on #topbar .sh-omni .sh-omni-kbd{display:flex}
+/* the controls that stay keep their icon + tooltip; Float / Split keep their words when there is room */
+:root[data-theme] body.nv-on #topbar>.tbbtn,:root[data-theme] body.nv-on #topbar>.menuwrap>.tbbtn{font-size:0;gap:0;padding:0 8px}
+body.nv-on #topbar .ws-bar .ws-modebtn span{display:inline}
+body.nv-on #topbar #sync{margin-right:2px}
+@media (max-width:1439px){body.nv-on #topbar .ws-bar .ws-modebtn span{display:none}}
+@media (max-width:1279px){
+  body.nv-on #topbar .title{max-width:150px}
+  body.nv-on #topbar .sh-omni .sh-omni-kbd{display:none}}
+@media (max-width:1099px){body.nv-on:not(.nv-collapsed) #topbar .title{display:none}body.nv-on #topbar .title{max-width:130px}body.nv-on #topbar #sync{display:none}}
+
+/* ---------- split view: panes of one app, not floating dialogs ---------- */
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled{border-radius:8px;box-shadow:none;border:1px solid var(--sh-border,var(--ring));animation:none}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled.focused{border-color:var(--sh-border-strong,var(--ring));box-shadow:0 0 0 1px var(--sh-border-strong,var(--ring))}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled.ws-zoomed{box-shadow:none}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled>.titlebar{height:36px;padding:0 4px 0 10px;gap:7px}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled>.titlebar .ticon{width:20px;height:20px}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled>.titlebar .ttext{font-size:12.5px}
+:root[data-theme] body.nv-on #desktop.ws-split>.win.ws-tiled>.titlebar .tbtn{width:24px;height:24px}
+body.nv-on #desktop.ws-split>.watermark{display:none}
+/* messages keep floating above the panes */
+:root[data-theme] body.nv-on #desktop>.win[data-kind="msg"]{border-radius:12px}
+
+@media print{#nv-side{display:none!important}body.nv-on #desktop,body.nv-on #topbar{left:0;margin-left:0}}
+@media (prefers-reduced-motion:reduce){#nv-side .nv-item{transition:none}}
+/* the "restore last workspace" offer sits above the dock strip, so the narrower desktop never overlaps them */
+body.nv-on:not(.mobile) #desktop>.ws-offer{bottom:68px}
+/* the project block is "current" while the project picker is open */
+#nv-side .nv-proj.nv-on{background:var(--sh-active,var(--surface2))}
+/* the Dashboard's tab bar never wraps in a narrow pane: it scrolls sideways (no visible bar) */
+body.nv-on #desktop>.win[data-kind="dash"] .wincontent .tabbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+body.nv-on #desktop>.win[data-kind="dash"] .wincontent .tabbar::-webkit-scrollbar{display:none}
+body.nv-on #desktop>.win[data-kind="dash"] .wincontent .tabbar>button{flex:none;white-space:nowrap}
+/* splitter bars live in the gaps between panes; a floating dialog must cover them */
+body.nv-on #desktop>.ws-splitter{z-index:5}
+
+</style>
+<style id="insp-css">
+/* =====================================================================
+   insp.css — details panel + stage strip for the registers (Engineer E)
+   Colours come only from the app's tokens (shell.css --sh-* with the
+   base file's tokens as fallbacks), so both themes follow automatically.
+   ===================================================================== */
+
+/* ---------- stage strip ---------- */
+/* wraps onto a second line in a narrow window: every chip stays reachable, no sideways scrollbar */
+.insp-strip{display:flex;flex-wrap:wrap;gap:6px;flex:none;align-items:center;padding:0 0 10px}
+.insp-sc{flex:none;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 6px 0 11px;
+  border:1px solid var(--sh-border,var(--grid));border-radius:8px;background:var(--sh-surface,var(--surface));
+  color:var(--ink2);font:inherit;font-size:12px;font-weight:500;line-height:1;cursor:pointer;white-space:nowrap;
+  transition:background var(--sh-fast,120ms),border-color var(--sh-fast,120ms),color var(--sh-fast,120ms)}
+.insp-sc:hover{background:var(--sh-hover,var(--surface2));color:var(--ink)}
+.insp-sc:focus-visible{outline:2px solid var(--sh-focus-border,var(--accent));outline-offset:1px}
+.insp-sc .insp-sn{min-width:20px;height:20px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:6px;background:var(--sh-chip-bg,var(--surface2));color:var(--ink);font-weight:600;font-size:11.5px;
+  font-variant-numeric:tabular-nums}
+.insp-sc.zero{color:var(--muted)}
+.insp-sc.zero .insp-sn{color:var(--muted);font-weight:500}
+.insp-sc.on{border-color:var(--ink);color:var(--ink);background:var(--sh-active,var(--surface2));box-shadow:inset 0 0 0 1px var(--ink)}
+.insp-sc.on .insp-sn{background:var(--ink);color:var(--sh-surface,var(--surface))}
+.insp-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block;background:var(--c,var(--muted))}
+
+/* ---------- register + panel side by side ---------- */
+.insp-body{flex:1;min-height:0;display:flex;gap:10px;position:relative}
+.insp-body>.gridbody{min-width:0}
+.insp-body>.gridbody .statusbar{min-width:0;flex-wrap:wrap;row-gap:2px}
+.insp-panel{flex:none;width:380px;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--sh-surface,var(--surface));border:1px solid var(--sh-border,var(--grid));border-radius:var(--sh-r,10px);
+  color:var(--ink);font-size:12.5px;line-height:1.45}
+.insp-panel[hidden]{display:none}
+.insp-rail{flex:none;display:flex}
+.insp-body.insp-open>.insp-rail{display:none}
+.insp-railbtn{width:30px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0;cursor:pointer;
+  border:1px solid var(--sh-border,var(--grid));border-radius:var(--sh-r,10px);background:var(--sh-surface,var(--surface));
+  color:var(--ink2);font:inherit;font-size:12px;font-weight:500}
+.insp-railbtn span{writing-mode:vertical-rl;letter-spacing:.02em}
+.insp-railbtn:hover{background:var(--sh-hover,var(--surface2));color:var(--ink)}
+/* a narrow window (a tiled pane): the panel slides over the table instead of crushing it */
+.insp-body.insp-narrow>.insp-panel{position:absolute;top:0;right:0;bottom:0;z-index:6;width:min(380px,calc(100% - 40px));
+  border-left-color:var(--sh-border-strong,var(--grid));
+  box-shadow:-14px 0 30px -12px rgba(0,0,0,.30),-1px 0 0 var(--sh-border-strong,var(--grid)),var(--sh-shadow-2,var(--shadow))}
+:root[data-theme="dark"] .insp-body.insp-narrow>.insp-panel{
+  box-shadow:-16px 0 34px -10px rgba(0,0,0,.70),-1px 0 0 rgba(255,255,255,.10),var(--sh-shadow-2,var(--shadow))}
+
+/* ---------- compact register toolbar (window narrower than 1100px) ----------
+   Columns / Paste rows / Copy table / Excel keep their icon and their title tooltip;
+   the text label is hidden by zeroing the font size (the svg has its own size). */
+:root[data-theme] .wincontent.insp-compact>.wtoolbar{gap:5px}
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>input[type=text]{width:128px;min-width:0}
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>select{max-width:138px}
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="openCols("],
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="openPasteWin("],
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="copyTable("],
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="exportTableXLSX("]{
+  font-size:0;gap:0;width:30px;min-width:30px;padding-left:0;padding-right:0;justify-content:center;letter-spacing:0}
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="openCols("] .ic,
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="openPasteWin("] .ic,
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="copyTable("] .ic,
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.btn[onclick^="exportTableXLSX("] .ic{width:14px;height:14px;margin:0}
+:root[data-theme] .wincontent.insp-tight>.wtoolbar>.spacer{flex:1 0 100%;height:0;margin:0}
+:root[data-theme] .wincontent.insp-tight>.wtoolbar>input[type=text]{flex:1 1 120px;width:auto;max-width:220px}
+:root[data-theme] .wincontent.insp-compact>.wtoolbar>.sizegrp .iconbtn{padding-left:4px;padding-right:4px;min-width:0}
+
+/* ---------- panel: header ---------- */
+.insp-head{flex:none;padding:12px 14px 12px;border-bottom:1px solid var(--sh-divider,var(--grid))}
+.insp-headtop{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:22px}
+.insp-kicker{font-size:11.5px;font-weight:500;color:var(--muted)}
+.insp-no{color:var(--ink2);font-variant-numeric:tabular-nums}
+.insp-x{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;
+  background:transparent;color:var(--muted);cursor:pointer}
+.insp-x:hover{background:var(--sh-hover,var(--surface2));color:var(--ink)}
+.insp-title{font-size:15px;font-weight:650;line-height:1.3;color:var(--ink);margin-top:1px;overflow-wrap:anywhere}
+.insp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;align-items:center}
+.insp-chips .badge{margin:0}
+.insp-note{margin-top:9px;padding:6px 9px;border-radius:7px;font-size:11.5px;color:var(--ink2);
+  background:var(--sh-chip-bg,var(--surface2))}
+.insp-tag{display:inline-flex;align-items:center;height:22px;padding:0 9px;border:1px solid var(--sh-border,var(--grid));
+  border-radius:999px;color:var(--ink2);font-size:11.5px;white-space:nowrap}
+
+/* ---------- panel: body ---------- */
+.insp-scroll{flex:1;min-height:0;overflow:auto;padding:0 14px 6px;scrollbar-width:thin;
+  scrollbar-color:var(--sh-scroll,var(--grid)) transparent}
+.insp-sec{padding:13px 0 12px;border-bottom:1px solid var(--sh-divider,var(--grid))}
+.insp-sec:last-child{border-bottom:0}
+.insp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:9px;
+  font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+.insp-hx{font-weight:500;color:var(--ink2)}
+.insp-empty{padding:14px 0 4px;color:var(--ink2);line-height:1.55}
+.insp-none{color:var(--muted);font-size:12px}
+.insp-nil,.insp-muted{color:var(--muted)}
+.insp-ok,.insp-yes{color:var(--goodtext,var(--good))}
+.insp-yes{display:inline-flex}
+.insp-bad{color:var(--critical)}
+.insp-link{color:var(--info,var(--accent));cursor:pointer;font-weight:500}
+.insp-link:hover{text-decoration:underline}
+
+/* stage progress */
+.insp-steps{list-style:none;margin:0;padding:0}
+.insp-step{position:relative;display:grid;grid-template-columns:16px 1fr auto;align-items:center;column-gap:8px;height:22px}
+.insp-step:not(:last-child)::after{content:"";position:absolute;left:7px;top:15px;width:2px;height:14px;border-radius:1px;
+  background:var(--sh-border-strong,var(--grid))}
+.insp-step.done::after{background:var(--muted)}
+.insp-sdot{justify-self:center;width:10px;height:10px;box-sizing:border-box;border-radius:50%;position:relative;z-index:1;
+  border:2px solid var(--sh-border-strong,var(--grid));background:var(--sh-surface,var(--surface))}
+.insp-step.done .insp-sdot{background:var(--c);border-color:var(--c)}
+.insp-step.now .insp-sdot{width:12px;height:12px;background:var(--c);border-color:var(--c);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 28%,transparent)}
+.insp-sname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insp-step.now .insp-sname{color:var(--ink);font-weight:600}
+.insp-step.todo .insp-sname{color:var(--muted)}
+.insp-sdate{font-size:11.5px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.insp-step.now .insp-sdate{color:var(--ink);font-weight:500}
+
+/* price */
+.insp-money{padding:10px 12px;border:1px solid var(--sh-border,var(--grid));border-radius:8px;background:var(--sh-raised,var(--surface2))}
+.insp-ml{font-size:11.5px;color:var(--muted)}
+.insp-mv{font-size:19px;font-weight:650;line-height:1.25;margin-top:1px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.insp-mv .insp-muted{font-size:13px;font-weight:500}
+.insp-cur{font-size:11.5px;font-weight:500;color:var(--muted)}
+.insp-ms{font-size:12px;color:var(--ink2);margin-top:2px}
+.insp-money+.insp-facts{margin-top:10px}
+
+/* key facts */
+.insp-facts{display:grid;grid-template-columns:minmax(112px,auto) 1fr;gap:6px 12px;margin:0;align-items:baseline}
+.insp-facts dt{color:var(--muted);font-size:12px;margin:0}
+.insp-facts dd{margin:0;color:var(--ink);min-width:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.insp-facts dd .badge{margin:0}
+
+/* offers */
+.insp-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
+.insp-tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:0 5px 6px;white-space:nowrap;
+  border-bottom:1px solid var(--sh-divider,var(--grid))}
+.insp-tbl td{padding:6px 5px;border-bottom:1px solid var(--sh-divider,var(--grid));vertical-align:top;color:var(--ink)}
+.insp-tbl th:first-child,.insp-tbl td:first-child{padding-left:0;width:100%}
+.insp-nw{white-space:nowrap}
+.insp-tbl th:last-child,.insp-tbl td:last-child{padding-right:0;text-align:center}
+.insp-tbl tr:last-child td{border-bottom:0}
+.insp-tbl tbody tr{cursor:pointer}
+.insp-tbl tbody tr:hover td{background:var(--sh-row-hover,var(--surface2))}
+.insp-tbl .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.insp-tbl tr.insp-selrow td{background:color-mix(in srgb,var(--good) 9%,transparent)}
+.insp-low{display:inline-block;margin-top:2px;padding:0 5px;border-radius:4px;font-size:10.5px;font-weight:600;line-height:16px;
+  color:var(--goodtext,var(--good));background:color-mix(in srgb,var(--good) 13%,transparent);vertical-align:1px}
+.insp-sub{font-size:11px;color:var(--muted);font-weight:400;margin-top:1px}
+
+/* approvals, tasks */
+.insp-counts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.insp-count{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border:1px solid var(--sh-border,var(--grid));
+  border-radius:999px;font-size:11.5px;color:var(--ink2);white-space:nowrap}
+.insp-count b{color:var(--ink);font-variant-numeric:tabular-nums}
+.insp-taskline{font-size:12.5px}
+
+/* activity */
+.insp-act{list-style:none;margin:0;padding:0}
+.insp-act li{padding:6px 0;border-bottom:1px solid var(--sh-divider,var(--grid))}
+.insp-act li:first-child{padding-top:0}
+.insp-act li:last-child{border-bottom:0;padding-bottom:0}
+.insp-actl{display:flex;justify-content:space-between;gap:10px;color:var(--ink);font-weight:500}
+.insp-when{color:var(--muted);font-weight:400;font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.insp-actv{font-size:11.5px;color:var(--ink2);margin-top:1px;overflow-wrap:anywhere}
+.insp-old{color:var(--muted)}
+
+/* ---------- panel: footer actions ---------- */
+.insp-foot{flex:none;display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--sh-divider,var(--grid))}
+.insp-btn{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:28px;padding:0 9px;
+  border:1px solid var(--sh-border-strong,var(--grid));border-radius:7px;background:var(--sh-surface,var(--surface));
+  color:var(--ink);font:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.insp-btn:hover{background:var(--sh-hover,var(--surface2))}
+.insp-btn:focus-visible,.insp-x:focus-visible,.insp-railbtn:focus-visible{outline:2px solid var(--sh-focus-border,var(--accent));outline-offset:1px}
+.insp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--sh-on-accent,#fff)}
+.insp-btn.primary:hover{filter:brightness(1.06)}
+.insp-btn .ic{flex:none}
+
+@media (prefers-reduced-motion:reduce){.insp-sc{transition:none}}
+
+/* ---------- narrow windows: a denser stage strip (two lines at most in a 670px pane) ---------- */
+:root[data-theme] .wincontent.insp-compact>.insp-strip{gap:5px;padding-bottom:8px}
+:root[data-theme] .wincontent.insp-compact>.insp-strip .insp-sc{height:24px;gap:5px;padding:0 4px 0 8px;font-size:11.5px;border-radius:7px}
+:root[data-theme] .wincontent.insp-compact>.insp-strip .insp-sn{min-width:18px;height:17px;padding:0 5px;font-size:11px;border-radius:5px}
+:root[data-theme] .wincontent.insp-compact>.insp-strip .insp-dot{width:7px;height:7px}
+/* the drawer can be as narrow as 300px: its four buttons sit in a 2 x 2 grid */
+.insp-body.insp-drawer .insp-foot{display:grid;grid-template-columns:1fr 1fr}
 
 </style>
 </head>
@@ -11552,6 +11883,1020 @@ if(D.readyState!=='complete')W.addEventListener('load',()=>{shRenderLayoutSlot()
       h+=_mcard('By discipline',rows||'<div class="hint" style="padding:8px">Nothing yet.</div>');}catch(e){}
     return h;};
   window.mobDash._glue=true;
+})();
+
+</script>
+<script id="nv-js">
+/* ================= NAV (Engineer D, round 2) =================
+   The app shell: a left sidebar, a slim top bar, Split view by default and a
+   landing (Dashboard beside the Materials register) after sign-in.
+
+   - #nv-side is built here and shown only on the desktop with a signed-in USER
+     (body.nv-on). The login screen and body.mobile never see it.
+   - Top-bar buttons that the sidebar now covers are hidden with CSS only; the
+     elements stay in the DOM for any code that looks them up.
+   - #desktop starts at the sidebar's right edge (CSS left inset). workspace.js
+     measures its split area from #desktop, so panes tile inside it without an
+     override; collapse / expand / resize re-tile the panes and re-fit maxed and
+     snapped floating windows.
+   - Split view is the default for each user until that user chooses Float
+     (localStorage trk_ws_mode:<USER.id>). Collapse state: trk_ws_nav:<USER.id>.
+   Globals added:  NV, nvGo, nvHome, nvProjects, nvTheme, nvUsers, nvSignOut,
+                   nvToggle, nvSync, nvRelayout, nvLanding
+   Globals wrapped (original called through): _signInAs, appLogin, appLogout,
+                   openProject, showHome, showLogin, applyRole, applyProjectChrome,
+                   setMobile, renderDock, refreshData, snapTo, wsSetMode,
+                   wsToggleMode, wsPreset
+   ============================================================ */
+(function(){
+'use strict';
+if(window.NV&&window.NV._installed)return;
+const D=document;
+const LS_NAV='trk_ws_nav',LS_MODE='trk_ws_mode',LS_LAST='trk_ws_last';
+const NV=window.NV={_installed:true,landing:0,landed:null,modeFor:null,navFor:null,collapsed:false,
+  html:'',prevLast:undefined,prevLastKey:null,orig:{}};
+
+/* ---------- helpers ---------- */
+const has=n=>{try{return typeof window[n]==='function';}catch(e){return false;}};
+const user=()=>{try{return typeof USER!=='undefined'?USER:null;}catch(e){return null;}};
+const uid=()=>{const u=user();return u?(u.id!=null?u.id:u.username):null;};
+const mobile=()=>{try{if(typeof MOBILE!=='undefined'&&MOBILE)return true;}catch(e){}return D.body.classList.contains('mobile');};
+const db=()=>{try{return typeof DB!=='undefined'&&DB?DB:{};}catch(e){return {};}};
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsSet=(k,v)=>{try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);return true;}catch(e){return false;}};
+const ic=(k,sz,alt)=>{try{return icon(k,sz)||(alt?icon(alt,sz):'');}catch(e){return '';}};
+const escH=s=>{try{return esc(s);}catch(e){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}};
+const canG=g=>{try{return typeof canGrid!=='function'||canGrid(g);}catch(e){return true;}};
+const isAdm=()=>{try{return typeof isAdmin==='function'&&isAdmin();}catch(e){return false;}};
+const wsOn=()=>!!(window.WS&&window.WS._installed);
+const winList=()=>{try{return [...windows.values()];}catch(e){return [];}};
+/* work windows: everything except message dialogs */
+const workWins=()=>winList().filter(w=>w.kind!=='msg');
+const desk=()=>D.getElementById('desktop');
+
+/* sidebar icons (same drawing style as the app's: 24 grid, currentColor stroke) */
+try{Object.assign(ICON_PATHS,{
+  nv_collapse:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/><path d="m15.5 10-2 2 2 2"/>',
+  nv_expand:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/><path d="m13.5 10 2 2-2 2"/>',
+  nv_updown:'<path d="m8 9.5 4-4 4 4"/><path d="m8 14.5 4 4 4-4"/>',
+  nv_users:'<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8"/><path d="M17.8 14.4a5.5 5.5 0 0 1 2.7 5.1"/>'});}catch(e){}
+
+/* ---------- what the sidebar lists ---------- */
+const subLive=s=>{try{return typeof subStatus==='function'?subStatus(s):(s&&s.status);}catch(e){return s&&s.status;}};
+const ITEMS=[
+  {id:'dash',label:'Dashboard',ic:'dashboard',alt:'chart',kinds:['dash'],run:()=>openDashboard()},
+  {sep:'Registers'},
+  {id:'materials',label:'Materials',ic:'box',g:'materials',kinds:['grid-materials','mat'],run:()=>openGrid('materials'),
+    count:()=>(db().materials||[]).length,cnt:'materials'},
+  {id:'rfqs',label:'Vendors',ic:'tag',g:'rfqs',kinds:['grid-rfqs','ven','comp'],run:()=>openGrid('rfqs'),
+    count:()=>(db().rfqs||[]).length,cnt:'vendors'},
+  {id:'compare',label:'Comparison',ic:'money',g:'compare',kinds:['grid-compare','cmp','po'],run:()=>openGrid('compare')},
+  {id:'targets',label:'Target prices',ic:'target',g:'targets',kinds:['grid-targets'],run:()=>openGrid('targets')},
+  {id:'submittals',label:'Submittals',ic:'doc',g:'submittals',kinds:['grid-submittals','sub'],run:()=>openGrid('submittals'),
+    count:()=>(db().submittals||[]).filter(s=>subLive(s)==='Under Review').length,cnt:'under review'},
+  {id:'tasks',label:'Tasks',ic:'check',g:'tasks',kinds:['grid-tasks','task'],run:()=>has('openTaskBoard')?openTaskBoard():openGrid('tasks'),
+    count:()=>(db().tasks||[]).filter(t=>t.status!=='Closed').length,cnt:'open'},
+  {sep:''},
+  {id:'feed',label:'Updates',ic:'feed',kinds:['feed'],run:()=>openFeed()}];
+const itemById=id=>ITEMS.find(x=>x.id===id);
+const visibleItems=()=>ITEMS.filter(x=>x.sep!=null||!x.g||canG(x.g));
+const homeOpen=()=>{const h=D.getElementById('homewrap');return !!(h&&h.style.display&&h.style.display!=='none');};
+const projOpen=()=>{const h=D.getElementById('projwrap');return !!(h&&h.style.display&&h.style.display!=='none');};
+function activeId(){
+  if(projOpen())return 'proj';
+  if(homeOpen())return 'home';
+  let f=null;try{f=typeof focusedWin==='function'?focusedWin():null;}catch(e){}
+  if(!f)return null;
+  const it=ITEMS.find(x=>x.kinds&&x.kinds.includes(f.kind));
+  return it?it.id:null;}
+NV.activeId=activeId;
+
+/* ---------- the sidebar ---------- */
+function side(){
+  let el=D.getElementById('nv-side');
+  if(!el){
+    el=D.createElement('aside');el.id='nv-side';el.setAttribute('aria-label','Main navigation');
+    const tb=D.getElementById('topbar');
+    if(tb&&tb.parentNode)tb.parentNode.insertBefore(el,tb);else D.body.appendChild(el);}
+  return el;}
+function projInfo(){
+  try{const p=typeof curProject==='function'?curProject():null;return p||{name:'Project',subtitle:''};}
+  catch(e){return {name:'Project',subtitle:''};}}
+function initials(u){
+  const n=String((u&&(u.name||u.username))||'').trim().split(/\s+/).filter(Boolean);
+  return ((n[0]||'?')[0]+(n.length>1?n[n.length-1][0]:'')).toUpperCase();}
+function sideHTML(){
+  const u=user(),p=projInfo(),act=activeId(),col=NV.collapsed;
+  const theme=D.documentElement.getAttribute('data-theme')==='light'?'Light':'Dark';
+  const role=String((u&&u.role)||'');
+  const item=x=>{
+    if(x.sep!=null)return x.sep&&!col?`<div class="nv-sec">${escH(x.sep)}</div>`:'<div class="nv-rule" role="presentation"></div>';
+    let n=null;if(x.count){try{n=x.count();}catch(e){n=null;}}
+    const on=act===x.id;
+    const tip=x.label+(n!=null?' — '+n+' '+x.cnt:'');
+    return `<button type="button" class="nv-item${on?' nv-on':''}" data-nv="${x.id}"${on?' aria-current="page"':''} title="${escH(tip)}" onclick="nvGo('${x.id}')">
+      <span class="nv-ic">${ic(x.ic,17,x.alt)}</span><span class="nv-lbl">${escH(x.label)}</span>${n!=null?`<span class="nv-n${n?'':' nv-zero'}" data-nv-count="${x.id}">${n}</span>`:''}</button>`;};
+  return `<div class="nv-head">
+      <button type="button" class="nv-proj${act==='proj'?' nv-on':''}"${act==='proj'?' aria-current="page"':''} onclick="nvProjects()" title="${escH(p.name+(p.subtitle?' · '+p.subtitle:''))} — switch project">
+        <span class="nv-mark" aria-hidden="true">${ic('grid',16)}</span>
+        <span class="nv-pt"><span class="nv-pname">${escH(p.name||'Project')}</span><span class="nv-psub">${escH(p.subtitle||'AWPT Material Tracker')}</span></span>
+        <span class="nv-chev">${ic('nv_updown',13)}</span>
+      </button></div>
+    <nav class="nv-items" aria-label="Registers">${visibleItems().map(item).join('')}</nav>
+    <div class="nv-foot">
+      <button type="button" class="nv-item${act==='home'?' nv-on':''}" data-nv="home"${act==='home'?' aria-current="page"':''} title="Home" onclick="nvHome()"><span class="nv-ic">${ic('home',17)}</span><span class="nv-lbl">Home</span></button>
+      <button type="button" class="nv-item" data-nv="theme" title="Light / dark — now ${theme.toLowerCase()}" onclick="nvTheme()"><span class="nv-ic">${ic('theme',17)}</span><span class="nv-lbl">Theme</span><span class="nv-val">${theme}</span></button>
+      ${isAdm()?`<button type="button" class="nv-item" data-nv="users" title="Users and access" onclick="nvUsers()"><span class="nv-ic">${ic('nv_users',17,'user')}</span><span class="nv-lbl">Users and access</span></button>`:''}
+      <div class="nv-user" title="${escH(((u&&(u.name||u.username))||'')+(role?' · '+role:''))}">
+        <span class="nv-av" aria-hidden="true">${escH(initials(u))}</span>
+        <span class="nv-ut"><span class="nv-uname">${escH((u&&(u.name||u.username))||'')}</span><span class="nv-urole">${escH(role?role[0].toUpperCase()+role.slice(1):'')}</span></span>
+        <button type="button" class="nv-out" title="Sign out" aria-label="Sign out" onclick="nvSignOut()">${ic('exit',16)}</button>
+      </div>
+      <button type="button" class="nv-item nv-toggle" data-nv="toggle" title="${col?'Expand the sidebar':'Collapse the sidebar'}" aria-expanded="${!col}" onclick="nvToggle()"><span class="nv-ic">${ic(col?'nv_expand':'nv_collapse',17)}</span><span class="nv-lbl">Collapse</span></button>
+    </div>`;}
+
+/* one entry point for every change: visibility, per-user state, content */
+function nvSync(){
+  const el=side();
+  const on=!!user()&&!mobile();
+  if(on){
+    const k=uid();
+    if(NV.navFor!==k){NV.navFor=k;NV.collapsed=lsGet(LS_NAV+':'+k)==='collapsed';}}
+  else NV.navFor=null;
+  const b=D.body,was=b.classList.contains('nv-on'),wasCol=b.classList.contains('nv-collapsed');
+  b.classList.toggle('nv-on',on);
+  b.classList.toggle('nv-collapsed',on&&NV.collapsed);
+  el.hidden=!on;
+  if(on){const h=sideHTML();if(h!==NV.html){NV.html=h;el.innerHTML=h;}}
+  else if(NV.html){NV.html='';el.innerHTML='';}
+  if(was!==on||wasCol!==(on&&NV.collapsed))nvRelayout();}
+window.nvSync=nvSync;
+
+/* ---------- geometry: #desktop moved, so re-tile / re-fit ---------- */
+let arrA=null;
+const area=()=>{try{if(typeof _arrArea==='function')return _arrArea();}catch(e){}
+  const d=desk();return {x:8,y:6,w:Math.max(320,(d?d.clientWidth:0)-16),h:Math.max(200,(d?d.clientHeight:0)-64)};};
+const GAPV=()=>{try{return typeof GAP==='number'?GAP:6;}catch(e){return 6;}};
+function zoneRect(name,a){
+  const g=GAPV(),hw=(a.w-g)/2,hh=(a.h-g)/2;
+  return ({full:{x:a.x,y:a.y,w:a.w,h:a.h},left:{x:a.x,y:a.y,w:hw,h:a.h},right:{x:a.x+hw+g,y:a.y,w:hw,h:a.h},
+    top:{x:a.x,y:a.y,w:a.w,h:hh},bottom:{x:a.x,y:a.y+hh+g,w:a.w,h:hh},
+    tl:{x:a.x,y:a.y,w:hw,h:hh},tr:{x:a.x+hw+g,y:a.y,w:hw,h:hh},
+    bl:{x:a.x,y:a.y+hh+g,w:hw,h:hh},br:{x:a.x+hw+g,y:a.y+hh+g,w:hw,h:hh}})[name]||null;}
+const R=r=>({x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.w),h:Math.round(r.h)});
+const same=(w,r)=>Math.abs(w.x-r.x)<=2&&Math.abs(w.y-r.y)<=2&&Math.abs(w.w-r.w)<=2&&Math.abs(w.h-r.h)<=2;
+function nvRelayout(){
+  if(mobile())return;
+  const d=desk();if(!d)return;
+  if(wsOn()&&window.WS.mode==='split'){try{wsLayout();nvFit(null,true);}catch(e){}}
+  const a=area(),dw=d.clientWidth||0;
+  winList().forEach(w=>{
+    if(!w||!w.el||w.min||w.kind==='msg')return;
+    if(wsOn()&&window.WS.mode==='split'&&w.el.classList.contains('ws-tiled'))return;
+    try{
+      if(w.maxed){applyRect(w);return;}
+      /* a window still sitting where it was snapped follows its half of the screen */
+      if(w.snapped&&w._nvSnap&&same(w,w._nvSnap)){
+        const z=zoneRect(w.snapped,a);
+        if(z){const r=R(z);w.x=r.x;w.y=r.y;w.w=r.w;w.h=r.h;w._nvSnap=r;applyRect(w);return;}}
+      /* a floating window pushed off the right edge comes back into view */
+      if(dw&&w.x>dw-80){w.x=Math.max(6,dw-w.w-8);applyRect(w);}
+    }catch(e){}});
+  arrA=a;}
+window.nvRelayout=nvRelayout;
+window.addEventListener('resize',()=>{if(D.body.classList.contains('nv-on'))nvRelayout();});
+
+/* ---------- actions (inline onclick) ---------- */
+const leaveOverlays=()=>{try{if(has('closeMenus'))closeMenus();}catch(e){}
+  try{if(homeOpen())hideHome();}catch(e){}
+  try{const p=D.getElementById('projwrap');if(p&&p.style.display&&p.style.display!=='none'&&has('hideProjects'))hideProjects();}catch(e){}};
+window.nvGo=function(id){
+  if(!user())return;
+  const it=itemById(id);if(!it||!it.run)return;
+  leaveOverlays();
+  try{it.run();}catch(e){}
+  nvSync();};
+window.nvHome=function(){if(!user())return;try{if(has('closeMenus'))closeMenus();showHome();}catch(e){}nvSync();};
+window.nvProjects=function(){if(!user())return;try{if(has('closeMenus'))closeMenus();showProjects();}catch(e){}nvSync();};
+window.nvTheme=function(){
+  const b=D.getElementById('themeBtn');
+  if(b)b.click();
+  else{const t=D.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    try{_setTheme(t);}catch(e){D.documentElement.setAttribute('data-theme',t);}}
+  nvSync();};
+window.nvUsers=function(){if(!user())return;try{openUsers();}catch(e){}};
+window.nvSignOut=function(){if(!user())return;try{appLogout();}catch(e){}};
+window.nvToggle=function(force){
+  if(!user())return;
+  NV.collapsed=typeof force==='boolean'?force:!NV.collapsed;
+  lsSet(LS_NAV+':'+uid(),NV.collapsed?'collapsed':'expanded');
+  nvSync();};
+/* the theme can also change from the command palette or the phone view */
+try{new MutationObserver(()=>{if(D.body.classList.contains('nv-on'))nvSync();})
+  .observe(D.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
+
+/* ---------- Split by default, remembering an explicit Float choice ---------- */
+function recordMode(m){const k=uid();if(k==null||mobile())return;if(m!=='split'&&m!=='float')return;lsSet(LS_MODE+':'+k,m);NV.modeFor=k;}
+function applyModePref(){
+  if(!wsOn()||!user()||mobile())return;
+  const k=uid();if(NV.modeFor===k)return;NV.modeFor=k;
+  const want=lsGet(LS_MODE+':'+k)==='float'?'float':'split';
+  try{if(window.WS.mode!==want)(NV.orig.wsSetMode||window.wsSetMode)(want,{quiet:true});}catch(e){}}
+NV.applyModePref=applyModePref;
+if(wsOn()){
+  const O=NV.orig;
+  if(has('wsSetMode')){O.wsSetMode=window.wsSetMode;
+    window.wsSetMode=function(mode){const r=O.wsSetMode.apply(this,arguments);recordMode(window.WS.mode);postCheck();return r;};}
+  if(has('wsToggleMode')){O.wsToggleMode=window.wsToggleMode;
+    window.wsToggleMode=function(){const r=O.wsToggleMode.apply(this,arguments);recordMode(window.WS.mode);postCheck();return r;};}
+  if(has('wsPreset')){O.wsPreset=window.wsPreset;
+    window.wsPreset=function(name){NV.pendingPreset=String(name||'');const r=O.wsPreset.apply(this,arguments);recordMode(window.WS.mode);postCheck();return r;};}
+  /* palette commands that call workspace.js directly */
+  try{(window.TRK_CMDS||[]).forEach(c=>{
+    if(!c||typeof c.run!=='function'||c._nv)return;
+    if(c.id==='ws.split'||c.id==='ws.float'||/^ws\.preset\./.test(c.id)){
+      const run=c.run,pre=/^ws\.preset\./.test(c.id)?c.id.slice(10):null;c.run=function(){if(pre)NV.pendingPreset=pre;const r=run.apply(this,arguments);recordMode(window.WS.mode);postCheck();return r;};c._nv=true;}});}catch(e){}
+  /* Ctrl+Alt+1..5 presets are handled inside workspace.js; note the mode they leave */
+  window.addEventListener('keydown',e=>{
+    if(!(e.altKey&&(e.ctrlKey||e.metaKey))||!user()||mobile())return;
+    if(!/^(?:Digit|Numpad)[1-5]$/.test(e.code||'')&&!/^[1-5]$/.test(e.key||''))return;
+    {const d=(/([1-5])$/.exec(e.code||'')||/^([1-5])$/.exec(e.key||'')||[])[1];if(d)NV.pendingPreset=['cols','rows','grid','main','focus'][d-1];}
+    setTimeout(()=>{NV.pendingPreset=null;recordMode(window.WS.mode);},0);},true);}
+
+/* ---------- Split view: every pane keeps a usable size ----------
+   workspace.js splits the focused pane for each new window, which could leave a material or
+   comparison window 335px wide. After a new window (or one restored from the dock) joins the
+   tree, and after a resize or a sidebar collapse, each pane is checked against a minimum for its
+   kind — and after EVERY other split layout too (Split toggle, presets, restored workspaces, the
+   material / vendor workspace): a microtask after any tiled applyRect runs the check. Splitter
+   drags (mouse or arrow keys) stay free. If a pane is too small, the layout is rebuilt around the
+   focused window (it takes the main area, the most recently used windows sit beside it; a preset
+   keeps its own shape with fewer windows) and the least recently used ones are parked in the dock
+   with workspace.js's own _wsParked flag. Minimising or closing a pane brings parked windows back,
+   most recently used first, while they fit. The dock and Float bring them back too.
+   Dialog-type windows (paste, column chooser, criteria, users, lists, notifications, messages)
+   never tile: they float at their own size above the panes. */
+const MINS={_:{w:420,h:260},grid:{w:540,h:260},dash:{w:560,h:340},feed:{w:400,h:260},
+  mat:{w:520,h:360},cmp:{w:900,h:380},ven:{w:520,h:340},comp:{w:560,h:360},po:{w:720,h:380},
+  task:{w:460,h:340},sub:{w:500,h:340}};
+NV.MINS=MINS;
+const DIALOG_KINDS=new Set(['msg','cols','paste','crit','users','lists','notif']);
+NV.DIALOG_KINDS=DIALOG_KINDS;
+const isDialog=w=>!!(w&&DIALOG_KINDS.has(String(w.kind||'').split('-')[0]));
+const splitOn=()=>wsOn()&&window.WS.mode==='split'&&!mobile();
+function tLeaves(n,out){out=out||[];if(!n)return out;if(n.id)out.push(n.id);else n.kids.forEach(k=>tLeaves(k,out));return out;}
+function tWithout(n,id){
+  if(!n)return null;if(n.id)return n.id===id?null:n;
+  const kids=[],sizes=[];n.kids.forEach((k,i)=>{const r=tWithout(k,id);if(r){kids.push(r);sizes.push(n.sizes[i]);}});
+  if(!kids.length)return null;if(kids.length===1)return kids[0];
+  const t=sizes.reduce((a,b)=>a+b,0)||1;n.kids=kids;n.sizes=sizes.map(x=>x/t);return n;}
+function minFor(w,A){
+  const k=String(w&&w.kind||''),m=(w&&w._nvMin)||MINS[k]||MINS[k.split('-')[0]]||MINS._;
+  return {w:Math.min(m.w,A.w),h:Math.min(m.h,A.h)};}
+/* a dialog that joined the tree (any path: new window, preset, restore, Split on) floats again */
+function eject(w){
+  const WS=window.WS;
+  WS.tree=tWithout(WS.tree,w.id);WS.rects.delete(w.id);if(WS.zoom===w.id)WS.zoom=null;
+  w.el.classList.remove('ws-tiled','ws-zoomed');
+  const f=w._wsFloat;if(f){w.x=f.x;w.y=f.y;w.w=f.w;w.h=f.h;w.maxed=false;}
+  NV.orig.applyRect.call(window,w);}
+let relayQ=false;
+function queueRelayout(){if(relayQ)return;relayQ=true;Promise.resolve().then(()=>{relayQ=false;if(splitOn())try{wsLayout();}catch(e){}});}
+if(wsOn()&&has('applyRect')){
+  NV.orig.applyRect=window.applyRect;
+  window.applyRect=function(w){
+    if(w&&w.el&&isDialog(w)&&splitOn()&&window.WS.rects.has(w.id)){eject(w);queueRelayout();return;}
+    const r=NV.orig.applyRect.apply(this,arguments);
+    if(w&&w.el&&splitOn()&&window.WS.rects.has(w.id))queueCheck();
+    return r;};}
+const zOf=w=>(w&&w.el&&parseInt(w.el.style.zIndex,10))||0;
+function paneFits(){
+  const WS=window.WS,A=wsArea();
+  return tLeaves(WS.tree).every(id=>{const w=windows.get(id),r=WS.rects.get(id);if(!w||!r)return true;
+    const m=minFor(w,A);return r.w>=m.w-2&&r.h>=m.h-2;});}
+function plan(ids,A){
+  const G=GAPV(),ws=ids.map(id=>windows.get(id)),m=ws.map(w=>minFor(w,A)),k=ids.length;
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  if(k===1)return {id:ids[0]};
+  const aw=A.w-G;
+  if(k===2){
+    if(m[0].w+m[1].w<=aw&&m[0].h<=A.h&&m[1].h<=A.h){
+      const f=clamp(0.58,(m[0].w+1)/aw,1-(m[1].w+1)/aw);
+      return {dir:'row',kids:[{id:ids[0]},{id:ids[1]}],sizes:[f,1-f]};}
+    const ah=A.h-G;
+    if(m[0].h+m[1].h<=ah&&m[0].w<=A.w&&m[1].w<=A.w){
+      const f=clamp(0.58,(m[0].h+1)/ah,1-(m[1].h+1)/ah);
+      return {dir:'col',kids:[{id:ids[0]},{id:ids[1]}],sizes:[f,1-f]};}
+    return null;}
+  /* main + side: this window large on the left, the others stacked beside it */
+  const side=ids.slice(1),sw=Math.max(...m.slice(1).map(x=>x.w)),sh=(A.h-(k-2)*G)/(k-1);
+  if(!(m.slice(1).some(x=>x.h>sh+1)||m[0].h>A.h||m[0].w+sw>aw)){
+    const f=clamp(0.58,(m[0].w+1)/aw,1-(sw+1)/aw);
+    return {dir:'row',kids:[{id:ids[0]},{dir:'col',kids:side.map(id=>({id})),sizes:side.map(()=>1/side.length)}],sizes:[f,1-f]};}
+  /* otherwise an even grid, if every cell is big enough */
+  const cols=Math.ceil(Math.sqrt(k)),rows=Math.ceil(k/cols);
+  const cw=(A.w-(cols-1)*G)/cols,ch=(A.h-(rows-1)*G)/rows;
+  if(m.every(x=>x.w<=cw+1&&x.h<=ch+1)){
+    const out=[];for(let r=0;r<rows;r++)out.push(ids.slice(r*cols,r*cols+cols));
+    const row=list=>list.length===1?{id:list[0]}:{dir:'row',kids:list.map(id=>({id})),sizes:list.map(()=>1/list.length)};
+    return rows===1?row(out[0]):{dir:'col',kids:out.map(row),sizes:out.map(()=>1/rows)};}
+  return null;}
+function nvFit(primary,quiet){
+  if(!splitOn())return 0;
+  const WS=window.WS;
+  if(WS.zoom||WS.sd||!WS.tree)return 0;
+  if(paneFits())return 0;
+  const A=wsArea();
+  let ids=tLeaves(WS.tree).filter(id=>windows.has(id));
+  if(!primary||!ids.includes(primary)){const f=typeof focusedWin==='function'?focusedWin():null;primary=f&&ids.includes(f.id)?f.id:ids[0];}
+  const order=[primary,...ids.filter(id=>id!==primary).sort((a,b)=>zOf(windows.get(b))-zOf(windows.get(a)))];
+  let k=order.length,tree=null;
+  for(;k>=1;k--){tree=plan(order.slice(0,k),A);if(tree)break;}
+  if(!tree)return 0;
+  const park=order.slice(k);
+  NV.fitting=true;WS.suspend++;
+  try{park.forEach(id=>{const w=windows.get(id);if(!w||w.min)return;parkOne(w);});}
+  finally{WS.suspend--;}
+  WS.tree=tree;WS.zoom=null;
+  try{wsLayout();}finally{NV.fitting=false;}
+  try{focusWin(primary);}catch(e){}
+  try{renderDock();}catch(e){}
+  if(park.length&&!quiet)try{toast(park.length+' window'+(park.length>1?'s':'')+' moved to the dock to keep this one readable');}catch(e){}
+  return park.length;}
+window.nvFit=nvFit;
+/* parked windows keep their floating size, so Float brings them back as they were (not as a tiny pane) */
+function parkOne(w){
+  const f=w._wsFloat;if(f){w.x=f.x;w.y=f.y;w.w=f.w;w.h=f.h;w.maxed=!!f.maxed;
+    try{w.el.classList.remove('ws-tiled','ws-zoomed');(window.WS._orig&&window.WS._orig.applyRect||NV.orig.applyRect)(w);}catch(e){}}
+  w._wsParked=true;minWin(w.id);}
+
+/* ---- presets keep their own shape, with the most recently used windows that fit ---- */
+function rectsOf(n,r,out){
+  out=out||new Map();if(!n)return out;if(n.id){out.set(n.id,r);return out;}
+  const k=n.kids.length,G=GAPV(),along=n.dir==='row'?r.w:r.h,avail=along-(k-1)*G;let cum=0;
+  n.kids.forEach((c,i)=>{const a=cum*avail;cum+=n.sizes[i];const len=cum*avail-a,off=a+i*G;
+    rectsOf(c,n.dir==='row'?{x:r.x+off,y:r.y,w:len,h:r.h}:{x:r.x,y:r.y+off,w:r.w,h:len},out);});
+  return out;}
+function treeFits(t,A){const R=rectsOf(t,A);for(const [id,r] of R){const m=minFor(windows.get(id),A);if(r.w<m.w-2||r.h<m.h-2)return false;}return true;}
+const tRow=ids=>ids.length===1?{id:ids[0]}:{dir:'row',kids:ids.map(id=>({id})),sizes:ids.map(()=>1/ids.length)};
+const tCol=ids=>ids.length===1?{id:ids[0]}:{dir:'col',kids:ids.map(id=>({id})),sizes:ids.map(()=>1/ids.length)};
+function tGrid(ids){const n=ids.length;if(n===1)return {id:ids[0]};const c=Math.ceil(Math.sqrt(n)),r=Math.ceil(n/c),out=[];
+  for(let i=0;i<r;i++)out.push(ids.slice(i*c,i*c+c));return r===1?tRow(out[0]):{dir:'col',kids:out.map(tRow),sizes:out.map(()=>1/r)};}
+function presetShape(name,ids,main){
+  if(name==='cols')return tRow(ids);if(name==='rows')return tCol(ids);
+  if(name==='main'){const m=ids.includes(main)?main:ids[0],rest=ids.filter(x=>x!==m);
+    return rest.length?{dir:'row',kids:[{id:m},rest.length===1?{id:rest[0]}:tCol(rest)],sizes:[0.62,0.38]}:{id:m};}
+  if(name==='focus')return {id:ids.includes(main)?main:ids[0]};
+  return tGrid(ids);}
+function fitPreset(name){
+  if(!splitOn())return 0;
+  const WS=window.WS;if(WS.zoom||!WS.tree||paneFits())return 0;
+  const A=wsArea(),ids=tLeaves(WS.tree).filter(id=>windows.has(id));
+  const f=typeof focusedWin==='function'?focusedWin():null,main=f&&ids.includes(f.id)?f.id:ids[0];
+  const mru=[main,...ids.filter(id=>id!==main).sort((a,b)=>zOf(windows.get(b))-zOf(windows.get(a)))];
+  let k=mru.length,t=null;
+  for(;k>=1;k--){const keep=new Set(mru.slice(0,k));t=presetShape(name,ids.filter(id=>keep.has(id)),main);if(treeFits(t,A))break;}
+  if(!t)return 0;
+  const park=mru.slice(k);
+  NV.fitting=true;WS.suspend++;
+  try{park.forEach(id=>{const w=windows.get(id);if(!w||w.min)return;parkOne(w);});}
+  finally{WS.suspend--;}
+  WS.tree=t;WS.zoom=null;
+  try{wsLayout();}finally{NV.fitting=false;}
+  try{if(main)focusWin(main);renderDock();}catch(e){}
+  if(park.length)try{toast(park.length+' window'+(park.length>1?'s':'')+' moved to the dock to keep the others readable');}catch(e){}
+  return park.length;}
+NV.fitPreset=fitPreset;
+/* ---- when a pane is closed or minimised, parked windows come back (most recent first) while they fit ---- */
+function nvUnpark(){
+  if(!splitOn()||NV.inLanding)return 0;
+  const WS=window.WS;if(WS.zoom||WS.suspend)return 0;
+  const parked=[...windows.values()].filter(w=>w.min&&w._wsParked&&!isDialog(w)).sort((a,b)=>zOf(b)-zOf(a));
+  if(!parked.length)return 0;
+  const A=wsArea();
+  let ids=tLeaves(WS.tree).filter(id=>windows.has(id)),tree=WS.tree;
+  const f=typeof focusedWin==='function'?focusedWin():null;
+  const back=[];
+  parked.forEach(w=>{
+    const cur=ids.length?[...ids]:[];
+    const prim=f&&cur.includes(f.id)?f.id:cur[0];
+    const order=prim?[prim,...cur.filter(id=>id!==prim).sort((a,b)=>zOf(windows.get(b))-zOf(windows.get(a))),w.id]:[w.id];
+    const t=plan(order,A);
+    if(t&&treeFits(t,A)){ids=order;tree=t;back.push(w);}});
+  if(!back.length)return 0;
+  NV.fitting=true;
+  try{back.forEach(w=>{delete w._wsParked;w._wsFloat=w._wsFloat||{x:w.x,y:w.y,w:w.w,h:w.h,maxed:false};
+      (WS._orig&&WS._orig.restoreWin?WS._orig.restoreWin:restoreWin)(w.id);});
+    WS.tree=tree;WS.zoom=null;wsLayout();}
+  finally{NV.fitting=false;}
+  try{if(f&&windows.has(f.id)&&!f.min)focusWin(f.id);renderDock();}catch(e){}
+  return back.length;}
+window.nvUnpark=nvUnpark;
+/* ---- the check that follows every split layout ---- */
+let chkQ=false;
+function postCheck(){
+  if(!splitOn()||NV.fitting||NV.inLanding)return;
+  const WS=window.WS;if(WS.sd||WS.drag||WS.zoom||WS.suspend)return;
+  if(NV.dragEnd){NV.dragEnd=false;return;}
+  const p=NV.pendingPreset;NV.pendingPreset=null;
+  try{if(p)fitPreset(p);else nvFit(null,Date.now()-(NV.resizeAt||0)<800);}catch(e){}}
+function queueCheck(){if(chkQ||NV.fitting)return;chkQ=true;Promise.resolve().then(()=>{chkQ=false;postCheck();});}
+NV.postCheck=postCheck;
+/* splitter drags stay free: the layout that ends a drag (mouse or arrow keys) is not re-planned */
+window.addEventListener('pointerup',()=>{if(window.WS&&window.WS.sd)NV.dragEnd=true;},true);
+D.addEventListener('keydown',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('ws-splitter'))NV.dragEnd=true;},true);
+window.addEventListener('resize',()=>{NV.resizeAt=Date.now();},true);
+if(wsOn()){
+  if(has('createWindow')){const oc=window.createWindow;NV.orig.createWindow=oc;
+    window.createWindow=function(){
+      const before=windows.size,w=oc.apply(this,arguments);
+      try{if(w&&w.el&&splitOn()){
+        if(isDialog(w)&&(window.WS.rects.has(w.id)||tLeaves(window.WS.tree).includes(w.id))){eject(w);wsLayout();}
+        else if(windows.size>before&&!window.WS.suspend&&!NV.inLanding)nvFit(w.id);}}catch(e){}
+      return w;};}
+  if(has('restoreWin')){const orr=window.restoreWin;NV.orig.restoreWin=orr;
+    window.restoreWin=function(id){
+      const w=windows.get(id),was=!!(w&&w.min);const r=orr.apply(this,arguments);
+      try{if(was&&w&&splitOn()&&!window.WS.suspend){
+        if(isDialog(w)&&tLeaves(window.WS.tree).includes(id)){eject(w);wsLayout();}
+        else nvFit(id);}}catch(e){}
+      return r;};}
+  ['minWin','closeWin'].forEach(n=>{if(!has(n))return;const o=window[n];NV.orig[n]=o;
+    window[n]=function(id){const r=o.apply(this,arguments);
+      try{if(splitOn()&&!NV.fitting&&!window.WS.suspend&&!NV.inLanding&&!NV.bulk){nvUnpark();}}catch(e){}return r;};});
+  /* the material workspace: its comparison sheet may be narrower (680) than a comparison on its own */
+  ['openMaterialWorkspace','openVendorWorkspace'].forEach(n=>{if(!has(n))return;const o=window[n];NV.orig[n]=o;
+    window[n]=function(){const r=o.apply(this,arguments);
+      try{if(n==='openMaterialWorkspace'&&splitOn()){const ids=tLeaves(window.WS.tree);
+        const mats=new Set(ids.map(id=>windows.get(id)).filter(w=>w&&w.kind==='mat').map(w=>w.params&&w.params.recId));
+        ids.forEach(id=>{const w=windows.get(id);if(w&&w.kind==='cmp'&&w.params&&mats.has(w.params.recId))w._nvMin={w:680,h:360};});}
+        postCheck();}catch(e){}
+      return r;};});}
+
+/* ---------- landing: Dashboard 40% | Materials 60% ---------- */
+function lastKey(){const k=uid();return k==null?null:LS_LAST+':'+k;}
+function nvLanding(){
+  if(!user()||mobile())return false;
+  if(workWins().length)return false;
+  applyModePref();
+  /* focus left in the hidden sign-in card would keep keyboard shortcuts asleep */
+  try{const a=D.activeElement;if(a&&a.closest&&a.closest('#loginwrap,#authwrap')&&a.blur)a.blur();}catch(e){}
+  NV.prevLastKey=lastKey();NV.prevLast=NV.prevLastKey?lsGet(NV.prevLastKey):null;
+  let dw=null,mw=null;
+  NV.inLanding=true;
+  try{openDashboard();dw=winList().find(w=>w.kind==='dash')||null;}catch(e){}
+  try{if(canG('materials')){openGrid('materials');mw=winList().find(w=>w.kind==='grid-materials')||null;}}catch(e){}
+  const both=dw&&mw;
+  try{
+    /* Dashboard 40% | Materials 60% when both stay readable; otherwise the Dashboard gets its
+       minimum width, and when even that does not fit it waits in the dock */
+    const a=area(),g=GAPV(),avail=(wsOn()&&window.WS.mode==='split'?wsArea().w:a.w)-g;
+    const dmin=MINS.dash.w,gmin=MINS.grid.w;
+    let f=0.4;if(avail*f<dmin)f=dmin/avail;
+    const fitBoth=both&&avail*f>=dmin-1&&avail*(1-f)>=gmin-1;
+    if(both&&!fitBoth){
+      if(wsOn()&&window.WS.mode==='split'){dw._wsParked=true;}
+      minWin(dw.id);}
+    if(fitBoth&&wsOn()&&window.WS.mode==='split'){
+      window.WS.zoom=null;
+      window.WS.tree={dir:'row',kids:[{id:dw.id},{id:mw.id}],sizes:[f,1-f]};
+      wsLayout();}
+    else if(fitBoth){
+      const lw=Math.round((a.w-g)*f);
+      [[dw,a.x,lw],[mw,a.x+lw+g,a.w-lw-g]].forEach(([w,x,ww])=>{w.maxed=false;w.snapped='';
+        w.x=Math.round(x);w.y=Math.round(a.y);w.w=Math.round(ww);w.h=Math.round(a.h);applyRect(w);});}
+    else if(mw&&!(wsOn()&&window.WS.mode==='split')){mw.maxed=true;applyRect(mw);}
+    if(mw)focusWin(mw.id);else if(dw)focusWin(dw.id);
+  }catch(e){}
+  NV.inLanding=false;
+  NV.landed={ids:[dw&&dw.id,mw&&mw.id].filter(Boolean),proj:(()=>{try{return PROJ;}catch(e){return null;}})()};
+  nvSync();
+  return true;}
+window.nvLanding=nvLanding;
+/* an untouched landing never replaces the "last workspace" the person may still restore */
+function landingUntouched(){
+  if(!NV.landed||!D.getElementById('ws-offer'))return false;
+  const ids=workWins().filter(w=>w.kind!=='cols').map(w=>w.id).sort().join(',');
+  return ids===NV.landed.ids.slice().sort().join(',');}
+function keepLast(key){
+  if(!key||NV.prevLastKey!==key||NV.prevLast==null)return;
+  lsSet(key,NV.prevLast);}
+const onLeave=()=>{if(landingUntouched())keepLast(lastKey());};
+window.addEventListener('beforeunload',onLeave);
+window.addEventListener('pagehide',onLeave);
+
+/* ---------- wrappers ---------- */
+function wrap(name,make){if(!has(name))return;const o=window[name];NV.orig[name]=o;window[name]=make(o);}
+const signIn=o=>function(){
+  NV.landing++;let r;
+  try{r=o.apply(this,arguments);}finally{NV.landing--;}
+  applyModePref();nvSync();return r;};
+wrap('_signInAs',signIn);
+wrap('appLogin',signIn);
+wrap('openProject',o=>function(){NV.landing++;NV.bulk=true;try{return o.apply(this,arguments);}finally{NV.bulk=false;NV.landing--;nvSync();}});
+wrap('showHome',o=>function(){
+  if(NV.landing>0&&user()&&!mobile()&&!workWins().length){
+    try{if(has('hideProjects'))hideProjects();}catch(e){}
+    try{if(has('applyProjectChrome'))applyProjectChrome();}catch(e){}
+    try{hideHome();}catch(e){}
+    if(nvLanding())return;}
+  const r=o.apply(this,arguments);nvSync();return r;});
+wrap('appLogout',o=>function(){
+  const k=lastKey(),keep=landingUntouched();
+  NV.bulk=true;let r;try{r=o.apply(this,arguments);}finally{NV.bulk=false;}
+  if(keep)keepLast(k);
+  NV.landed=null;NV.modeFor=null;nvSync();return r;});
+['showLogin','applyRole','applyProjectChrome','setMobile'].forEach(n=>
+  wrap(n,o=>function(){const r=o.apply(this,arguments);try{nvSync();}catch(e){}return r;}));
+wrap('refreshData',o=>function(){const r=o.apply(this,arguments);try{nvSync();}catch(e){}return r;});
+wrap('renderDock',o=>function(){const r=o.apply(this,arguments);try{if(D.body.classList.contains('nv-on')||user())nvSync();}catch(e){}return r;});
+wrap('snapTo',o=>function(w,z){const r=o.apply(this,arguments);try{if(w&&z)w._nvSnap={x:w.x,y:w.y,w:w.w,h:w.h};}catch(e){}return r;});
+
+/* ---------- palette command ---------- */
+try{const C=window.TRK_CMDS=window.TRK_CMDS||[];
+  if(!C.some(c=>c.id==='nav.toggle'))C.push({id:'nav.toggle',group:'Workspace',label:'Collapse / expand the sidebar',
+    keywords:'sidebar navigation menu rail',run:()=>window.nvToggle(),when:()=>!!user()&&!mobile()});}catch(e){}
+
+nvSync();
+})();
+
+</script>
+<script id="insp-js">
+/* =====================================================================
+   insp.js — details panel + stage strip for the registers (Engineer E, round 2)
+   - Materials register (grid-materials): single click selects a row and a
+     details panel on the right of the SAME window shows the material:
+     stages with their dates, key facts, price, offers, approvals, tasks,
+     recent activity and buttons to open the related windows.
+   - A stage strip above the table filters by stage through the grid's own
+     f1 filter (the same slot as the "All stages" dropdown).
+   - Vendors register (grid-rfqs): the same panel for the selected vendor.
+   The selection is the app's own w.state.selId (the row "Delete" acts on),
+   so refreshData() keeps it. Nothing here is a table.grid, so Copy table,
+   Excel and PDF exports never see the panel or the strip.
+   ===================================================================== */
+(function(){
+'use strict';
+var W=window,D=document;
+if(W.__inspLoaded)return;W.__inspLoaded=true;
+if(typeof renderGridBody!=='function'||typeof gsel!=='function'||typeof GRIDS==='undefined')return;
+
+var KINDS={'grid-materials':'materials','grid-rfqs':'rfqs'};
+var NARROW=980;          /* window width under which the panel becomes a drawer */
+var COMPACT=1100;        /* window width under which a register toolbar drops its button labels */
+var TIGHT=780;           /* ... and under which its buttons move to a second line as one group */
+var AUTO_DELAY=260;      /* ms: a double-click (cell edit) inside this cancels the drawer auto-open */
+
+Object.assign(ICON_PATHS,{
+  insp_panel:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15"/>',
+  insp_hide:'<path d="m9 6 6 6-6 6"/>',
+  insp_open:'<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>'
+});
+
+/* ---------------------------------------------------------------- basics */
+function gOf(w){return (w&&w.kind&&KINDS[w.kind])||null;}
+function signedIn(){try{return !!USER;}catch(e){return false;}}
+function isMobile(){return !!(D.body&&D.body.classList.contains('mobile'));}
+function cur(){try{return CUR;}catch(e){return 'SAR';}}
+function sar(v){return v==null?'':money(v)+' '+cur();}
+function dash(){return '<span class="insp-nil">—</span>';}
+function val(v){v=String(v==null?'':v).trim();return v?esc(v):dash();}
+function kids(el,cls){return el?[].slice.call(el.children).filter(function(c){return c.classList.contains(cls);}):[];}
+
+/* ------------------------------------------------ open / closed, per user */
+function sKey(){var id='anon';try{if(USER&&USER.id!=null)id=USER.id;}catch(e){}return 'trk_ws_insp:'+id;}
+function prefs(){try{var v=JSON.parse(localStorage.getItem(sKey())||'{}');return (v&&typeof v==='object')?v:{};}catch(e){return {};}}
+function setPref(k,v){var p=prefs();p[k]=v;try{localStorage.setItem(sKey(),JSON.stringify(p));}catch(e){}}
+function isOpen(g){return prefs()[g]!==false;}
+function setOpen(g,on){setPref(g,!!on);}
+/* drawer auto-open: on unless the user closed the drawer (× / Esc) — per window, and remembered per user + register */
+function autoOn(w){if(w.state.inspAuto!==undefined)return !!w.state.inspAuto;return prefs()[gOf(w)+'_auto']!==false;}
+function setAuto(w,on){w.state.inspAuto=!!on;setPref(gOf(w)+'_auto',!!on);}
+
+function winWidth(w){
+  var s=parseFloat(w.el&&w.el.style.width);if(s>0)return s;
+  var c=w.el&&w.el.clientWidth;if(c>0)return c;
+  return w.w||1300;}
+function isNarrow(w){return winWidth(w)<NARROW;}
+function panelShown(w){var g=gOf(w);return isNarrow(w)?!!w.state.inspDrawer:isOpen(g);}
+
+/* ------------------------------------------------------------ structure */
+/* .wincontent: .wtoolbar · .insp-strip · .insp-body[ .gridbody | .insp-rail | .insp-panel ] */
+function mount(w){
+  var g=gOf(w);if(!g||!w.el)return null;
+  var wc=w.el.querySelector('.wincontent');if(!wc)return null;
+  var body=kids(wc,'insp-body')[0];
+  if(!body){
+    var gb=kids(wc,'gridbody')[0];if(!gb)return null;
+    body=D.createElement('div');body.className='insp-body';
+    wc.insertBefore(body,gb);body.appendChild(gb);
+    var rail=D.createElement('div');rail.className='insp-rail';body.appendChild(rail);
+    var pn=D.createElement('aside');pn.className='insp-panel';
+    pn.setAttribute('aria-label',g==='materials'?'Material details':'Vendor details');body.appendChild(pn);}
+  if(g==='materials'&&!kids(wc,'insp-strip')[0]){
+    var st=D.createElement('div');st.className='insp-strip';st.setAttribute('role','toolbar');
+    st.setAttribute('aria-label','Filter by stage');wc.insertBefore(st,body);}
+  observe(w);
+  return body;}
+function isGrid(w){return !!(w&&w.kind&&String(w.kind).indexOf('grid-')===0&&w.el);}
+function observe(w){
+  if(w._inspRO||typeof ResizeObserver!=='function')return;
+  try{w._inspRO=new ResizeObserver(function(){
+    if(!w.el||!w.el.isConnected)return;
+    if(winWidth(w)<COMPACT!==!!w._inspCompact||winWidth(w)<TIGHT!==!!w._inspTight)compact(w);
+    if(gOf(w)&&isNarrow(w)!==!!w._inspNarrow)paint(w);
+    else if(gOf(w))placeDrawer(w);});
+    w._inspRO.observe(w.el);}catch(e){}}
+/* every register: below COMPACT px the toolbar's Columns / Paste rows / Copy table / Excel
+   buttons show their icon only (their title attribute stays as the tooltip) — CSS does the rest */
+function compact(w){
+  if(!isGrid(w))return;var wc=w.el.querySelector('.wincontent');if(!wc)return;
+  var ww=winWidth(w),c=ww<COMPACT;w._inspCompact=c;wc.classList.toggle('insp-compact',c);
+  /* too narrow for one line even without labels: filters on line 1, all buttons together on line 2 */
+  wc.classList.toggle('insp-tight',ww<TIGHT);w._inspTight=ww<TIGHT;
+  observe(w);}
+
+function paint(w){
+  var g=gOf(w);if(!g||!w.el)return;
+  var body=mount(w);if(!body)return;
+  var nar=isNarrow(w),open=panelShown(w);
+  w._inspNarrow=nar;
+  body.classList.toggle('insp-narrow',nar);
+  body.classList.toggle('insp-open',open);
+  body.classList.toggle('insp-drawer',nar&&open);
+  var wid=w.id;
+  var rail=kids(body,'insp-rail')[0],pn=kids(body,'insp-panel')[0];
+  rail.innerHTML=open?'':'<button class="insp-railbtn" title="Show the details panel" aria-label="Show the details panel" onclick="inspToggle(\''+wid+'\')">'+
+    icon('insp_panel',15)+'<span>Details</span></button>';
+  if(g==='materials')paintStrip(w);
+  if(!open){pn.innerHTML='';pn.hidden=true;placeDrawer(w);return;}
+  pn.hidden=false;
+  var sel=w.state.selId;
+  var html;
+  try{html=g==='materials'?matPanel(w):venPanel(w);}
+  catch(e){html=head('','Details','',w)+'<div class="insp-scroll"><div class="insp-empty">Could not show the details: '+esc(String(e&&e.message||e))+'</div></div>';}
+  pn.innerHTML=html;
+  var sc=pn.querySelector('.insp-scroll');
+  if(sc){
+    if(w.state.inspScrollFor===sel&&w.state.inspScroll)sc.scrollTop=w.state.inspScroll;
+    sc.addEventListener('scroll',function(){w.state.inspScroll=sc.scrollTop;w.state.inspScrollFor=sel;},{passive:true});}
+  placeDrawer(w);}
+
+/* The drawer covers only the table itself: it starts at the table's top edge (below the toolbar,
+   the stage strip and the "Export this table · PDF" line), stops above the horizontal scrollbar and
+   leaves the vertical scrollbar uncovered, so the table can still be scrolled. */
+function placeDrawer(w){
+  var body=w.el&&kids(w.el.querySelector('.wincontent'),'insp-body')[0];if(!body)return;
+  var pn=kids(body,'insp-panel')[0];if(!pn)return;
+  if(!body.classList.contains('insp-drawer')){pn.style.top=pn.style.bottom=pn.style.right=pn.style.width='';return;}
+  var gw=body.querySelector('.gridwrap');if(!gw||!gw.getBoundingClientRect)return;
+  var br=body.getBoundingClientRect(),r=gw.getBoundingClientRect();
+  if(!br.height||!r.height)return;                     /* not laid out */
+  var sbv=Math.max(0,gw.offsetWidth-gw.clientWidth-2),sbh=Math.max(0,gw.offsetHeight-gw.clientHeight-2);
+  pn.style.top=Math.max(0,Math.round(r.top-br.top))+'px';
+  pn.style.bottom=Math.max(0,Math.round(br.bottom-r.bottom)+sbh)+'px';
+  pn.style.right=Math.max(0,Math.round(br.right-r.right)+sbv)+'px';
+  /* keep the row's name column (# + description / manufacturer) in view: the drawer is 300-380px wide */
+  var th=gw.querySelector('th[data-ck="desc"],th[data-ck="manufacturer"]');
+  if(th){var tr=th.getBoundingClientRect(),room=Math.round(r.right-sbv-tr.right-8);
+    if(tr.width)pn.style.width=Math.max(300,Math.min(380,room))+'px';}}
+/* true when an element (a cell) is mostly under the open drawer */
+function underDrawer(w,el){
+  if(!w||!w.state.inspDrawer||!isNarrow(w)||!el||!el.getBoundingClientRect)return false;
+  var body=kids(w.el.querySelector('.wincontent'),'insp-body')[0],pn=body&&kids(body,'insp-panel')[0];
+  if(!pn||pn.hidden)return false;
+  var p=pn.getBoundingClientRect(),r=el.getBoundingClientRect();
+  if(!p.width||!r.width)return false;
+  if(r.bottom<=p.top||r.top>=p.bottom)return false;
+  var vis=Math.max(0,Math.min(r.right,p.left)-r.left);
+  return vis<Math.min(40,r.width*0.5);}
+/* get out of the way without turning auto-open off */
+function closeDrawer(w){if(!w||!w.state.inspDrawer)return;w.state.inspDrawer=false;
+  if(w._inspAutoT){clearTimeout(w._inspAutoT);w._inspAutoT=null;}paint(w);}
+
+/* ------------------------------------------------------------ stage strip */
+function stripCounts(w){
+  var rows=gridRows({params:w.params,state:Object.assign({},w.state,{f1:''})});
+  var c={};rows.forEach(function(r){c[r.stage]=(c[r.stage]||0)+1;});
+  return {all:rows.length,c:c};}
+function paintStrip(w){
+  var st=kids(w.el.querySelector('.wincontent'),'insp-strip')[0];if(!st)return;
+  var k=stripCounts(w),f=w.state.f1||'',wid=w.id;
+  var chip=function(s,label,n,color){
+    var on=(f===s);
+    return '<button class="insp-sc'+(on?' on':'')+(n?'':' zero')+'" data-stage="'+esc(s)+'" aria-pressed="'+on+'" '+
+      'title="'+(s?'Show only materials at '+esc(s):'Show every stage')+'" onclick="inspStage(\''+wid+'\','+esc(JSON.stringify(s))+')">'+
+      (color?'<span class="insp-dot" style="background:'+color+'"></span>':'')+
+      '<span class="insp-sl">'+esc(label)+'</span><span class="insp-sn">'+n+'</span></button>';};
+  st.innerHTML=chip('','All stages',k.all,'')+STAGES.map(function(s){return chip(s,s,k.c[s]||0,STAGE_COLOR[s]);}).join('');}
+
+W.inspStage=function(wid,s){
+  var w=windows.get(wid);if(!w)return;
+  var v=(s&&w.state.f1===s)?'':(s||'');
+  var sl=[].slice.call(w.el.querySelectorAll('.wtoolbar select')).find(function(x){return /'f1'/.test(x.getAttribute('onchange')||'');});
+  if(sl)sl.value=v;
+  gset(wid,'f1',v);};
+
+/* ------------------------------------------------------------ panel parts */
+function hiddenNote(w,what){
+  var id=w.state.selId,shown=false;
+  try{shown=gridRows(w).some(function(r){return r.id===id;});}catch(e){shown=true;}
+  return shown?'':'<div class="insp-note">This '+what+' is not in the rows shown: the search box or a filter hides it.</div>';}
+function head(kicker,title,chips,w,note){
+  return '<div class="insp-head"><div class="insp-headtop"><div class="insp-kicker">'+kicker+'</div>'+
+    '<button class="insp-x" title="Hide the details panel" aria-label="Hide the details panel" onclick="inspToggle(\''+w.id+'\')">'+icon('insp_hide',15)+'</button></div>'+
+    '<div class="insp-title">'+title+'</div>'+(chips?'<div class="insp-chips">'+chips+'</div>':'')+(note||'')+'</div>';}
+function sec(title,inner,extra){
+  return '<section class="insp-sec"><div class="insp-h">'+esc(title)+(extra?'<span class="insp-hx">'+extra+'</span>':'')+'</div>'+inner+'</section>';}
+function facts(list){
+  return '<dl class="insp-facts">'+list.map(function(p){return '<dt>'+esc(p[0])+'</dt><dd>'+p[1]+'</dd>';}).join('')+'</dl>';}
+function btn(label,onclick,ic,primary){
+  return '<button class="insp-btn'+(primary?' primary':'')+'" onclick="'+onclick+'">'+(ic?icon(ic,13):'')+'<span>'+esc(label)+'</span></button>';}
+function tick(on){return on?'<span class="insp-yes" title="Yes">'+icon('check',13)+'</span>':'<span class="insp-nil">—</span>';}
+function ynText(v){v=String(v||'').trim();if(!v)return dash();
+  return isYes(v)?'<span class="insp-ok">Yes</span>':(/^no$/i.test(v)?'<span class="insp-bad">No</span>':esc(v));}
+function offerStatus(l){
+  var d=String(l.quoteDate||'').trim();
+  var t=d?'Offer '+fmtDate(d):(offerIn(l)?'Offer received':'Awaiting offer');
+  return '<span class="insp-nw">'+esc(t)+'</span>';}
+function actRows(list){
+  if(!list.length)return '<div class="insp-none">No updates recorded.</div>';
+  return '<ol class="insp-act">'+list.map(function(a){
+    var what=a.field?esc(a.field):esc(a.action||'');
+    var tbl=(a.tbl&&a.tbl!=='materials'&&a.tbl!=='rfqs'&&typeof ACT_TBL!=='undefined'&&ACT_TBL[a.tbl])?esc(ACT_TBL[a.tbl])+' · ':'';
+    var ch=(a.oldVal||a.newVal)?'<div class="insp-actv"><span class="insp-old">'+esc(String(a.oldVal||'—').slice(0,40))+'</span> → <span class="insp-new">'+esc(String(a.newVal||'—').slice(0,40))+'</span></div>':'';
+    return '<li><div class="insp-actl"><span>'+tbl+what+'</span><span class="insp-when">'+esc(fmtDate(String(a.ts||'').slice(0,10)))+'</span></div>'+ch+'</li>';}).join('')+'</ol>';}
+function recentActs(match){
+  return (DB.activity||[]).filter(match).slice()
+    .sort(function(a,b){return a.ts<b.ts?1:(a.ts>b.ts?-1:(b.id||0)-(a.id||0));}).slice(0,5);}
+
+var STAGE_DATE={'RFQ Issued':function(m){return m.dRfq||m.rfqDate;},'Offers Received':function(m){return m.dQuote;},
+  'Technically Evaluated':function(m){return m.dTech;},'Shortlisted':function(m){return m.dShort;},
+  'Target Price':function(m){return m.dTarget;},'Awarded':function(m){return m.dAward;}};
+function stepper(m){
+  var at=STAGES.indexOf(m.stage);
+  return '<ol class="insp-steps">'+STAGES.map(function(s,i){
+    var st=i<at?'done':(i===at?'now':'todo');
+    var dt=(i<=at&&STAGE_DATE[s])?fmtDate(STAGE_DATE[s](m)||''):'';
+    return '<li class="insp-step '+st+'" style="--c:'+(STAGE_COLOR[s]||'var(--muted)')+'"><span class="insp-sdot"></span>'+
+      '<span class="insp-sname">'+esc(s)+'</span><span class="insp-sdate">'+(dt?esc(dt):(i<=at&&i>0?'<span class="insp-nil">no date</span>':''))+'</span></li>';}).join('')+'</ol>';}
+
+/* -------------------------------------------------------- material panel */
+function matPanel(w){
+  var m=(DB.materials||[]).find(function(x){return x.id===w.state.selId;});
+  if(!m)return emptyMat(w);
+  var mid=m.id;
+  var ls=linksForMaterial(m);
+  var sel=awardedLink(m);
+  var totals=ls.map(function(l){return {l:l,t:vendorTotal(l),r:revisedTotal(l)};});
+  var low=lowestTotal(mid);
+  var priced=totals.filter(function(x){return x.t!=null;}).length;
+  var prio=m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]):'';
+  var chips=stageBadge(m.stage||'No stage')+prio+(m.discipline?'<span class="insp-tag">'+esc(m.discipline)+'</span>':'');
+  var h=head('Material'+(m.itemNo?' <span class="insp-no">#'+esc(m.itemNo)+'</span>':''),esc(m.desc||'(no description)'),chips,w,hiddenNote(w,'material'));
+
+  /* price */
+  var price;
+  if(sel){
+    var ap=awardedPrice(m);
+    price='<div class="insp-money"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+(ap!=null?esc(money(ap))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">not priced</span>')+'</div>'+
+      '<div class="insp-ms">'+esc(venName(sel.vendorId))+(revisedTotal(sel)!=null?' · offer after target price':'')+'</div></div>';
+  }else{
+    var lv=totals.filter(function(x){return x.t!=null&&x.t===low;})[0];
+    price='<div class="insp-money"><div class="insp-ml">Lowest offer</div><div class="insp-mv">'+(low!=null?esc(money(low))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">no priced offer</span>')+'</div>'+
+      '<div class="insp-ms">'+(lv?esc(venName(lv.l.vendorId))+' · ':'')+priced+' of '+ls.length+' offer'+(ls.length===1?'':'s')+' priced</div></div>';}
+  var tg=targetOf(m),bg=budgetOf(m),side=[];
+  if(tg!=null)side.push(['Target price',esc(sar(tg))]);
+  if(bg!=null)side.push(['Budget',esc(sar(bg))]);
+  if(sel&&low!=null)side.push(['Lowest offer',esc(sar(low))]);
+  var moneySec=sec('Price',price+(side.length?facts(side):''));
+
+  /* key facts */
+  var lead=String(m.leadTime||'').trim();
+  var leadHtml=lead?esc(lead):((sel&&typeof totText==='function'&&totText(sel))?esc(totText(sel))+' <span class="insp-muted">(selected vendor)</span>':dash());
+  var apS=approvalSummary(m);
+  var apHtml=apS?stageBadge(apS.label,apS.color):val(m.approvalStatus);
+  var keySec=sec('Key facts',facts([
+    ['Engineer',val(m.engineer)],
+    ['PO No',val(m.poNo)],
+    ['Awarded vendor',sel?'<span class="insp-link" onclick="openVendor('+sel.vendorId+')">'+esc(venName(sel.vendorId))+'</span>':val(m.awarded)],
+    ['Lead time',leadHtml],
+    ['Delivery',val(fmtDate(m.deliveryDate))],
+    ['Material approval',apHtml],
+    ['Submission status',val(m.submStatus)]]));
+
+  /* offers */
+  var oc=(typeof hasOpts==='function'&&hasOpts(mid))?'Option '+esc(optCode(mid,optInForce(mid))):'';
+  totals.sort(function(a,b){return (a.t==null)-(b.t==null)||(a.t||0)-(b.t||0);});
+  var offers=ls.length?'<table class="insp-tbl"><thead><tr><th>Vendor</th><th class="r">Total '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
+    totals.map(function(x){var l=x.l,isLow=(x.t!=null&&x.t===low);
+      return '<tr class="'+(isYes(l.selected)?'insp-selrow':'')+'" title="Open the comparison sheet" onclick="openCompare('+mid+')">'+
+        '<td><span class="insp-link" title="Open the vendor" onclick="event.stopPropagation();openVendor('+l.vendorId+')">'+esc(venName(l.vendorId)||'(vendor)')+'</span><div class="insp-sub">'+offerStatus(l)+'</div></td>'+
+        '<td class="r">'+(x.t!=null?'<b>'+esc(money(x.t))+'</b>'+(isLow?'<div><span class="insp-low">lowest</span></div>':''):'<span class="insp-muted">not priced</span>')+
+          (x.r!=null?'<div class="insp-sub">revised '+esc(money(x.r))+'</div>':'')+'</td>'+
+        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+'</td></tr>';}).join('')+
+    '</tbody></table>':'<div class="insp-none">No vendor assigned.</div>';
+  var offSec=sec('Offers',offers,(oc?oc+' · ':'')+ls.length+' vendor'+(ls.length===1?'':'s'));
+
+  /* approvals + tasks */
+  var subs=subsFor(m),byS={};subs.forEach(function(s){var k=subStatus(s);byS[k]=(byS[k]||0)+1;});
+  var ts=tasksFor(m),open=ts.filter(function(t){return t.status!=='Closed';});
+  var over=open.filter(function(t){var d=t.target?daysSince(t.target):null;return d!=null&&d>0;}).length;
+  var subHtml=subs.length?'<div class="insp-counts">'+Object.keys(byS).map(function(k){
+      return '<span class="insp-count" style="--c:'+((typeof SUB_COLOR!=='undefined'&&SUB_COLOR[k])||'var(--muted)')+'"><span class="insp-dot"></span>'+esc(k)+' <b>'+byS[k]+'</b></span>';}).join('')+'</div>'
+    :'<div class="insp-none">No submittals for this material.</div>';
+  var taskHtml='<div class="insp-taskline"><span class="insp-link" onclick="inspMatTab('+mid+',4)">'+open.length+' open task'+(open.length===1?'':'s')+'</span>'+
+    (over?' <span class="insp-bad">'+over+' overdue</span>':'')+(ts.length>open.length?' <span class="insp-muted">· '+(ts.length-open.length)+' closed</span>':'')+'</div>';
+  var subSec=sec('Submittals and tasks',subHtml+taskHtml,subs.length?'<span class="insp-link" onclick="openMatSubs('+mid+')">'+subs.length+' submittal'+(subs.length===1?'':'s')+'</span>':'');
+
+  var acts=recentActs(function(a){return (a.tbl==='materials'&&a.recId===mid)||(!!m.desc&&a.recName===m.desc);});
+  var actSec=sec('Recent activity',actRows(acts));
+
+  var foot='<div class="insp-foot">'+
+    btn('Open','openMaterial('+mid+')','insp_open',true)+
+    btn('Comparison','openCompare('+mid+')')+
+    (typeof W.openMaterialWorkspace==='function'?btn('Workspace','openMaterialWorkspace('+mid+')'):'')+
+    btn('Submittals','openMatSubs('+mid+')')+'</div>';
+  return h+'<div class="insp-scroll">'+sec('Stage',stepper(m))+moneySec+keySec+offSec+subSec+actSec+'</div>'+foot;}
+
+function emptyMat(w){
+  var rows=gridRows(w),all=(DB.materials||[]).length;
+  var aw=0,awV=0,pr=0,prV=0,tk=0;
+  rows.forEach(function(m){var s=awardedLink(m);
+    if(s){aw++;var p=awardedPrice(m);if(p!=null)awV+=p;}
+    else{var lo=lowestTotal(m.id);if(lo!=null){pr++;prV+=lo;}}
+    tk+=tasksFor(m).filter(function(t){return t.status!=='Closed';}).length;});
+  return head('Material','No material selected','',w)+'<div class="insp-scroll">'+
+    '<div class="insp-empty">Click a row to see its stages, price, offers, approvals and recent activity here. The Up and Down arrow keys move between rows.</div>'+
+    sec('Rows shown',facts([
+      ['Materials',rows.length+' of '+all],
+      ['Vendor selected',String(aw)],
+      ['Awarded value',aw?esc(sar(awV)):dash()],
+      ['Priced, no vendor selected',String(pr)],
+      ['Sum of lowest offers',pr?esc(sar(prV)):dash()],
+      ['Open tasks',String(tk)]]))+'</div>';}
+
+/* ---------------------------------------------------------- vendor panel */
+function venPanel(w){
+  var v=(DB.rfqs||[]).find(function(x){return x.id===w.state.selId;});
+  if(!v)return head('Vendor','No vendor selected','',w)+'<div class="insp-scroll"><div class="insp-empty">Click a row to see the materials this vendor quoted, his prices and what he was selected for. The Up and Down arrow keys move between rows.</div></div>';
+  var vid=v.id,ls=linksForVendor(v);
+  var rows=ls.map(function(l){var m=(DB.materials||[]).find(function(x){return x.id===l.materialId;});
+    return {l:l,m:m,t:vendorTotal(l),r:revisedTotal(l),low:m?lowestTotal(m.id):null};}).filter(function(x){return x.m;});
+  var selN=rows.filter(function(x){return isYes(x.l.selected);});
+  var awV=0,awN=0;selN.forEach(function(x){var p=awardedPrice(x.m);if(p!=null){awV+=p;awN++;}});
+  var inN=rows.filter(function(x){return offerIn(x.l);}).length;
+  var prN=rows.filter(function(x){return x.t!=null;}).length;
+  var slN=rows.filter(function(x){return isYes(x.l.priceShortlisted);}).length;
+  var lowN=rows.filter(function(x){return x.t!=null&&x.t===x.low;}).length;
+  var chips=(v.shared?'<span class="insp-tag">RFQ shared: '+esc(v.shared)+'</span>':'');
+  var h=head('Vendor',esc(v.manufacturer||'(no name)'),chips,w,hiddenNote(w,'vendor'));
+  var price='<div class="insp-money"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+(awN?esc(money(awV))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">nothing awarded</span>')+'</div>'+
+    '<div class="insp-ms">selected on '+selN.length+' material'+(selN.length===1?'':'s')+'</div></div>';
+  var sum=sec('Summary',price+facts([
+    ['Materials assigned',String(rows.length)],
+    ['Offers received',String(inN)],
+    ['Priced',String(prN)],
+    ['Lowest offer on',String(lowN)],
+    ['Shortlisted',String(slN)],
+    ['Selected',String(selN.length)]]));
+  rows.sort(function(a,b){return String(a.m.itemNo||'').localeCompare(String(b.m.itemNo||''),undefined,{numeric:true});});
+  var tbl=rows.length?'<table class="insp-tbl"><thead><tr><th>Material</th><th class="r">Total '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
+    rows.map(function(x){var l=x.l,m=x.m,isLow=(x.t!=null&&x.t===x.low);
+      return '<tr class="'+(isYes(l.selected)?'insp-selrow':'')+'" title="Open the comparison sheet for this material" onclick="openCompare('+m.id+')">'+
+        '<td><span class="insp-link" title="Open the material" onclick="event.stopPropagation();openMaterial('+m.id+')">'+esc(m.desc||'(material)')+'</span><div class="insp-sub">'+'<span class="insp-nw">'+esc(m.stage||'No stage')+'</span> · '+offerStatus(l)+'</div></td>'+
+        '<td class="r">'+(x.t!=null?'<b>'+esc(money(x.t))+'</b>'+(isLow?'<div><span class="insp-low">lowest</span></div>':''):'<span class="insp-muted">not priced</span>')+
+          (x.r!=null?'<div class="insp-sub">revised '+esc(money(x.r))+'</div>':'')+'</td>'+
+        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+'</td></tr>';}).join('')+
+    '</tbody></table>':'<div class="insp-none">No material assigned to this vendor.</div>';
+  var offSec=sec('Offers',tbl,rows.length+' material'+(rows.length===1?'':'s'));
+  var subs=(DB.submittals||[]).filter(function(s){return s.vendorId===vid;});
+  var subSec=subs.length?sec('Submittals','<div class="insp-counts">'+(function(){var by={};subs.forEach(function(s){var k=subStatus(s);by[k]=(by[k]||0)+1;});
+    return Object.keys(by).map(function(k){return '<span class="insp-count" style="--c:'+((typeof SUB_COLOR!=='undefined'&&SUB_COLOR[k])||'var(--muted)')+'"><span class="insp-dot"></span>'+esc(k)+' <b>'+by[k]+'</b></span>';}).join('');})()+'</div>'):'';
+  var acts=recentActs(function(a){return (a.tbl==='rfqs'&&a.recId===vid)||(!!v.manufacturer&&a.recName===v.manufacturer);});
+  var foot='<div class="insp-foot">'+btn('Open','openVendor('+vid+')','insp_open',true)+
+    (typeof W.openVendorWorkspace==='function'?btn('Workspace','openVendorWorkspace('+vid+')'):'')+'</div>';
+  return h+'<div class="insp-scroll">'+sum+offSec+subSec+sec('Recent activity',actRows(acts))+'</div>'+foot;}
+
+/* --------------------------------------------------------------- actions */
+W.inspToggle=function(wid){
+  var w=windows.get(wid);if(!w)return;var g=gOf(w);if(!g)return;
+  if(isNarrow(w)){
+    /* closing the drawer by hand stops it opening on every click; the Details strip turns that back on */
+    if(w.state.inspDrawer){w.state.inspDrawer=false;setAuto(w,false);}
+    else{w.state.inspDrawer=true;setAuto(w,true);}
+    paint(w);return;}
+  setOpen(g,!isOpen(g));
+  windows.forEach(function(x){if(gOf(x)===g&&!isNarrow(x))paint(x);});};
+W.inspMatTab=function(mid,tab){
+  openMaterial(mid);
+  var w=[].slice.call(windows.values()).find(function(x){return x.kind==='mat'&&x.params.recId===mid;});
+  if(w){w.state.tab=tab;renderWin(w);focusWin(w.id);}};
+W.inspPaint=function(w){try{paint(w);}catch(e){}};
+
+/* ------------------------------------------------------------ app hooks */
+var _rgb=W.renderGridBody;
+W.renderGridBody=function(w){
+  var g=gOf(w);
+  if(g)try{mount(w);}catch(e){}
+  var r=_rgb.apply(this,arguments);
+  try{compact(w);}catch(e){}
+  if(g)try{paint(w);}catch(e){}
+  return r;};
+var _kb=false;
+var _gsel=W.gsel;
+W.gsel=function(id,rid,tr){
+  var r=_gsel.apply(this,arguments);
+  try{var w=windows.get(id);
+    if(gOf(w)){paint(w);if(!_kb&&idClick(w,tr))autoOpen(w);}}catch(e){}
+  return r;};
+/* narrow window: a click on a row opens the drawer by itself — after a short pause, so that
+   the second click of a double-click (the app's cell editor) never lands on the drawer */
+/* the drawer opens only from a click on the row's own name: its # / description (materials),
+   the manufacturer (vendors), or the row-header strip on the left. Any other cell is for editing. */
+var _clickTd=null;
+D.addEventListener('click',function(e){
+  _clickTd=(e.target&&e.target.closest)?e.target.closest('td'):null;
+  setTimeout(function(){_clickTd=null;},0);},true);
+var ID_KEYS={materials:['itemNo','desc'],rfqs:['manufacturer']};
+function idClick(w,tr){
+  var td=_clickTd;if(!td||!tr||td.parentNode!==tr)return false;
+  if(td.classList.contains('rowactions'))return true;
+  return (ID_KEYS[gOf(w)]||[]).indexOf(td.getAttribute('data-k'))>=0;}
+function autoOpen(w){
+  if(!isNarrow(w)||w.state.inspDrawer||!autoOn(w)||!signedIn()||isMobile())return;
+  clearTimeout(w._inspAutoT);
+  var sel=w.state.selId;
+  w._inspAutoT=setTimeout(function(){
+    w._inspAutoT=null;
+    if(!w.el||!w.el.isConnected||!windows.has(w.id))return;
+    if(w.state.selId!==sel||w.state.inspDrawer||!isNarrow(w)||!autoOn(w))return;
+    if(editorActive())return;
+    w.state.inspDrawer=true;paint(w);},AUTO_DELAY);}
+D.addEventListener('dblclick',function(e){
+  var el=e.target&&e.target.closest&&e.target.closest('.win');if(!el)return;
+  var w=windows.get(el.id);if(w&&w._inspAutoT){clearTimeout(w._inspAutoT);w._inspAutoT=null;}},true);
+/* Esc closes an open drawer. It does not turn auto-open off (only the header button does) and it
+   does not stop the app's own Esc (clearing the cell selection), which has already run. */
+D.addEventListener('keydown',function(e){
+  if(e.key!=='Escape'||!signedIn()||isMobile()||editorActive())return;
+  if([].slice.call(windows.values()).some(function(x){return x.kind==='msg';}))return;
+  var w=focusedWin();if(!gOf(w)||!isNarrow(w)||!w.state.inspDrawer)return;
+  closeDrawer(w);});
+/* a cell editor opening in the table closes the drawer, so what is being edited is always in view */
+D.addEventListener('focusin',function(e){
+  var t=e.target;if(!t||!/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)||t.type==='checkbox')return;
+  var td=t.closest&&t.closest('table.grid td');if(!td)return;
+  var el=td.closest('.win'),w=el&&windows.get(el.id);
+  if(gOf(w)&&isNarrow(w)){if(w._inspAutoT){clearTimeout(w._inspAutoT);w._inspAutoT=null;}closeDrawer(w);}},true);
+/* the app's Excel-style cell cursor moving onto a cell under the drawer closes it too */
+var _ps=W.paintSel,_lastSel='';
+if(typeof _ps==='function')W.paintSel=function(){
+  var r=_ps.apply(this,arguments);
+  try{var s=SEL;
+    if(!s){_lastSel='';return r;}
+    var k=s.wid+':'+s.ti+':'+s.ar+':'+s.ac;if(k===_lastSel)return r;_lastSel=k;
+    var w=windows.get(s.wid);if(!gOf(w)||!w.state.inspDrawer)return r;
+    var t=_selTable(),tr=t&&_rowsOf(t)[s.ar],td=tr&&tr.cells[s.ac];
+    if(td&&underDrawer(w,td))closeDrawer(w);}catch(e){}
+  return r;};
+
+/* ---- Up / Down move the selection (after the app's own cell-cursor keys) ---- */
+function scrollRowIntoView(tr){
+  var wrap=tr.closest('.gridwrap');if(!wrap||!tr.getBoundingClientRect)return;
+  var t=tr.closest('table'),th=(t&&t.tHead)?t.tHead.getBoundingClientRect().height:0;
+  var wr=wrap.getBoundingClientRect(),r=tr.getBoundingClientRect();
+  var top=wr.top+wrap.clientTop+th,bot=wr.top+wrap.clientTop+wrap.clientHeight;
+  if(r.top<top)wrap.scrollTop-=(top-r.top);
+  else if(r.bottom>bot)wrap.scrollTop+=(r.bottom-bot);}
+function editorActive(){var a=D.activeElement;
+  return !!a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT'||a.isContentEditable);}
+D.addEventListener('keydown',function(e){
+  var k=e.key;
+  if(k!=='ArrowUp'&&k!=='ArrowDown'&&k!=='PageUp'&&k!=='PageDown')return;
+  if(!signedIn()||isMobile()||e.altKey||e.metaKey)return;
+  if(editorActive())return;
+  if([].slice.call(windows.values()).some(function(x){return x.kind==='msg';}))return;
+  var w=focusedWin();if(!gOf(w))return;
+  var t=w.el.querySelector('table.grid');if(!t||!t.tBodies[0])return;
+  var s=null;try{s=SEL;}catch(_){}
+  if(s){
+    /* the app's Excel-style cell cursor already moved: the row follows it */
+    if(s.wid!==w.id||e.shiftKey)return;
+    var tr=_rowsOf(t)[s.ar];
+    if(tr&&tr.dataset.rid&&+tr.dataset.rid!==w.state.selId){_kb=true;try{gsel(w.id,+tr.dataset.rid,tr);}finally{_kb=false;}}
+    return;}
+  if(e.shiftKey||e.ctrlKey||(k!=='ArrowUp'&&k!=='ArrowDown'))return;
+  var rows=[].slice.call(t.tBodies[0].rows).filter(function(r){return r.dataset.rid;});if(!rows.length)return;
+  var i=rows.findIndex(function(r){return +r.dataset.rid===w.state.selId;});
+  var n=i<0?0:Math.max(0,Math.min(rows.length-1,i+(k==='ArrowDown'?1:-1)));
+  e.preventDefault();
+  if(n===i)return;
+  _kb=true;try{gsel(w.id,+rows[n].dataset.rid,rows[n]);}finally{_kb=false;}
+  scrollRowIntoView(rows[n]);});
+
+/* registers already open when this script runs */
+try{windows.forEach(function(w){compact(w);if(gOf(w))paint(w);});}catch(e){}
 })();
 
 </script>
