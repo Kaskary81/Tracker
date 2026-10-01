@@ -12912,7 +12912,9 @@ try{windows.forEach(function(w){compact(w);if(gOf(w))paint(w);});}catch(e){}
 window.TRK_UI="classic";
 /* Classic ⇄ New layout (beta) switch.  The page sets window.TRK_UI ('classic' | 'beta') before this runs.
    - a sidebar button (above Home) moves to the other version and remembers the choice per browser
-   - opening the version you did not choose sends you to the one you chose (desktop only)        */
+   - opening the version you did not choose sends you to the one you chose — on desktop and on phones
+   - phone: the classic "More" screen gets a "New layout (beta)" entry; the beta phone layout (mob3.js)
+     has its own "Classic version" entry. Both call window.trkSwitchUI().                              */
 (function(){
 if(window.__trkSwitch)return;window.__trkSwitch=1;
 var HERE=window.TRK_UI==='beta'?'beta':'classic',KEY='trk_ui';
@@ -12920,10 +12922,10 @@ var PAGE={classic:'index.html',beta:'next.html'};
 function get(){try{return localStorage.getItem(KEY)||'';}catch(e){return '';}}
 function set(v){try{localStorage.setItem(KEY,v);}catch(e){}}
 function url(to){var p=location.pathname.replace(/[^\/]*$/,'');return p+PAGE[to];}
-function phone(){return /(^|#)phone\b/.test(location.hash)||(window.innerWidth||1200)<900;}
-/* remembered choice: redirect before anything is drawn */
+/* remembered choice: redirect before anything is drawn (a route such as #/materials/12/offers goes along) */
 var pref=get();
-if(pref&&pref!==HERE&&!phone()&&!/[?&]stay\b/.test(location.search)){location.replace(url(pref));return;}
+if(pref&&pref!==HERE&&!/[?&]stay\b/.test(location.search)){
+  var h0=String(location.hash||'');location.replace(url(pref)+(/^#\//.test(h0)?h0:''));return;}
 window.trkSwitchUI=function(){var to=HERE==='beta'?'classic':'beta';set(to);location.href=url(to);};
 var LBL=HERE==='beta'?'Classic version':'New layout',TIP=HERE==='beta'?'Go back to the classic tracker (your choice is remembered)':'Try the new layout — beta (your choice is remembered)';
 function ic(){try{return icon(HERE==='beta'?'windows':'grid',17);}catch(e){return '';}}
@@ -12938,6 +12940,14 @@ function tag(){if(HERE!=='beta')return;var t=document.getElementById('topbar')||
 function tick(){put();tag();}
 new MutationObserver(tick).observe(document.documentElement,{childList:true,subtree:true});
 document.addEventListener('DOMContentLoaded',tick);tick();
+/* classic phone: one card at the top of the "More" screen; every other phone screen is unchanged */
+if(HERE==='classic'&&typeof window.mobMore==='function'&&!window.mobMore.__sw){
+  var inner=window.mobMore;
+  window.mobMore=function(){
+    var h=inner.apply(this,arguments);
+    var row='<div class="mrow tap sw-mrow" onclick="trkSwitchUI()"><div class="k">New layout (beta)</div><div class="v">›</div></div>';
+    try{return _mcard('Layout',row)+h;}catch(e){return '<div class="mcard"><h4>Layout</h4>'+row+'</div>'+h;}};
+  window.mobMore.__sw=true;}
 try{(window.TRK_CMDS=window.TRK_CMDS||[]).push({id:'ui.switch',label:HERE==='beta'?'Switch to the classic version':'Switch to the new layout (beta)',group:'View',run:function(){window.trkSwitchUI();}});}catch(e){}
 })();
 
