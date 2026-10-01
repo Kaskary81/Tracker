@@ -584,6 +584,26 @@ table.grid thead th.frz{z-index:8}
 table.grid td.frzlast,table.grid th.frzlast{border-right:2px solid var(--info)}
 </style>
 <meta name="trk-build" content="2026-09-30 · workbench trial 1">
+<style id="px-price-css">
+/* the final price governs (Engineer P · price.css) — small marks only */
+.px-nt,.px-part,.px-bud,.px-unl{display:inline-block;font-size:10.5px;font-weight:600;line-height:1.35;padding:0 5px;border-radius:6px;
+  border:1px solid currentColor;white-space:nowrap;vertical-align:baseline}
+.px-nt{color:var(--warn,#b7791f)}
+.px-part{color:var(--muted,#888)}
+.px-bud{color:var(--warn,#b7791f)}
+.px-unl{color:var(--critical,#c53030);border-style:dashed}
+.chip.px-fin{background:transparent;border:1px solid var(--ring,#999)}
+.px-drill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 4px 3px 9px;border-radius:9px;
+  background:var(--accent-soft,rgba(80,120,255,.12));color:var(--ink,inherit)}
+.px-drill .btn{padding:2px 8px;font-size:11.5px}
+.px-mdrill{margin:6px 0 8px;font-size:12.5px;padding:7px 10px;border-radius:10px;background:var(--accent-soft,rgba(80,120,255,.12))}
+.px-drill-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin:6px 0;padding:6px 9px;border-radius:9px;
+  background:var(--accent-soft,rgba(80,120,255,.12))}
+.px-drill-bar button{font:inherit;font-size:11.5px;cursor:pointer;background:none;border:0;color:var(--accent,#3b6fe0);text-decoration:underline;padding:0}
+.px-orig{display:block;font-size:11px;color:var(--muted,#888);font-weight:400}
+.px-rj,.px-rj b{color:var(--muted,#888)!important}
+
+</style>
 <style id="sh-shell-css">
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 /* =====================================================================
@@ -4554,7 +4574,7 @@ function pdfComparison(mid){
   if(!priced.length){toast('Nothing is priced for this material yet');return;}
   const rev=lastPricedRev(priced[0]);
   const its=boqOf(m.id,rev), par=markParents(its);
-  const low=lowestTotal(m.id);
+  const low=lowestTotal(m.id), lowI=lowestInfo(m.id), aw=awardInfo(m);
   const m2=v=>v==null||v===''?'':Number(v).toLocaleString('en-US',
     {minimumFractionDigits:2,maximumFractionDigits:2});
 
@@ -4576,18 +4596,21 @@ function pdfComparison(mid){
           const win=cheapest&&cheapest.id===l.id&&priced.length>1;
           return '<td class="num'+(win?' anlow':'')+'">'+m2(a)+'</td>';}).join('')+'</tr>';
     }).join('')+'</tbody>'+
-    '<tfoot><tr><td colspan="4">Total in '+CUR+', charges included</td>'+
-      priced.map(l=>{const t=vendorTotal(l);
-        const win=(low!=null&&t!=null&&Math.abs(t-low)<0.005);
-        return '<td class="num'+(win?' anlow':'')+'">'+m2(t)+'</td>';}).join('')+'</tr></tfoot>';
+    '<tfoot><tr><td colspan="4">Original total in '+CUR+', charges included</td>'+
+      priced.map(l=>'<td class="num">'+m2(vendorTotal(l))+'</td>').join('')+'</tr>'+
+      '<tr><td colspan="4"><b>FINAL total in '+CUR+' — after target</b></td>'+
+      priced.map(l=>{const t=finalTotal(l);
+        const win=isLowestOffer(l);
+        return '<td class="num'+(win?' anlow':'')+'"><b>'+m2(t)+'</b>'+(isTechRejected(l)?' (tech. rejected)':'')+'</td>';}).join('')+'</tr></tfoot>';
 
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   _printInPage((m.desc||'Material')+' — comparison and price analysis',
     [proj.name,proj.subtitle].filter(Boolean).join(' · '),
     '<div class="rkpis"><div class="rk"><div class="k">Vendors priced</div>'+
       '<div class="v">'+priced.length+'</div></div>'+
-      '<div class="rk"><div class="k">Lowest ('+CUR+')</div><div class="v">'+
-      esc(money(low))+'</div></div>'+
+      '<div class="rk"><div class="k">Lowest final ('+CUR+')</div><div class="v">'+
+      esc(money(low))+'</div>'+(lowI?'<div class="k">'+esc(venName(lowI.l.vendorId))+(lowI.partial?' · '+lowI.q+' of '+lowI.n+' lines':'')+'</div>':'')+'</div>'+
+      (aw.link?'<div class="rk"><div class="k">Awarded'+(aw.ticked?'':' (not ticked)')+'</div><div class="v">'+esc(money(aw.price))+'</div><div class="k">'+esc(aw.vendor)+'</div></div>':'')+
       '<div class="rk"><div class="k">Lines</div><div class="v">'+its.length+'</div></div></div>',
     tbl.outerHTML, 4+priced.length, its.length>14, '12px','11px','7px 9px');
 }
@@ -4608,34 +4631,41 @@ function exportComparison(){
     };
 
     /* 1 — the summary every meeting asks for */
-    const sum=[['Material','Discipline','Stage','Vendors priced','Lowest total ('+CUR+')',
-                'Lowest vendor','Selected vendor','Spread %']];
+    const sum=[['Material','Discipline','Stage','Vendors priced','Lowest final total ('+CUR+')',
+                'Lowest vendor','Lowest — lines priced','Lowest original total ('+CUR+')','Selected vendor (ticked)',
+                'Awarded vendor','Awarded final total ('+CUR+')','Award note','Spread % (final)']];
     mats.forEach(m=>{
       const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
-      const priced=ls.map(l=>({l,t:vendorTotal(l)})).filter(x=>x.t!=null&&x.t>0)
-        .sort((a,b)=>a.t-b.t);
+      const priced=ls.map(l=>({l,t:finalTotal(l),rej:isTechRejected(l)})).filter(x=>x.t!=null&&x.t>0);
       if(!priced.length)return;
-      const lo=priced[0], hi=priced[priced.length-1];
-      const sel=ls.find(l=>l.selected);
+      const ok=priced.filter(x=>!x.rej).sort((a,b)=>a.t-b.t);
+      const lo=lowestInfo(m.id), hi=ok.length?ok[ok.length-1]:null;
+      const sel=ls.find(l=>isYes(l.selected)), aw=awardInfo(m);
       sum.push([m.desc||'', m.discipline||'', m.stage||'', priced.length,
-        lo.t, venName(lo.l.vendorId), sel?venName(sel.vendorId):'',
-        priced.length>1?Math.round((hi.t-lo.t)/lo.t*100):0]);
+        lo?lo.t:'', lo?venName(lo.l.vendorId):'', lo?(lo.partial?lo.q+' of '+lo.n:'all '+lo.n):'',
+        lowestOriginal(m.id)??'', sel?venName(sel.vendorId):'',
+        aw.link?aw.vendor:(aw.state==='unlinked'?(m.awarded||''):''), aw.link&&aw.price!=null?aw.price:'',
+        aw.state==='name'?'not ticked — matched to the linked vendor by name':(aw.state==='unlinked'?'Awarded — vendor not linked/ticked':(aw.budgetary?'budgetary offer':'')),
+        (lo&&hi&&ok.length>1)?Math.round((hi.t-lo.t)/lo.t*100):0]);
     });
     sheet('Summary',sum);
 
     /* 2 — the offers, with the terms that go with them */
     const pa=[['Material','Vendor','Currency','Goods ('+CUR+')','Charges ('+CUR+')',
-               'Total ('+CUR+')','Lowest?','Incoterm','Payment','Origin','Delivery','Quote date']];
+               'Original total ('+CUR+')','Final total ('+CUR+')','Revised after target','Lowest? (final)','Tech. acceptance','Lines priced','Selected / awarded',
+               'Incoterm','Payment','Origin','Delivery','Quote date']];
     mats.forEach(m=>{
       const ls=(DB.links||[]).filter(l=>l.materialId===m.id);
-      const low=lowestTotal(m.id);
+      const aw=awardInfo(m);
       ls.forEach(l=>{
         const t=vendorTotal(l); if(t==null)return;
         const rev=lastPricedRev(l);
         const g=rev==null?null:goodsSAR(l,rev);
+        const pl=pricedLines(l);
         pa.push([m.desc||'', venName(l.vendorId), curOf(l),
-          g==null?'':g, (g==null||t==null)?'':Math.round((t-g)*100)/100, t,
-          (low!=null&&Math.abs(t-low)<0.005)?'lowest':'',
+          g==null?'':g, (g==null||t==null)?'':Math.round((t-g)*100)/100, t, finalTotal(l)??'',
+          hasRevised(l)?'yes':'', isLowestOffer(l)?'lowest':'', l.techAccept||'', pl.q+' of '+pl.n,
+          isYes(l.selected)?'selected':(aw.link===l?'awarded (not ticked)':''),
           l.incotermFinal||l.incoterm||'', l.payment||'', l.origin||'',
           [l.durFrom,l.durTo].filter(Boolean).join('–')+(l.durUnit?' '+l.durUnit:''),
           l.quoteDate||'']);
@@ -4648,7 +4678,7 @@ function exportComparison(){
     const an=[['Material','Item','Description','Unit','Qty','Vendors priced',
                'Lowest rate','Cheapest vendor','Highest rate','Average','Median',
                'Spread %','Line value at the lowest']];
-    const split=[['Material','Single lowest vendor','Single lowest total',
+    const split=[['Material','Single lowest vendor (quoted rates)','Single lowest total (quoted rates)',
                   'Split award total','Saving by splitting','Vendors in the split',
                   'Outlier lines (>'+AN_OUT+'%)']];
     mats.forEach(m=>{
@@ -4715,6 +4745,9 @@ function exportComparison(){
       const tot2=['','Total in '+CUR+', with charges','',''];
       ls.forEach(l=>{tot2.push('',vendorTotal(l));});
       rows.push(tot2);
+      const tot3=['','FINAL total in '+CUR+' — after target','',''];
+      ls.forEach(l=>{tot3.push('',finalTotal(l));});
+      rows.push(tot3);
       sheet(m.desc||('Material '+m.id),rows);
     });
 
@@ -7480,7 +7513,7 @@ function renderCmpWin(w){
   const cw=Math.max(96,Math.min(360,w.state.cw||190));
   if(ti===4){renderAnalysisTab(w,m,its,ls,rev,copt,revs);return;}
   if(ti===3){renderDraftsTab(w,m,ls);return;}
-  if(ti===2){renderTargetTab(w,m,its,ls,low,rev,copt,revs);return;}
+  if(ti===2){renderTargetTab(w,m,its,ls,lowestOriginal(m.id,copt),rev,copt,revs);return;}
   if(ti===1){renderTermsTab(w,m,ls,low);return;}
   w.el.querySelector('.wincontent').innerHTML=`
    <div class="recheader">
@@ -7490,7 +7523,8 @@ function renderCmpWin(w){
      ${revs.length?`<span class="badge">RFQ ${esc(revLabel(m.id,rev))}${rev===currentRevId(m.id)?' · current':''}</span>`:''}
      ${opts.length?`<span class="badge" title="${esc((optRow(m.id,copt)||{}).scope||'')}"><span class="dot" style="background:${copt===optInForce(m.id)?'var(--accent)':'var(--muted)'}"></span>Option ${esc(optCode(m.id,copt))}${
        copt===optInForce(m.id)?' · in force':`<span class="linkchip" onclick="setOptInForce(${m.id},'${copt}')"> make it in force</span>`}</span>`:''}
-     ${low!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Lowest ${esc(money(low))} ${CUR}${priced.length?' — '+esc(venName(priced[0].l.vendorId)):''}</span>`:''}
+     ${low!=null?`<span class="badge" data-px="cmp-low"><span class="dot" style="background:var(--good)"></span>Lowest final ${esc(money(low))} ${CUR}${(()=>{const x=lowestInfo(m.id,copt);return x?' — '+esc(venName(x.l.vendorId))+(x.revised?' · after target':''):'';})()}</span>${(()=>{const x=lowestInfo(m.id,copt);return x?pxPartial(x.q,x.n):'';})()}`:''}
+     ${(()=>{const a=awardInfo(m);return a.link?`<span class="badge" data-px="cmp-award"><span class="dot" style="background:var(--good)"></span>Awarded ${esc(a.vendor)}${a.price!=null?' '+esc(money(a.price))+' '+CUR:''}</span>${pxNotTicked(m)}${pxBudgetary(a.budgetary)}`:(a.state==='unlinked'?pxUnlinked(m):'');})()}
      ${(()=>{const b=budgetOf(m),v=varianceOf(low,b);
        return `<span class="badge" title="Budgeted total for this material — double-click to set it">${icon('target',12)} Budget <span class="editable" style="display:inline-block;min-width:54px;font-weight:700" ondblclick="event.stopPropagation();beginEdit(this,'materials',${m.id},'budget')">${b==null?'<span class="hint">— set —</span>':esc(money(b))}</span>${
          v==null?'':` <span style="color:${v<=0?'var(--goodtext,var(--good))':(v<=10?'var(--warn)':'var(--critical)')};font-weight:700">${v>0?'+':''}${v}%</span>`}</span>`;})()}
@@ -7537,18 +7571,28 @@ function renderCmpWin(w){
               :(warn?`<span class="hint" style="color:var(--warn)">none — ${esc(l.incoterm)} does not reach site</span>`:'<span class="hint">—</span>')}</span></td>`;}).join('')}
          <td></td></tr>
        <tr style="font-weight:700">
-         <td></td><td><b>GRAND TOTAL (${CUR})</b><div class="hint" style="font-weight:400">converted and delivered to site — this is what is compared</div></td><td></td><td></td>
+         <td></td><td><b>GRAND TOTAL — original (${CUR})</b><div class="hint" style="font-weight:400">as quoted at this revision, converted and delivered to site</div></td><td></td><td></td>
          ${ls.map(l=>{const t=totalForRev(l,rev,copt),tp=prevRev!==rev?totalForRev(l,prevRev,copt):null;
-           const best=(t!=null&&low!=null&&t===low);
+           const best=false;
            const mv=(t!=null&&tp!=null&&tp>0)?Math.round(((t-tp)/tp)*1000)/10:null;
            return `<td class="num" style="border-top:2px solid var(--ring)">${t==null?'<span class="hint">not priced at this revision</span>':
              `<b style="color:${best?'var(--goodtext,var(--good))':'inherit'}">${esc(money(t))}</b>${best?' <span class="chip sh-low">lowest</span>':''}${
               isFx(l)?`<div class="hint" style="font-weight:400">@ ${fxOf(l)} SAR/${esc(curOf(l))}</div>`:''}${
               mv?` <span class="hint" style="color:${mv<0?'var(--goodtext,var(--good))':'var(--warn)'}">${mv>0?'+':''}${mv}% vs ${esc(revLabel(m.id,prevRev))}</span>`:''}`}</td>`;}).join('')}
          <td></td></tr>
+       <tr style="font-weight:700" data-px="final-row">
+         <td></td><td><b>FINAL TOTAL (${CUR})</b><div class="hint" style="font-weight:400">after target / BAFO — this is what is compared</div></td><td></td><td></td>
+         ${ls.map(l=>{const f=finalTotal(l,copt),o=vendorTotal(l,copt),rv=hasRevised(l,copt),rj=isTechRejected(l),lr=lastPricedRev(l,copt),pl=pricedLines(l,copt);
+           const best=(f!=null&&low!=null&&!rj&&Math.abs(f-low)<0.005);
+           return `<td class="num" data-px="final" data-lid="${l.id}" style="border-top:2px solid var(--ring)">${f==null?'<span class="hint">not priced</span>':
+             `<b style="color:${best?'var(--goodtext,var(--good))':'inherit'}">${esc(money(f))}</b>${best?' <span class="chip sh-low">lowest</span>':''}${
+              rv?'<div class="hint" style="font-weight:400">Original '+esc(money(o))+'</div>':''}${
+              (lr!=null&&_rid(lr)!==rev)?'<div class="hint" style="font-weight:400">at RFQ '+esc(revLabel(m.id,lr))+'</div>':''}${
+              rj?'<div class="hint" style="font-weight:400;color:var(--critical)">tech. rejected</div>':''}${best?pxPartial(pl.q,pl.n):((pl.n>0&&pl.q<pl.n)?'<div class="hint" style="font-weight:400">'+pl.q+'/'+pl.n+' lines</div>':'')}`}</td>`;}).join('')}
+         <td></td></tr>
        <tr>
          <td></td><td style="color:var(--muted);font-weight:600">vs budget<div class="hint">${budgetOf(m)==null?'no budget set yet':esc(money(budgetOf(m)))+' '+CUR+(opts.length?' · measured against option '+esc(optCode(m.id,copt)):'')}</div></td><td></td><td></td>
-         ${ls.map(l=>{const b=budgetOf(m),t=totalForRev(l,rev,copt),v=varianceOf(t,b);
+         ${ls.map(l=>{const b=budgetOf(m),t=finalTotal(l,copt),v=varianceOf(t,b);
            return `<td class="num">${v==null?'<span class="hint">—</span>':
              `<b style="color:${v<=0?'var(--goodtext,var(--good))':(v<=10?'var(--warn)':'var(--critical)')}">${v>0?'+':''}${v}%</b> <span class="hint">${v>0?'+':''}${esc(money(Math.round((t-b)*100)/100))}</span>`}</td>`;}).join('')}
          <td></td></tr>
@@ -7560,7 +7604,7 @@ function renderCmpWin(w){
          <td></td></tr>
      </tbody>
    </table></div>
-   <div class="statusbar"><span>${its.length} item(s) · ${ls.length} vendor(s)${opts.length?' · option '+esc(optCode(m.id,copt)):''}${low!=null?' · saving vs highest: '+esc(money((Math.max(...totals.filter(x=>x.t!=null).map(x=>x.t))-low)))+' '+CUR:''}</span><span class="spacer"></span><span>double-click a rate to enter it · drag a range · Ctrl+C / Ctrl+V with Excel · Ctrl+D fills down · Del clears</span></div>`)}
+   <div class="statusbar"><span>${its.length} item(s) · ${ls.length} vendor(s)${opts.length?' · option '+esc(optCode(m.id,copt)):''}${(()=>{const fs=ls.map(l=>finalTotal(l,copt)).filter(t=>t!=null&&t>0);return (low!=null&&fs.length)?' · saving vs highest final: '+esc(money(Math.round((Math.max(...fs)-low)*100)/100))+' '+CUR:'';})()}</span><span class="spacer"></span><span>double-click a rate to enter it · drag a range · Ctrl+C / Ctrl+V with Excel · Ctrl+D fills down · Del clears</span></div>`)}
    ${optsPanel(m,ls,copt)}`;
 }
 /* the priced lines, grouped by the section the RFQ named, each with its own
@@ -7634,7 +7678,7 @@ function optsPanel(m,ls,copt){
   const opts=optsOf(m.id);
   if(opts.length<2)return '';
   const force=optInForce(m.id);
-  const tot=(l,o)=>vendorTotal(l,String(o.id));
+  const tot=(l,o)=>finalTotal(l,String(o.id));
   const lowOf=o=>lowestTotal(m.id,String(o.id));
   const b=budgetOf(m);
   return `<div class="pickrow" style="margin-top:10px;border-top:1px solid var(--grid);padding-top:11px">
@@ -7654,10 +7698,10 @@ function optsPanel(m,ls,copt){
          <td><b>${esc(venName(l.vendorId))}</b></td>
          ${vals.map((v,i)=>{const o=opts[i],lo=lowOf(o);
            return `<td class="num">${v==null?'<span class="hint">not priced</span>'
-             :`<b${(lo!=null&&v===lo)?' style="color:var(--goodtext,var(--good))"':''}>${esc(money(v))}</b>${(lo!=null&&v===lo)?' <span class="chip sh-low">lowest</span>':''}`}</td>`;}).join('')}
+             :`<b${(lo!=null&&v===lo&&!isTechRejected(l))?' style="color:var(--goodtext,var(--good))"':''}>${esc(money(v))}</b>${(lo!=null&&v===lo&&!isTechRejected(l))?' <span class="chip sh-low">lowest</span>':''}${hasRevised(l,String(o.id))?'<div class="hint">Original '+esc(money(vendorTotal(l,String(o.id))))+'</div>':''}`}</td>`;}).join('')}
          <td class="num">${d==null?'<span class="hint">—</span>':
            `<b style="color:${d<0?'var(--goodtext,var(--good))':'var(--warn)'}">${d>0?'+':''}${esc(money(d))}</b>${pc!=null?` <span class="hint">${pc>0?'+':''}${pc}%</span>`:''}`}</td></tr>`;}).join('')}
-       <tr style="font-weight:700"><td style="border-top:2px solid var(--ring)">Lowest in each option</td>
+       <tr style="font-weight:700"><td style="border-top:2px solid var(--ring)">Lowest final in each option</td>
          ${opts.map(o=>{const lo=lowOf(o);return `<td class="num" style="border-top:2px solid var(--ring)">${lo==null?'<span class="hint">—</span>':esc(money(lo))+(b!=null?`<div class="hint" style="font-weight:400">${(()=>{const v=varianceOf(lo,b);return v==null?'':(v>0?'+':'')+v+'% vs budget';})()}</div>`:'')}</td>`;}).join('')}
          <td class="num" style="border-top:2px solid var(--ring)"></td></tr>
      </tbody></table></div>
@@ -7697,10 +7741,14 @@ function renderTermsTab(w,m,ls,low){
      return `<td class="num">${s==null?'<span class="hint">—</span>':'<b>'+esc(money(s))+'</b> <span class="hint">'+CUR+(isFx(l)?' @ '+fxOf(l):'')+'</span>'}</td>`;}],
    ['Charges to site',l=>{const g=goodsForRev(l,rev),c=chargesSAR(l,g);
      return `<td class="num">${c?'<b>'+esc(money(c))+'</b> <span class="hint">'+CUR+' · '+esc(chargeText(l))+'</span>':'<span class="hint">—</span>'}</td>`;}],
-   ['GRAND TOTAL ('+CUR+')',l=>{const t=totalForRev(l,rev);const best=(t!=null&&low!=null&&t===low);
+   ['GRAND TOTAL — original ('+CUR+')',l=>{const t=totalForRev(l,rev);const best=false;
      return `<td class="num" style="border-top:2px solid var(--ring)">${t==null?'<span class="hint">—</span>':
        '<b style="color:'+(best?'var(--goodtext,var(--good))':'inherit')+'">'+esc(money(t))+'</b>'+(best?' <span class="chip sh-low">lowest</span>':'')+
        (isFx(l)?'<div class="hint">'+esc(moneyC(goodsForRev(l,rev),curOf(l)))+' @ '+fxOf(l)+'</div>':'')}</td>`;},1],
+   ['FINAL TOTAL — after target ('+CUR+')',l=>{const f=finalTotal(l),best=isLowestOffer(l),rv=hasRevised(l);
+     return `<td class="num" data-px="final" style="border-top:2px solid var(--ring)">${f==null?'<span class="hint">—</span>':
+       '<b style="color:'+(best?'var(--goodtext,var(--good))':'inherit')+'">'+esc(money(f))+'</b>'+(best?' <span class="chip sh-low">lowest</span>':'')+
+       (rv?'<div class="hint">Original '+esc(money(vendorTotal(l)))+'</div>':'')+(isTechRejected(l)?'<div class="hint" style="color:var(--critical)">tech. rejected</div>':'')}</td>`;},1],
    ['_sep'],
    ['Manufacturing time',l=>rangeCell(l,'')],
    ['Transport time to site',l=>rangeCell(l,'tr')],
@@ -7721,7 +7769,7 @@ function renderTermsTab(w,m,ls,low){
      ${stageBadge(m.stage)}
      <span class="badge">${ls.length} vendor(s)</span>
      ${fxUsed.length?`<span class="badge"><span class="dot" style="background:var(--accent)"></span>${fxUsed.map(c=>esc(c)+' @ '+fxOf(ls.find(l=>curOf(l)===c))).join(' · ')}</span>`:`<span class="badge">all quoted in ${CUR}</span>`}
-     ${low!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Lowest delivered ${esc(money(low))} ${CUR}</span>`:''}
+     ${low!=null?`<span class="badge"><span class="dot" style="background:var(--good)"></span>Lowest final delivered ${esc(money(low))} ${CUR}</span>`:''}
      <span class="linkchip" onclick="openMaterial(${m.id})">${icon('box',12)} open material</span>
    </div>
    <div class="tabbar">${CMP_TABS.map((t,i)=>`<button class="${i===1?'active':''}" onclick="setTab('${w.id}',${i})">${t}</button>`).join('')}</div>
@@ -10630,7 +10678,7 @@ function mobOfferMenu(linkId,label){
   const wrap=document.createElement('div');
   wrap.className='msheet';
   wrap.innerHTML='<div class="msheetcard"><div class="msheettitle">'+
-    esc(label||venName(l.vendorId))+(priced?' — '+esc(money(vendorTotal(l)))+' '+CUR:'')+
+    esc(label||venName(l.vendorId))+(priced?' — '+esc(money(finalTotal(l)))+' '+CUR+(hasRevised(l)?' (original '+esc(money(vendorTotal(l)))+')':''):'')+
     '</div><div class="msheetlist">'+acts.map((a,i)=>
       '<button class="msheetbtn'+(/^Remove/.test(a[0])?' danger':'')+'" data-a="'+i+'">'+
       esc(a[0])+'</button>').join('')+
@@ -10675,13 +10723,16 @@ function pdfVendorOffer(linkId){
   tbl.innerHTML='<thead><tr><th>#</th><th>Description</th><th>Unit</th><th class="num">Qty</th>'+
     '<th class="num">Rate ('+curOf(l)+')</th><th class="num">Amount ('+curOf(l)+')</th>'+
     '<th class="num">Against the lowest</th></tr></thead><tbody>'+body+'</tbody>'+
-    '<tfoot><tr><td colspan="5">Total in '+CUR+', charges included</td>'+
-    '<td class="num" colspan="2">'+m2(vendorTotal(l))+'</td></tr></tfoot>';
+    '<tfoot><tr><td colspan="5">Original total in '+CUR+', charges included</td>'+
+    '<td class="num" colspan="2">'+m2(vendorTotal(l))+'</td></tr>'+
+    '<tr><td colspan="5"><b>FINAL total in '+CUR+' — after target</b></td>'+
+    '<td class="num" colspan="2"><b>'+m2(finalTotal(l))+'</b></td></tr></tfoot>';
   const proj=(PROJECTS.find(p=>String(p.id)===String(PROJ))||{});
   _printInPage((m.desc||'Material')+' — '+venName(l.vendorId)+' — price analysis',
     [proj.name,proj.subtitle].filter(Boolean).join(' · '),
-    '<div class="rkpis"><div class="rk"><div class="k">His total ('+CUR+')</div>'+
-      '<div class="v">'+esc(money(vendorTotal(l)))+'</div></div>'+
+    '<div class="rkpis"><div class="rk"><div class="k">His final total ('+CUR+')</div>'+
+      '<div class="v">'+esc(money(finalTotal(l)))+'</div></div>'+
+      (hasRevised(l)?'<div class="rk"><div class="k">Original total ('+CUR+')</div><div class="v">'+esc(money(vendorTotal(l)))+'</div></div>':'')+
       '<div class="rk"><div class="k">Lines priced</div><div class="v">'+
       rows.filter(r=>r.quotes.some(q=>q.l.id===l.id)).length+'</div></div>'+
       '<div class="rk"><div class="k">Lowest on</div><div class="v">'+
@@ -10800,12 +10851,13 @@ function mobSubs(){
   const q=String(MOB.q||'').toLowerCase();
   let list=(DB.submittals||[]).slice();
   if(MOB.f)list=list.filter(x=>(x.status||'Not Submitted')===MOB.f);
+  {const _pd=pxMobDrillOf('subs');if(_pd)list=list.filter(x=>_pd.ids.indexOf(x.id)>=0);}
   if(q)list=list.filter(x=>{
     const m=(DB.materials||[]).find(y=>y.id===x.materialId)||{};
     return [x.submDesc,x.docNo,x.submType,m.desc].join(' ').toLowerCase().indexOf(q)>=0;});
   const chips=[['','All']].concat(SUB_STATUSES.map(x=>[x,x]));
   return `<input class="msearch" placeholder="Search approvals…" value="${esc(MOB.q)}" oninput="mobQ(this.value)">
-   ${_mchips(chips,MOB.f,'mobF')}
+   ${_mchips(chips,MOB.f,'mobF')}${pxMobDrillBar('subs')}
    ${list.length?list.map(x=>{
      const m=(DB.materials||[]).find(y=>y.id===x.materialId);
      return `<div class="mcard tap" data-lp="submittals:${x.id}"
@@ -10901,11 +10953,12 @@ function mobMats(){
   const q=String(MOB.q||'').toLowerCase();
   let list=(DB.materials||[]).slice();
   if(MOB.f)list=list.filter(m=>(m.stage||'Not Started')===MOB.f);
+  {const _pd=pxMobDrillOf('mats');if(_pd)list=list.filter(m=>_pd.ids.indexOf(m.id)>=0);}
   if(q)list=list.filter(m=>[m.desc,m.discipline,m.engineer,m.itemNo,m.prNo].join(' ').toLowerCase().indexOf(q)>=0);
   const chips=[['','All']].concat(STAGES.map(s=>[s,s]));
   const can=canGrid('materials');
   return `<input class="msearch" placeholder="Search materials…" value="${esc(MOB.q)}" oninput="mobQ(this.value)">
-   ${_mchips(chips,MOB.f,'mobF')}
+   ${_mchips(chips,MOB.f,'mobF')}${pxMobDrillBar('mats')}
    ${list.length?list.map(m=>{
      const ls=linksForMaterial(m),low=lowestTotal(m.id);
      return `<div class="mcard tap" data-lp="materials:${m.id}"
@@ -10914,7 +10967,7 @@ function mobMats(){
        <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:3px 0 6px">
          ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]||'var(--muted)'):''}
          ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}</div>
-       <div class="hint">${ls.length} vendor(s)${low!=null?' · lowest '+esc(money(low))+' '+CUR:''}${
+       <div class="hint">${ls.length} vendor(s)${pxMobVal(m)}${
          m.dQuote?' · offers '+esc(fmtDate(m.dQuote)):(rfqDateOf(m)?' · RFQ '+esc(fmtDate(rfqDateOf(m))):'')}${
          m.engineer?' · '+esc(m.engineer):''}</div></div>`;}).join('')
     :'<div class="mempty">Nothing matches that.</div>'}
@@ -10935,8 +10988,7 @@ function mobMat(){
       ${stageBadge(m.stage)}${m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]||'var(--muted)'):''}
       ${m.discipline?`<span class="badge">${esc(m.discipline)}</span>`:''}
       ${m.engineer?`<span class="badge">${icon('user',12)} ${esc(m.engineer)}</span>`:''}</div>
-      ${low!=null?`<div class="hint" style="margin-top:7px">Lowest delivered ${esc(money(low))} ${CUR}${
-        budgetOf(m)!=null?(()=>{const v=varianceOf(low,budgetOf(m));return v==null?'':` · ${v>0?'+':''}${v}% vs budget`;})():''}</div>`:''}`)}
+      ${pxMobMatHead(m)}`)}
    ${optsOf(m.id).length?_mcard('Pricing options',optsOf(m.id).map(o=>{
       const on=String(o.id)===optInForce(m.id);
       return `<div class="mrow${on?'':' tap'}" ${on?'':`onclick="setOptInForce(${m.id},'${o.id}')"`}>
@@ -10953,7 +11005,7 @@ function mobMat(){
      D('dTech','Technically evaluated')+D('plannedPO','Planned PO')+D('deliveryDate','Delivery')+
      E('leadTime','Delivery duration')+E('notes','Remarks'))}
    ${_mcard('Vendors · '+ls.length,ls.length?ls.map(l=>{
-       const t=vendorTotal(l),best=(t!=null&&low!=null&&t===low);
+       const t=finalTotal(l),best=isLowestOffer(l),_o=vendorTotal(l),_rv=hasRevised(l),_an=!isYes(l.selected)&&awardNameLink(m)===l&&!awardTickedLink(m);
        const c=compSummary(l);
        return `<div class="mrow tap" data-lp="offer:${l.id}"
          data-lplabel="${esc(venName(l.vendorId))}" onclick="mobTap(()=>mobGo('ven',${l.vendorId}))">
@@ -10962,8 +11014,8 @@ function mobMat(){
              onclick="event.stopPropagation();mobEdit('links',${l.id},'quoteDate','Offer received — '+${JSON.stringify(venName(l.vendorId))})">${
              l.quoteDate?'offer '+esc(fmtDate(l.quoteDate)):(offerIn(l)?'offer received':'set offer date')}</span>${
              totDays(l)!=null?' · '+esc(totText(l)):''}</div></div>
-         <div class="v">${t==null?'<span class="hint">not priced</span>':esc(money(t))+' '+CUR}${best?' <span class="chip sh-low">lowest</span>':''}
-           <div class="hint">${c&&c.n?esc(c.label):'no checklist'}${isYes(l.priceShortlisted)?' · shortlisted':''}${isYes(l.selected)?' · ★ selected':''}</div></div></div>`;}).join('')
+         <div class="v">${t==null?'<span class="hint">not priced</span>':esc(money(t))+' '+CUR}${best?' <span class="chip sh-low">lowest</span>':''}${_rv?'<div class="hint">Original '+esc(money(_o))+'</div>':''}
+           <div class="hint">${c&&c.n?esc(c.label):'no checklist'}${isYes(l.priceShortlisted)?' · shortlisted':''}${isYes(l.selected)?' · ★ selected':(_an?' · ★ awarded <span class="px-nt">not ticked</span>':'')}</div></div></div>`;}).join('')
       :'<div class="hint">No vendors assigned yet — assign them on the desktop version.</div>')}
    ${_mcard('Material approvals · '+subs.length,subs.length?subs.map(sx=>
       `<div class="mrow tap" onclick="mobEdit('submittals',${sx.id},'status')">
@@ -11000,11 +11052,11 @@ function mobVen(){
   return `${_mcard('',`<div class="mtitle">${esc(v.manufacturer||'')}</div>
      <div class="hint">${ls.length} material(s) quoted${v.shared?' · RFQ shared '+esc(v.shared):''}</div>`)}
    ${_mcard('Materials',ls.length?ls.map(l=>{
-      const t=vendorTotal(l),m=DB.materials.find(x=>x.id===l.materialId);
+      const t=finalTotal(l),m=DB.materials.find(x=>x.id===l.materialId),_rv=hasRevised(l);
       return `<div class="mrow tap" onclick="mobGo('mat',${l.materialId})">
         <div class="k" style="max-width:55%"><b style="color:var(--ink);font-size:13px">${esc(matName(l.materialId))}</b>
           <div class="hint">${m?esc(m.stage||''):''}</div></div>
-        <div class="v">${t==null?'<span class="hint">not priced</span>':esc(money(t))+' '+CUR}
+        <div class="v">${t==null?'<span class="hint">not priced</span>':esc(money(t))+' '+CUR}${_rv?'<div class="hint">Original '+esc(money(vendorTotal(l)))+'</div>':''}
           <div class="hint">${offerIn(l)?(l.quoteDate?'offer '+esc(fmtDate(l.quoteDate)):'offer received'):'no offer'}</div></div></div>`;}).join('')
      :'<div class="hint">This vendor is not assigned to any material.</div>')}`;}
 /* ---- tasks ---- */
@@ -11176,6 +11228,350 @@ mobBoot();
   const {data:{session}}=await sb.auth.getSession();
   if(session)enterApp();
 })();
+</script>
+<script id="px-price-js">
+/* ================= THE FINAL PRICE GOVERNS (Engineer P · price.js) =================
+   Owner's rule (01-Oct-2026): "the final price must be governing".
+   Loaded FIRST among the modules in both pages (classic and beta), right after the
+   base app's own script, so every later module and every base caller picks up the
+   helpers below. The base app's function declarations are global bindings, so
+   assigning them on window replaces them for every caller.
+
+   finalTotal(l,opt)    a vendor's governing total = his revised total after the
+                        target / BAFO (rate2 on his last priced revision, for that
+                        option) when he has any revised rate, else his original
+                        vendorTotal(l,opt).
+   lowestTotal(mid,opt) the lowest FINAL total, technically rejected vendors
+                        (techAccept = No) left out; null when nobody is left.
+   lowestOriginal()     the old lowestTotal (original totals, every vendor) — only
+                        for the places that are labelled "original".
+   awardedLink(m)       the ticked link; else, for a material at stage Awarded, the
+                        link whose vendor name matches m.awarded (case, spaces and
+                        punctuation ignored) — valued, but flagged "not ticked".
+   awardedPrice(m)      finalTotal(awardedLink, the AWARDED option) — the option in
+                        force never changes an award value.                        */
+(function(){
+if(window.__pxLoaded)return;window.__pxLoaded=true;
+var W=window;
+var O=W.__pxOrig={lowestTotal:W.lowestTotal,awardedLink:W.awardedLink,awardedPrice:W.awardedPrice,
+  priceCell:W.priceCell,openGrid:W.openGrid,gridRows:W.gridRows,renderGrid:W.renderGrid,
+  mobGo:W.mobGo,mobBack:W.mobBack,mobTab:W.mobTab};
+var r2=function(v){return Math.round(v*100)/100;};
+function num(v){if(v===''||v==null)return null;var n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?null:n;}
+function esc_(s){try{return esc(s);}catch(e){return String(s==null?'':s);}}
+function mon(v){try{return money(v);}catch(e){return String(v);}}
+function cur_(){try{return CUR;}catch(e){return 'SAR';}}
+function linksOf(mid){return (DB.links||[]).filter(function(x){return x.materialId===mid;});}
+function matOf(mid){return (DB.materials||[]).find(function(x){return x.id===mid;})||null;}
+
+/* ---------------------------------------------------------------- option */
+/* opt omitted / null / '' on a material that has options = the option in force */
+function optFor(mid,opt){
+  if(opt===undefined||opt===null)return optInForce(mid);
+  var o=_oid(opt);
+  if(o===''&&hasOpts(mid))return optInForce(mid);
+  return o;}
+
+/* --------------------------------------------------------- vendor totals */
+/* the revised rate on ONE named revision (the base rate2Of always reads the
+   vendor's last priced revision of the option in force) */
+function rate2At(linkId,itemId,rev){
+  var r=rateRow(linkId,itemId,_rid(rev));
+  if(!r||r.rate2===''||r.rate2==null)return null;
+  return num(r.rate2);}
+function hasRevisedAt(l,rev,o){
+  var its=boqOf(l.materialId,_rid(rev),o);
+  for(var i=0;i<its.length;i++)if(rate2At(l.id,its[i].id,rev)!=null)return true;
+  return false;}
+/* the same sum the app's revisedTotalForRev makes (rate2 where given, else his
+   rate), on the lines of that revision and option */
+function finalForRev(l,rev,opt){
+  if(!l||rev==null)return null;
+  var o=optFor(l.materialId,opt);
+  if(!hasRevisedAt(l,rev,o))return totalForRev(l,rev,o);
+  var its=boqOf(l.materialId,_rid(rev),o),any=false,t=0;
+  its.forEach(function(i){var q=qtyOf(i);
+    var r=rate2At(l.id,i.id,rev);if(r==null)r=rateOf(l.id,i.id,_rid(rev));
+    if(q!=null&&r!=null){any=true;t+=q*r;}});
+  if(!any)return null;
+  var g=r2(t);
+  return r2(g*fxOf(l)+chargesSAR(l,g));}
+function finalTotal(l,opt){
+  if(!l)return null;
+  var o=optFor(l.materialId,opt);
+  var rev=lastPricedRev(l,o);
+  if(rev==null)return null;
+  return finalForRev(l,rev,o);}
+function hasRevised(l,opt){
+  if(!l)return false;
+  var o=optFor(l.materialId,opt),rev=lastPricedRev(l,o);
+  return rev!=null&&hasRevisedAt(l,rev,o);}
+function originalTotal(l,opt){return l?vendorTotal(l,optFor(l.materialId,opt)):null;}
+function isTechRejected(l){return !!l&&/^no$/i.test(String(l.techAccept==null?'':l.techAccept).trim());}
+function isBudgetaryOffer(l){return !!l&&/budget/i.test(String(l.offerStatus||''));}
+/* lines he priced on his last priced revision against the lines of the bill */
+function pricedLines(l,opt){
+  if(!l)return {q:0,n:0};
+  var o=optFor(l.materialId,opt),rev=lastPricedRev(l,o);
+  var cur=boqCurrent(l.materialId,o),pc=markParents(cur);
+  var n=cur.filter(function(i){return !pc.has(i.id);}).length;
+  if(rev==null)return {q:0,n:n};
+  var its=boqOf(l.materialId,rev,o),par=markParents(its);
+  var q=its.filter(function(i){return !par.has(i.id)&&rateOf(l.id,i.id,rev)!=null;}).length;
+  return {q:q,n:Math.max(n,q)};}
+
+/* ------------------------------------------------------------- lowest */
+/* every priced offer of a material, on final totals */
+function offersOf(mid,opt){
+  var o=optFor(mid,opt);
+  return linksOf(mid).map(function(l){return {l:l,t:finalTotal(l,o),orig:vendorTotal(l,o),rej:isTechRejected(l)};})
+    .filter(function(x){return x.t!=null&&x.t>0;});}
+function lowestInfo(mid,opt){
+  var o=optFor(mid,opt);
+  var xs=offersOf(mid,o).filter(function(x){return !x.rej;});
+  if(!xs.length)return null;
+  var best=xs[0];xs.forEach(function(x){if(x.t<best.t)best=x;});
+  var pl=pricedLines(best.l,o);
+  return {t:best.t,l:best.l,orig:best.orig,revised:hasRevised(best.l,o),q:pl.q,n:pl.n,partial:pl.n>0&&pl.q<pl.n,opt:o};}
+function lowestTotal(mid,opt){var x=lowestInfo(mid,opt);return x?x.t:null;}
+function lowestLink(mid,opt){var x=lowestInfo(mid,opt);return x?x.l:null;}
+function lowestOriginal(mid,opt){
+  var ts=linksOf(mid).map(function(l){return vendorTotal(l,opt);}).filter(function(t){return t!=null&&t>0;});
+  return ts.length?Math.min.apply(null,ts):null;}
+/* "is this offer the lowest?" — final total equal to the lowest and not rejected */
+function isLowestOffer(l,opt){
+  if(!l||isTechRejected(l))return false;
+  var o=optFor(l.materialId,opt),t=finalTotal(l,o),lo=lowestTotal(l.materialId,o);
+  return t!=null&&lo!=null&&Math.abs(t-lo)<0.005;}
+
+/* -------------------------------------------------------------- award */
+function normName(s){return String(s==null?'':s).toLowerCase().replace(/[\s .,;:'"`’‘()\[\]{}\/\\&+_\-–—!?*#@|]+/g,'');}
+function tickedLink(m){return m?(linksForMaterial(m).find(function(l){return isYes(l.selected);})||null):null;}
+function nameLink(m){
+  if(!m||m.stage!=='Awarded')return null;
+  var k=normName(m.awarded);if(!k)return null;
+  return linksForMaterial(m).find(function(l){return normName(venName(l.vendorId))===k;})||null;}
+function awardedLink(m){if(!m)return null;return tickedLink(m)||nameLink(m);}
+function awardOptOf(m){try{return awardedOpt(m)||'';}catch(e){return '';}}
+function awardedPrice(m){
+  var l=awardedLink(m);if(!l)return null;
+  var o=awardOptOf(m);
+  return finalTotal(l,o||undefined);}
+/* everything a surface needs to show an award */
+function awardInfo(m){
+  if(!m)return {state:'none',link:null,price:null};
+  var t=tickedLink(m),l=t||nameLink(m);
+  if(l){var o=awardOptOf(m);
+    return {state:t?'ticked':'name',ticked:!!t,link:l,opt:o,price:finalTotal(l,o||undefined),orig:vendorTotal(l,o||undefined),
+      revised:hasRevised(l,o||undefined),budgetary:isBudgetaryOffer(l),vendor:venName(l.vendorId)};}
+  if(m.stage==='Awarded')return {state:'unlinked',link:null,price:null,text:String(m.awarded||'').trim()};
+  return {state:'none',link:null,price:null};}
+/* the one figure a material is reported at: its award, else (never for stage
+   Awarded) the lowest final offer */
+function matValueInfo(m){
+  var a=awardInfo(m);
+  if(a.link)return {kind:'awarded',v:a.price,link:a.link,ticked:a.ticked,budgetary:a.budgetary,award:a,label:'Awarded'};
+  if(a.state==='unlinked')return {kind:'unlinked',v:null,link:null,award:a,label:'Awarded — vendor not linked/ticked'};
+  var lo=lowestInfo(m.id);
+  if(lo)return {kind:'lowest',v:lo.t,link:lo.l,low:lo,partial:lo.partial,q:lo.q,n:lo.n,label:'Lowest offer'};
+  return {kind:'none',v:null,link:null,label:''};}
+
+/* ---------------------------------------------------------- small UI bits */
+function notTickedHtml(m){
+  var a=awardInfo(m);if(a.state!=='name')return '';
+  return ' <span class="px-nt" title="'+esc_('Awarded to “'+(m.awarded||'')+'” — matched to the linked vendor '+a.vendor+'. Selected is not ticked on his offer; the award is valued at his final price.')+'">not ticked</span>';}
+function partialHtml(q,n){
+  if(!(n>0)||q>=n)return '';
+  return ' <span class="px-part" title="This offer prices '+q+' of the '+n+' lines of the bill — the total is not complete">'+q+' of '+n+' lines</span>';}
+function budgetaryHtml(b){return b?' <span class="px-bud" title="Awarded on an offer marked Budgetary">budgetary</span>':'';}
+function unlinkedHtml(m){
+  return '<span class="px-unl" title="'+esc_('Stage is Awarded'+(m&&m.awarded?' to “'+m.awarded+'”':'')+' but no linked vendor is ticked or matches that name — not valued')+'">Awarded — vendor not linked/ticked</span>';}
+
+/* ================================================================ registers */
+function setCol(g,key,fmt){
+  var c=(GRIDS[g]&&GRIDS[g].cols)||[];
+  for(var i=0;i<c.length;i++)if(c[i][0]===key){c[i]=[c[i][0],c[i][1],c[i][2],fmt];return true;}
+  return false;}
+/* the same vendor's original minus his revised: the awarded vendor when he has a
+   revision, else the revised vendor with the best final (rejected ones left out) */
+function targetSaving(m){
+  var a=awardInfo(m),l=null;
+  if(a.link&&a.revised)l=a.link;
+  else{var best=null;
+    linksForMaterial(m).forEach(function(x){if(isTechRejected(x)||!hasRevised(x))return;var f=finalTotal(x);if(f==null)return;
+      if(!best||f<best.f)best={l:x,f:f};});
+    if(best)l=best.l;}
+  if(!l)return null;
+  var o=a.link===l?(a.opt||undefined):undefined;
+  var orig=vendorTotal(l,o),fin=finalTotal(l,o);
+  if(orig==null||fin==null)return null;
+  var d=r2(orig-fin);
+  return {l:l,orig:orig,fin:fin,d:d,pct:orig>0?Math.round(d/orig*1000)/10:null};}
+function installGrids(){
+  if(typeof GRIDS==='undefined')return;
+  /* ---- Materials ---- */
+  setCol('materials','_awv',function(r){var a=awardInfo(r);
+    if(a.link)return '<span class="linkchip" title="'+(a.ticked?'Selected vendor':'Awarded vendor (matched by name)')+' — open" onclick="event.stopPropagation();openVendor('+a.link.vendorId+')">'+stageBadge(a.vendor,'var(--good)')+'</span>'+notTickedHtml(r);
+    if(a.state==='unlinked')return (r.awarded?esc_(r.awarded)+' ':'')+'<span class="px-nt" title="No linked vendor is ticked or matches this name">not linked</span>';
+    return r.awarded?esc_(r.awarded):'<span class="hint">—</span>';});
+  setCol('materials','_awp',function(r){var a=awardInfo(r);
+    if(a.state==='unlinked')return unlinkedHtml(r);
+    if(a.price==null)return '<span class="hint">—</span>';
+    var cut=(a.revised&&a.orig!=null&&a.orig>0)?Math.round(((a.orig-a.price)/a.orig)*1000)/10:null;
+    return '<span class="linkchip" title="'+(a.revised?'Final price after the target price — original '+esc_(mon(a.orig)):'Total price')+' — open the comparison sheet" onclick="event.stopPropagation();openCompare('+r.id+')"><b>'+esc_(mon(a.price))+'</b>'+
+      (cut?' <span class="hint" style="color:'+(cut>0?'var(--goodtext,var(--good))':'var(--warn)')+'">'+(cut>0?'−':'+')+Math.abs(cut)+'%</span>':'')+
+      (a.revised?'<div class="hint">Original '+esc_(mon(a.orig))+'</div>':'')+budgetaryHtml(a.budgetary)+'</span>';});
+  /* ---- Comparison Sheets ---- */
+  setCol('compare','_low',function(r){var x=lowestInfo(r.id);if(!x)return '<span class="hint">—</span>';
+    return '<b>'+esc_(mon(x.t))+'</b> <span class="hint">'+esc_(venName(x.l.vendorId))+(x.revised?' · after target':'')+'</span>'+partialHtml(x.q,x.n);});
+  setCol('compare','targetPrice',function(r){var t=targetOf(r);
+    if(t==null)return '<span class="hint">— not set —</span>';
+    var low=lowestOriginal(r.id),best=lowestRevised(r.id);
+    var gap=(low!=null&&low>0)?Math.round(((low-t)/low)*1000)/10:null;
+    return '<b>'+esc_(mon(t))+'</b>'+(gap?' <span class="hint">'+(gap>0?gap+'% below lowest original':(-gap)+'% above lowest original')+'</span>':'')+
+      ((best!=null&&best<=t)?' <span class="chip">met</span>':'');});
+  setCol('compare','_spread',function(r){
+    var ts=offersOf(r.id).filter(function(x){return !x.rej;}).map(function(x){return x.t;});
+    if(ts.length<2)return '<span class="hint">—</span>';
+    var lo=Math.min.apply(null,ts),hi=Math.max.apply(null,ts);
+    return '<span class="hint" title="Highest minus lowest final total (after target), technically rejected offers left out">'+esc_(mon(r2(hi-lo)))+' · +'+Math.round(((hi-lo)/lo)*1000)/10+'%</span>';});
+  setCol('compare','_sel',function(r){var a=awardInfo(r);
+    if(a.link)return stageBadge(a.vendor,'var(--good)')+(a.price!=null?' <span class="hint">'+esc_(mon(a.price))+'</span>':'')+notTickedHtml(r);
+    if(a.state==='unlinked')return unlinkedHtml(r);
+    return '<span class="hint">—</span>';});
+  /* ---- Target Prices ---- */
+  setCol('targets','_low',function(r){var t=lowestOriginal(r.id);return t==null?'<span class="hint">—</span>':esc_(mon(t));});
+  setCol('targets','_save',function(r){var s=targetSaving(r);
+    if(!s)return '<span class="hint">—</span>';
+    var good=s.d>=0,col=good?'var(--goodtext,var(--good))':'var(--warn)';
+    return '<b style="color:'+col+'" title="'+esc_(venName(s.l.vendorId)+': original '+mon(s.orig)+' → final '+mon(s.fin))+'">'+esc_(mon(s.d))+'</b> <span class="hint">'+
+      (s.pct==null?'':(good?'−':'+')+Math.abs(s.pct)+'%')+' · '+esc_(venName(s.l.vendorId))+'</span>';});
+  setCol('targets','_sel',function(r){var a=awardInfo(r);
+    if(a.link)return stageBadge(a.vendor,'var(--good)')+notTickedHtml(r);
+    if(a.state==='unlinked')return unlinkedHtml(r);
+    return '<span class="hint">—</span>';});
+  var tsv=GRIDS.targets&&GRIDS.targets.sortVal;
+  if(tsv)GRIDS.targets.sortVal=function(r,k){
+    if(k==='_low')return lowestOriginal(r.id)??Number.MAX_SAFE_INTEGER;
+    if(k==='_save'){var s=targetSaving(r);return s?s.d:-1;}
+    return tsv(r,k);};
+  var csv=GRIDS.compare&&GRIDS.compare.sortVal;
+  if(csv)GRIDS.compare.sortVal=function(r,k){
+    if(k==='_sel'){var a=awardInfo(r);return a.vendor||'';}
+    return csv(r,k);};}
+
+/* ============================================ material window: total price */
+function priceCell(l){
+  var mid=l.materialId,t=finalTotal(l),o=vendorTotal(l),lo=lowestInfo(mid);
+  var its=boqCurrent(mid).length;
+  if(!its)return '<td class="num"><span class="linkchip" title="The bill of quantities has not been entered on the RFQ yet" onclick="event.stopPropagation();openBoq('+mid+')"><span class="hint">— no BOQ —</span></span></td>';
+  if(o==null||t==null)return '<td class="num"><span class="linkchip" title="Enter this vendor\'s rates" onclick="event.stopPropagation();openCompare('+mid+')"><span class="hint">— not priced —</span></span></td>';
+  var low=lo?lo.t:null,rej=isTechRejected(l),rv=hasRevised(l);
+  var best=!rej&&low!=null&&Math.abs(t-low)<0.005;
+  var over=(low!=null&&low>0)?Math.round(((t-low)/low)*1000)/10:0;
+  var rev=lastPricedRev(l),prev=prevPricedRev(l);
+  var t0=prev==null?null:totalForRev(l,prev);
+  var move=(t0!=null&&t0>0)?Math.round(((o-t0)/t0)*1000)/10:null;
+  var g=goodsForRev(l,rev),fxNote=isFx(l)?' — quoted '+moneyC(g,curOf(l))+' at '+fxOf(l)+' SAR/'+curOf(l):'';
+  var chNote=hasCharges(l)?' — includes '+chargeText(l)+' to site':'';
+  var pl=pricedLines(l);
+  return '<td class="num"><span class="linkchip" title="'+esc_((rv?'Final price after the target price; original offer '+mon(o)+' at RFQ '+revLabel(mid,rev):'Price from RFQ '+revLabel(mid,rev))+fxNote+chNote+
+      (t0!=null?' — was '+mon(t0)+' at '+revLabel(mid,prev):'')+(rej?' — technically rejected, never ranked lowest':''))+' · open the comparison sheet" onclick="event.stopPropagation();openCompare('+mid+')"><b>'+esc_(mon(t))+'</b>'+
+    (isFx(l)?' <span class="chip" style="background:var(--accent-soft)">'+esc_(curOf(l))+'</span>':'')+' <span class="chip">'+esc_(revLabel(mid,rev))+'</span>'+
+    (rv?' <span class="chip px-fin">final</span>':'')+
+    (best?' <span class="chip sh-low">lowest</span>':(over>0?' <span class="hint">+'+over+'%</span>':''))+
+    (move?' <span class="hint" style="color:'+(move<0?'var(--goodtext,var(--good))':'var(--warn)')+'">'+(move>0?'+':'')+move+'%</span>':'')+
+    partialHtml(pl.q,pl.n)+
+    (rv?'<div class="hint">Original '+esc_(mon(o))+'</div>':'')+
+    (rej?'<div class="hint" style="color:var(--critical)">tech. rejected</div>':'')+'</span></td>';}
+
+/* the Selected tick in the material window: say when the award is by name only */
+if(typeof W.selCell==='function'){O.selCell=W.selCell;
+  W.selCell=function(l){var h=O.selCell.apply(this,arguments);
+    try{var m=matOf(l.materialId);if(m&&!isYes(l.selected)&&!tickedLink(m)&&nameLink(m)===l)
+      h=h.replace(/<\/td>\s*$/,' <span class="px-nt" title="Awarded to “'+esc_(m.awarded)+'” — this is that vendor; Selected is not ticked">awarded · not ticked</span></td>');}catch(e){}
+    return h;};}
+
+/* ====================================================== classic phone text */
+function mobVal(m){
+  var v=matValueInfo(m),C=' '+cur_();
+  if(v.kind==='awarded')return ' · awarded '+esc_(venName(v.link.vendorId))+(v.v!=null?' '+esc_(mon(v.v))+C:' (not priced)')+notTickedHtml(m)+budgetaryHtml(v.budgetary);
+  if(v.kind==='unlinked')return ' · '+unlinkedHtml(m);
+  if(v.kind==='lowest')return ' · lowest '+esc_(mon(v.v))+C+partialHtml(v.q,v.n);
+  return '';}
+function mobMatHead(m){
+  var v=matValueInfo(m),b=budgetOf(m);
+  var vb=function(t){if(b==null||t==null)return '';var x=varianceOf(t,b);return x==null?'':' · '+(x>0?'+':'')+x+'% vs budget';};
+  if(v.kind==='awarded'){var a=v.award;
+    return '<div class="hint" style="margin-top:7px" data-px="mhead">Awarded '+esc_(a.vendor)+(a.price!=null?' '+esc_(mon(a.price))+' '+cur_():' — not priced')+notTickedHtml(m)+budgetaryHtml(a.budgetary)+
+      (a.revised?' <span class="hint">· original '+esc_(mon(a.orig))+'</span>':'')+vb(a.price)+'</div>';}
+  if(v.kind==='unlinked')return '<div class="hint" style="margin-top:7px" data-px="mhead">'+unlinkedHtml(m)+'</div>';
+  if(v.kind==='lowest')return '<div class="hint" style="margin-top:7px" data-px="mhead">Lowest delivered '+esc_(mon(v.v))+' '+cur_()+' — '+esc_(venName(v.link.vendorId))+
+    (v.low.revised?' (final after target)':'')+partialHtml(v.q,v.n)+vb(v.v)+'</div>';
+  return '';}
+W.pxMobVal=mobVal;W.pxMobMatHead=mobMatHead;
+
+/* =================================================== drill-down: registers */
+/* a register window shows exactly the records a dashboard figure counts */
+function gridWin(g){var w=null;try{windows.forEach(function(x){if(x.dedupeKey==='grid:'+g)w=x;});}catch(e){}return w;}
+function pxGridDrill(g,ids,label){
+  W.__pxDrillOpen=true;
+  try{W.openGrid(g);}finally{W.__pxDrillOpen=false;}
+  var w=gridWin(g);if(!w)return null;
+  w.state.q='';
+  try{(GRIDS[g].filters||[]).forEach(function(f){w.state[f[0]]='';});}catch(e){}
+  if('person' in w.state)w.state.person='';
+  w.state.sortKey=w.state.sortKey||null;
+  w.state.pxDrill={ids:(ids||[]).slice(),label:String(label||'')};
+  try{renderWin(w);focusWin(w.id);}catch(e){}
+  return w;}
+function pxClearDrill(wid){var w=windows.get(wid);if(!w)return;delete w.state.pxDrill;renderWin(w);}
+W.openGrid=function(g){
+  var r=O.openGrid.apply(this,arguments);
+  if(!W.__pxDrillOpen){var w=gridWin(g);if(w&&w.state.pxDrill){delete w.state.pxDrill;try{renderWin(w);}catch(e){}}}
+  return r;};
+W.gridRows=function(w){
+  var rows=O.gridRows.apply(this,arguments);
+  var d=w&&w.state&&w.state.pxDrill;
+  if(d&&d.ids){var s=new Set(d.ids);rows=rows.filter(function(r){return s.has(r.id);});}
+  return rows;};
+W.renderGrid=function(w){
+  var r=O.renderGrid.apply(this,arguments);
+  var d=w&&w.state&&w.state.pxDrill;
+  if(d&&w.el){var tb=w.el.querySelector('.wtoolbar');
+    if(tb&&!tb.querySelector('.px-drill')){var sp=document.createElement('span');sp.className='px-drill';sp.setAttribute('data-px','drill');
+      sp.innerHTML='Showing: <b>'+esc_(d.label)+'</b> · '+d.ids.length+' <button class="btn" onclick="pxClearDrill(\''+w.id+'\')">Show all</button>';
+      var inp=tb.querySelector('input');if(inp&&inp.nextSibling)tb.insertBefore(sp,inp.nextSibling);else tb.appendChild(sp);}}
+  return r;};
+
+/* ================================================ drill-down: classic phone */
+function pxMobDrill(view,ids,label,f){
+  O.mobGo.call(W,view);
+  try{MOB.f=f||'';MOB.pxDrill=ids?{view:view,ids:ids.slice(),label:String(label||'')}:null;}catch(e){}
+  try{mobRender();}catch(e){}}
+function pxMobDrillOf(view){try{var d=MOB.pxDrill;return (d&&d.view===view&&MOB.view===view)?d:null;}catch(e){return null;}}
+function pxMobDrillBar(view){var d=pxMobDrillOf(view);if(!d)return '';
+  return '<div class="px-mdrill" data-px="mdrill">Showing: <b>'+esc_(d.label)+'</b> · '+d.ids.length+' <span class="linkchip" onclick="pxMobClear()">show all</span></div>';}
+function pxMobClear(){try{MOB.pxDrill=null;}catch(e){}try{mobRender();}catch(e){}}
+['mobGo','mobBack','mobTab'].forEach(function(n){var o=O[n];if(typeof o!=='function')return;
+  W[n]=function(){try{MOB.pxDrill=null;}catch(e){}return o.apply(this,arguments);};});
+
+/* ========================================================= install + export */
+W.finalTotal=finalTotal;W.finalForRev=finalForRev;W.hasRevised=hasRevised;W.originalTotal=originalTotal;
+W.isTechRejected=isTechRejected;W.isBudgetaryOffer=isBudgetaryOffer;W.pricedLines=pricedLines;
+W.lowestTotal=lowestTotal;W.lowestInfo=lowestInfo;W.lowestLink=lowestLink;W.lowestOriginal=lowestOriginal;W.isLowestOffer=isLowestOffer;
+W.awardedLink=awardedLink;W.awardedPrice=awardedPrice;W.awardTickedLink=tickedLink;W.awardNameLink=nameLink;W.awardInfo=awardInfo;
+W.matValueInfo=matValueInfo;W.pxNormName=normName;W.priceCell=priceCell;W.targetSaving=targetSaving;
+W.pxNotTicked=notTickedHtml;W.pxPartial=partialHtml;W.pxBudgetary=budgetaryHtml;W.pxUnlinked=unlinkedHtml;
+W.pxGridDrill=pxGridDrill;W.pxClearDrill=pxClearDrill;W.pxMobDrill=pxMobDrill;W.pxMobDrillOf=pxMobDrillOf;W.pxMobDrillBar=pxMobDrillBar;W.pxMobClear=pxMobClear;
+W.PX={finalTotal:finalTotal,finalForRev:finalForRev,hasRevised:hasRevised,originalTotal:originalTotal,isTechRejected:isTechRejected,
+  isBudgetary:isBudgetaryOffer,pricedLines:pricedLines,offersOf:offersOf,lowestTotal:lowestTotal,lowestInfo:lowestInfo,lowestLink:lowestLink,
+  lowestOriginal:lowestOriginal,isLowest:isLowestOffer,awardedLink:awardedLink,awardedPrice:awardedPrice,tickedLink:tickedLink,nameLink:nameLink,
+  awardInfo:awardInfo,matValue:matValueInfo,normName:normName,targetSaving:targetSaving,notTicked:notTickedHtml,partial:partialHtml,
+  budgetary:budgetaryHtml,unlinked:unlinkedHtml,gridDrill:pxGridDrill,mobDrill:pxMobDrill,orig:O};
+installGrids();
+})();
+
 </script>
 <script id="ws-workspace-js">
 /* ================= WORKSPACE (Engineer A) =================
@@ -11988,27 +12384,31 @@ function db2Months(n) {
 }
 function db2Model() {
   const M = DB.materials || [], T = DB.tasks || [], S = DB.submittals || [], L = DB.links || [];
+  /* the final price governs (price.js): an award is valued at the awarded vendor's
+     final price (ticked, or matched by name at stage Awarded); a material at stage
+     Awarded is never valued at the lowest bidder; everything else at its lowest
+     final offer, technically rejected offers left out */
   const mats = M.map(m => {
-    const sel = awardedLink(m);
-    const awarded = sel ? awardedPrice(m) : null;
-    const low = lowestTotal(m.id), rev = lowestRevised(m.id);
-    const cand = [low, rev].filter(v => v != null);
-    const best = cand.length ? Math.min(...cand) : null;
-    let bestLink = null;
-    if (best != null) {
-      const ls = linksForMaterial(m);
-      bestLink = ls.find(l => revisedTotal(l) === best) || ls.find(l => vendorTotal(l) === best) || null;
-    }
+    const a = awardInfo(m);
+    const sel = a.link || null;                 /* the awarded link (ticked or by name) */
+    const ticked = !!a.ticked;
+    const isAw = m.stage === 'Awarded' || !!sel;
+    const awarded = sel ? a.price : null;
+    const lo = isAw ? null : lowestInfo(m.id);
+    const low = lo ? lo.t : null, best = low;
+    const bestLink = lo ? lo.l : null;
     const budget = budgetOf(m);
     const stage = STAGES.includes(m.stage) ? m.stage : '';
     const lastQuote = quoteDateOf(m);
-    return {m, sel, awarded, low, best, bestLink, budget, stage, lastQuote,
+    return {m, sel, ticked, isAw, award: a, awarded, low, best, bestLink, budget, stage, lastQuote,
+      budgetary: !!(sel && a.budgetary), partial: lo ? lo.partial : false, lowQ: lo ? lo.q : 0, lowN: lo ? lo.n : 0,
       offers: offersIn(m).length,
-      value: sel && awarded != null ? awarded : (sel ? null : best),
-      basis: sel && awarded != null ? 'Awarded' : (!sel && best != null ? 'Lowest offer' : '')};
+      value: sel ? awarded : (isAw ? null : best),
+      basis: sel && awarded != null ? 'Awarded' : (!isAw && best != null ? 'Lowest offer' : '')};
   });
   const cnt = (a, f) => a.filter(f).length;
   const valued = mats.filter(x => x.sel && x.awarded != null);
+  const awardedAll = mats.filter(x => x.isAw);
   const budgeted = valued.filter(x => x.budget != null);
   const openT = T.filter(t => t.status !== 'Closed');
   const overdueT = openT.filter(t => t.target && daysSince(t.target) > 0)
@@ -12023,12 +12423,17 @@ function db2Model() {
     awardedSel: cnt(mats, x => !!x.sel),
     awardedValue: Math.round(valued.reduce((s, x) => s + x.awarded, 0) * 100) / 100,
     awardedValuedN: valued.length,
+    awardedAllN: awardedAll.length,
+    awardedUnpricedN: awardedAll.length - valued.length,
+    awardedBudgetaryN: cnt(valued, x => x.budgetary),
+    awardedNotTickedN: cnt(valued, x => !x.ticked),
     savings: Math.round(budgeted.reduce((s, x) => s + (x.budget - x.awarded), 0) * 100) / 100,
     savingsN: budgeted.length,
     budgetOfAwarded: budgeted.reduce((s, x) => s + x.budget, 0),
-    /* the open pipeline: lowest offer on every material with offers and no vendor yet */
-    pipeValue: Math.round(mats.filter(x => !x.sel && x.best != null).reduce((s, x) => s + x.best, 0) * 100) / 100,
-    pipeN: mats.filter(x => !x.sel && x.best != null).length,
+    /* the open pipeline: lowest final offer on every material with offers that is not awarded */
+    pipeValue: Math.round(mats.filter(x => !x.isAw && x.best != null).reduce((s, x) => s + x.best, 0) * 100) / 100,
+    pipeN: mats.filter(x => !x.isAw && x.best != null).length,
+    pipePartialN: mats.filter(x => !x.isAw && x.best != null && x.partial).length,
     /* one material can dominate the awarded value (GRE pipes is ~89% on Ma'aden) —
        say so on the tile rather than let a single line look like the whole picture */
     topShare: (() => { const t = valued.reduce((s, x) => s + x.awarded, 0); if (!t) return null;
@@ -12040,32 +12445,36 @@ function db2Model() {
     subsUR: cnt(S, s => subStatus(s) === 'Under Review'),
     subs: S.length
   };
-  return {mats, kpi, stageN, noStage, overdueT, attention: db2Attention(mats, overdueT)};
+  return {mats, kpi, stageN, noStage, overdueT, openT, valued, budgeted,
+    subsURList: S.filter(s => subStatus(s) === 'Under Review'),
+    attention: db2Attention(mats, overdueT)};
 }
 
 /* ---------- needs attention ---------- */
 function db2Attention(mats, overdueT) {
   const G = [];
   const nm = x => x.m.desc || '(no description)';
-  const a1 = mats.filter(x => x.stage === 'Awarded' && !x.sel);
+  const a1 = mats.filter(x => x.stage === 'Awarded' && !x.ticked);
   G.push({kind: 'award-nosel', title: 'Awarded without a selected vendor', color: 'var(--critical)',
-    rows: a1.map(x => ({id: x.m.id, tbl: 'materials', name: nm(x), why: 'Stage is Awarded but no vendor is ticked as selected',
+    rows: a1.map(x => ({id: x.m.id, tbl: 'materials', name: nm(x),
+      why: x.sel ? 'Awarded to ' + (x.m.awarded || '') + ' = ' + venName(x.sel.vendorId) + ' (valued at ' + db2Money(x.awarded) + ' ' + CUR + ') — tick Selected on his offer'
+        : 'Stage is Awarded but no vendor is ticked as selected' + (x.m.awarded ? ' and “' + x.m.awarded + '” is not a linked vendor — not valued' : ' — not valued'),
       meta: x.m.discipline || ''}))});
-  const a2 = mats.filter(x => !x.sel && x.budget != null && x.best != null && x.best > x.budget)
+  const a2 = mats.filter(x => !x.isAw && x.budget != null && x.best != null && x.best > x.budget)
     .sort((a, b) => (b.best - b.budget) - (a.best - a.budget));
   G.push({kind: 'over-budget', title: 'Lowest offer above budget', color: 'var(--serious)',
     rows: a2.map(x => ({id: x.m.id, tbl: 'materials', name: nm(x),
-      why: 'Lowest ' + db2Money(x.best) + ' vs budget ' + db2Money(x.budget) + ' ' + CUR,
+      why: 'Lowest final ' + db2Money(x.best) + (x.partial ? ' (' + x.lowQ + ' of ' + x.lowN + ' lines)' : '') + ' vs budget ' + db2Money(x.budget) + ' ' + CUR,
       meta: '+' + varianceOf(x.best, x.budget) + '%'}))});
-  const a3 = mats.filter(x => (x.stage === 'Shortlisted' || x.stage === 'Target Price') && x.offers > 0 && !x.sel);
+  const a3 = mats.filter(x => (x.stage === 'Shortlisted' || x.stage === 'Target Price') && x.offers > 0 && !x.isAw);
   G.push({kind: 'short-nosel', title: 'Shortlisted — no vendor selected', color: 'var(--warn)',
     rows: a3.map(x => ({id: x.m.id, tbl: 'materials', name: nm(x),
-      why: x.offers + ' offer(s) in' + (x.best != null ? ' · lowest ' + db2Money(x.best) + ' ' + CUR : ''), meta: x.stage}))});
+      why: x.offers + ' offer(s) in' + (x.best != null ? ' · lowest final ' + db2Money(x.best) + ' ' + CUR + (x.partial ? ' (' + x.lowQ + ' of ' + x.lowN + ' lines)' : '') : ''), meta: x.stage}))});
   G.push({kind: 'overdue', title: 'Overdue tasks', color: 'var(--critical)', total: overdueT.length,
     rows: overdueT.slice(0, 5).map(t => ({id: t.id, tbl: 'tasks', name: t.taskDesc || ('Task ' + (t.no || t.id)),
       why: [t.engineer, t.material].filter(Boolean).join(' · ') || (t.status || ''),
       meta: daysSince(t.target) + ' d overdue'}))});
-  const a5 = mats.filter(x => !x.sel && x.lastQuote && daysSince(x.lastQuote) > DB2_STALE_DAYS)
+  const a5 = mats.filter(x => !x.isAw && x.lastQuote && daysSince(x.lastQuote) > DB2_STALE_DAYS)
     .sort((a, b) => daysSince(b.lastQuote) - daysSince(a.lastQuote));
   G.push({kind: 'stale-offer', title: 'Offers older than ' + DB2_STALE_DAYS + ' days, not awarded', color: 'var(--muted)',
     rows: a5.map(x => ({id: x.m.id, tbl: 'materials', name: nm(x),
@@ -12107,6 +12516,56 @@ function db2OpenAttention() {
 }
 window.openDashboard = function () { return db2OpenDash(); };
 
+/* ---------- drill-down: every figure opens exactly the records it counts ---------- */
+function db2Env() {
+  if (typeof MOBILE !== 'undefined' && MOBILE)
+    return (window.M3 && document.body && document.body.classList.contains('m3-on')) ? 'm3' : 'mob';
+  return (window.TV && TV.active) ? 'tv' : 'desk';
+}
+/* what each figure counts: {kind: materials|tasks|subs, ids, label, grid, f (phone task filter)} */
+function db2DrillSpec(key) {
+  const md = db2Model(), k = md.kpi, ids = a => a.map(x => (x.m ? x.m.id : x.id));
+  switch (key) {
+    case 'awardedValue': return {kind: 'materials', grid: 'materials', ids: ids(md.valued),
+      label: 'Awarded value — ' + k.awardedValuedN + ' valued of ' + k.awardedAllN + ' awarded' + (k.awardedUnpricedN ? ' (' + k.awardedUnpricedN + ' unpriced not shown)' : '')};
+    case 'savings': return {kind: 'materials', grid: 'materials', ids: ids(md.budgeted), label: 'Savings vs budget — awarded with a budget'};
+    case 'pipeValue': return {kind: 'materials', grid: 'compare', ids: ids(md.mats.filter(x => !x.isAw && x.best != null)),
+      label: 'Open offers — not awarded, with a priced offer'};
+    case 'openTasks': return {kind: 'tasks', grid: 'tasks', ids: ids(md.openT), f: 'open', label: 'Open tasks'};
+    case 'overdueTasks': return {kind: 'tasks', grid: 'tasks', ids: ids(md.overdueT), f: 'late', label: 'Overdue tasks'};
+    case 'subsUR': return {kind: 'subs', grid: 'submittals', ids: ids(md.subsURList), label: 'Submittals under review'};
+  }
+  if (/^att:/.test(key)) {
+    const kind = key.slice(4), g = md.attention.find(x => x.kind === kind);
+    if (!g) return null;
+    if (kind === 'overdue') return {kind: 'tasks', grid: 'tasks', ids: ids(md.overdueT), f: 'late', label: g.title};
+    return {kind: 'materials', grid: 'materials', ids: g.rows.map(r => r.id), label: g.title};
+  }
+  return null;
+}
+function db2Drill(key) {
+  const sp = db2DrillSpec(key); if (!sp) return;
+  const env = db2Env();
+  if (sp.kind === 'materials') {
+    if (env === 'desk') return pxGridDrill(sp.grid, sp.ids, sp.label);
+    if (env === 'tv') {
+      if (window.WB && typeof WB.drill === 'function') { WB.drill(sp.label, sp.ids); return; }
+      return pxGridDrill(sp.grid, sp.ids, sp.label);
+    }
+    if (env === 'm3' && typeof M3.drill === 'function') { M3.drill(sp.label, sp.ids); return; }
+    return pxMobDrill('mats', sp.ids, sp.label);
+  }
+  if (env === 'desk' || env === 'tv') return pxGridDrill(sp.grid, sp.ids, sp.label);
+  const view = sp.kind === 'tasks' ? 'tasks' : 'subs';
+  const drill = sp.kind === 'tasks' ? null : sp.ids;    /* tasks: the phone's own Open / Overdue filter */
+  if (env === 'm3') {
+    M3.go(sp.kind === 'tasks' ? 'tasks' : 'submittals');
+    try { MOB.f = sp.f || ''; MOB.pxDrill = drill ? {view, ids: drill.slice(), label: sp.label} : null; } catch (e) {}
+    M3.render(); return;
+  }
+  return pxMobDrill(view, drill, sp.label, sp.f || '');
+}
+
 /* ---------- building blocks ---------- */
 function db2Tile(key, label, value, raw, sub, tap, subCls, full) {
   return `<button class="db2-tile" data-kpi="${key}" data-v="${db2Attr(raw)}" onclick="${tap}" title="${db2Attr(full || '')}">
@@ -12122,21 +12581,24 @@ function db2Tiles(k) {
       `${db2Pct(k.awarded, k.tracked)} of tracked · ${k.awardedSel} with a vendor`, `db2OpenStage(${STAGES.indexOf('Awarded')})`],
     ['awardedValue', 'Awarded value', db2Compact(k.awardedValue) + '<small>' + CUR + '</small>', k.awardedValue,
       `priced on ${k.awardedValuedN} of ${k.awarded} awarded` +
+        (k.awardedUnpricedN ? ` · ${k.awardedUnpricedN} unpriced` : '') +
+        (k.awardedBudgetaryN ? ` · <span class="px-bud" data-db2="budgetary" title="${k.awardedBudgetaryN} of the awarded values are on offers marked Budgetary">incl. ${k.awardedBudgetaryN} budgetary</span>` : '') +
         (k.topShare && k.topShare.pct >= 50 ? ` · ${esc(String(k.topShare.desc).slice(0, 22))} is ${k.topShare.pct}%` : ''),
-      "openGrid('compare')", '', db2Money(k.awardedValue) + ' ' + CUR],
+      "db2Drill('awardedValue')", '', db2Money(k.awardedValue) + ' ' + CUR + ' — final prices of the awarded vendors'],
     /* Savings needs budgets. With none entered the tile would only ever say "—",
        so it shows the open pipeline instead until the first budget exists. */
     k.savingsN
       ? ['savings', 'Savings vs budget', db2Compact(sv) + '<small>' + CUR + '</small>', k.savings,
           `${sv >= 0 ? 'Under' : 'Over'} budget · on ${k.savingsN} of ${k.awardedValuedN} awarded`,
-          "db2OpenDash(1)", sv >= 0 ? 'db2-good' : 'db2-bad', db2Money(sv) + ' ' + CUR]
+          "db2Drill('savings')", sv >= 0 ? 'db2-good' : 'db2-bad', db2Money(sv) + ' ' + CUR]
       : ['pipeValue', 'Open offers', db2Compact(k.pipeValue) + '<small>' + CUR + '</small>', k.pipeValue,
-          `lowest offer on ${k.pipeN} material(s) not yet awarded`, "db2OpenDash(1)", '', db2Money(k.pipeValue) + ' ' + CUR],
-    ['openTasks', 'Open tasks', String(k.openTasks), k.openTasks, `of ${k.tasks} task(s)`, "openGrid('tasks')"],
+          `lowest final offer on ${k.pipeN} material(s) not yet awarded` + (k.pipePartialN ? ` · ${k.pipePartialN} partly priced` : ''),
+          "db2Drill('pipeValue')", '', db2Money(k.pipeValue) + ' ' + CUR],
+    ['openTasks', 'Open tasks', String(k.openTasks), k.openTasks, `of ${k.tasks} task(s)`, "db2Drill('openTasks')"],
     ['overdueTasks', 'Overdue tasks', String(k.overdueTasks), k.overdueTasks,
-      k.overdueTasks ? `${db2Pct(k.overdueTasks, k.openTasks)} of open tasks` : 'Nothing past its target date', "openGrid('tasks')",
+      k.overdueTasks ? `${db2Pct(k.overdueTasks, k.openTasks)} of open tasks` : 'Nothing past its target date', "db2Drill('overdueTasks')",
       k.overdueTasks ? 'db2-bad' : ''],
-    ['subsUR', 'Submittals under review', String(k.subsUR), k.subsUR, `of ${k.subs} logged`, "openGrid('submittals')"]
+    ['subsUR', 'Submittals under review', String(k.subsUR), k.subsUR, `of ${k.subs} logged`, "db2Drill('subsUR')"]
   ];
 }
 function db2TilesHtml(k) {
@@ -12171,7 +12633,7 @@ function db2AttentionHtml(md, mob) {
         <span class="db2-sev" style="background:${g.color}"></span>
         <span class="db2-atttext"><b>${esc(r.name)}</b><span class="db2-attwhy">${esc(r.why)}</span></span>
         <span class="db2-attmeta">${esc(r.meta)}</span></button>`).join('') +
-      (more > 0 ? `<button class="db2-more" onclick="${g.tbl === 'tasks' || g.kind === 'overdue' ? (mob ? "mobGo('tasks')" : "openGrid('tasks')") : (mob ? "mobGo('mats')" : "openGrid('materials')")}">+ ${more} more</button>` : '');
+      (more > 0 ? `<button class="db2-more" data-kind="${g.kind}" onclick="db2Drill('att:${g.kind}')">+ ${more} more</button>` : '');
   }).join('')}</div>`;
 }
 /* rounded data-end, square at the baseline */
@@ -12229,7 +12691,7 @@ function db2ByDiscipline(md) {
     const r = D[k] = D[k] || {disc: k, n: 0, awarded: 0, pipeline: 0, budget: 0, budgetN: 0};
     r.n++;
     if (x.sel && x.awarded != null) r.awarded += x.awarded;
-    if (!x.sel && x.best != null) r.pipeline += x.best;
+    if (!x.isAw && x.best != null) r.pipeline += x.best;
     if (x.budget != null) { r.budget += x.budget; r.budgetN++; }
   });
   const rows = Object.values(D).map(r => Object.assign(r, {
@@ -12256,7 +12718,7 @@ function db2DiscChart(rows) {
     const end = Math.max(aw + pl, r.budgetN ? sx(r.budget) : 0);
     g += `<text class="db2-val" x="${LW + end + 8}" y="${y0 + bh / 2 + 4}">${db2Compact(r.awarded + r.pipeline)}${r.budgetN ? `<tspan class="db2-ax" dx="6">of ${db2Compact(r.budget)} budget</tspan>` : ''}</text></g>`;
   });
-  return `<div class="db2-legend"><span><i style="background:${DB2_C_A}"></i>Awarded</span><span><i style="background:${DB2_C_A};opacity:.38"></i>Pipeline (lowest offer, not awarded)</span><span><i class="db2-tick"></i>Budget</span></div>
+  return `<div class="db2-legend"><span><i style="background:${DB2_C_A}"></i>Awarded</span><span><i style="background:${DB2_C_A};opacity:.38"></i>Pipeline (lowest final offer, not awarded)</span><span><i class="db2-tick"></i>Budget</span></div>
    <svg class="db2-chart" data-db2="disc-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Awarded and pipeline value against budget, by discipline" style="max-width:${W}px">${g}</svg>`;
 }
 function db2VarCell(v) {
@@ -12281,8 +12743,8 @@ function db2MoneyHtml(md) {
   const topTbl = top.length ? `<table class="rtbl db2-tbl" data-db2="top10"><thead><tr><th>Material</th><th>Stage</th><th>Basis</th><th>Vendor</th><th class="n">Total (${CUR})</th>${noBud ? '' : `<th class="n">Budget (${CUR})</th><th class="n">Variance</th>`}</tr></thead><tbody>${
     top.map(x => {
       const l = x.sel || x.bestLink;
-      return `<tr class="db2-click" data-id="${x.m.id}" onclick="openMaterial(${x.m.id})"><td class="db2-name"><b>${esc(x.m.desc)}</b></td><td>${stageBadge(x.stage || '—', x.stage ? db2StageColor(x.stage) : '')}</td><td>${x.basis}</td>
-        <td>${l ? esc(venName(l.vendorId)) : '<span class="hint">—</span>'}</td><td class="n">${db2Money(x.value)}</td>
+      return `<tr class="db2-click" data-id="${x.m.id}" onclick="openMaterial(${x.m.id})"><td class="db2-name"><b>${esc(x.m.desc)}</b></td><td>${stageBadge(x.stage || '—', x.stage ? db2StageColor(x.stage) : '')}</td><td>${x.basis}${x.sel && x.award && x.award.revised ? ' <span class="hint">· after target</span>' : ''}</td>
+        <td>${l ? esc(venName(l.vendorId)) : '<span class="hint">—</span>'}${x.sel ? pxNotTicked(x.m) + pxBudgetary(x.budgetary) : (x.partial ? pxPartial(x.lowQ, x.lowN) : '')}</td><td class="n">${db2Money(x.value)}</td>
         ${noBud ? '' : `<td class="n">${x.budget != null ? db2Money(x.budget) : '<span class="hint">—</span>'}</td><td class="n">${db2VarCell(varianceOf(x.value, x.budget))}</td>`}</tr>`;
     }).join('')}</tbody></table>` : '<div class="db2-empty">No material has a priced offer yet.</div>';
 
@@ -12296,10 +12758,10 @@ function db2MoneyHtml(md) {
     : '<div class="db2-empty">No awarded material has a budget yet — budgets are set on the comparison sheet.</div>';
 
   return `<div class="db2-card" data-db2="by-discipline"><div class="db2-h">Value by discipline</div>
-      <div class="db2-sub">Awarded = selected vendor's total. Pipeline = lowest offer (original or revised) of materials with no vendor selected.${noBud ? '' : ' Budget = sum of the budgets entered.'}</div>
+      <div class="db2-sub">Awarded = the awarded vendor's final price (after target). Pipeline = lowest final offer of materials not awarded, technically rejected offers left out.${noBud ? '' : ' Budget = sum of the budgets entered.'}</div>
       ${rows.length ? (noBud ? db2DiscChart(rows).replace('<span><i class="db2-tick"></i>Budget</span>', '') : db2DiscChart(rows)) : ''}<div style="margin-top:12px">${discTbl}</div></div>
     <div class="db2-card"><div class="db2-h">Top materials by value <span class="db2-count">${top.length}</span></div>
-      <div class="db2-sub">Awarded price where a vendor is selected, otherwise the lowest offer. Click a row to open the material.</div>${topTbl}</div>
+      <div class="db2-sub">The awarded vendor's final price where the material is awarded, otherwise the lowest final offer. Click a row to open the material.</div>${topTbl}</div>
     ${noBud ? `<div class="db2-card" data-db2="no-budget"><div class="db2-h">Awarded against budget</div>
       <div class="db2-empty">No material has a budget yet. Enter budgets on the comparison sheets and this section, the budget columns and the savings tile appear automatically.</div></div>`
     : `<div class="db2-card"><div class="db2-h">Awarded against budget <span class="db2-count">${vr.length}</span></div>
@@ -12349,8 +12811,8 @@ window.renderDashWin = function (w) {
 window.mobDash = function () {
   const md = db2Model();
   const tiles = db2Tiles(md.kpi).map(([key, label, value, raw, sub, tap, subCls, full]) => {
-    const mtap = {tracked: "mobGo('mats')", awarded: `db2MobStage(${STAGES.indexOf('Awarded')})`, awardedValue: "mobGo('mats')",
-      savings: "mobGo('mats')", pipeValue: "mobGo('mats')", openTasks: "mobGo('tasks')", overdueTasks: "mobGo('tasks')", subsUR: "mobGo('subs')"}[key];
+    const mtap = {tracked: "mobGo('mats')", awarded: `db2MobStage(${STAGES.indexOf('Awarded')})`, awardedValue: "db2Drill('awardedValue')",
+      savings: "db2Drill('savings')", pipeValue: "db2Drill('pipeValue')", openTasks: "db2Drill('openTasks')", overdueTasks: "db2Drill('overdueTasks')", subsUR: "db2Drill('subsUR')"}[key];
     return `<div class="mstat" data-kpi="${key}" data-v="${db2Attr(raw)}" onclick="${mtap}" title="${db2Attr(full || '')}"><div class="n">${value.replace(/<small>.*?<\/small>/, '')}</div>
       <div class="c">${label}${/<small>/.test(value) ? ' (' + CUR + ')' : ''}</div><div class="db2-ts ${subCls || ''}">${sub}</div></div>`;
   }).join('');
@@ -13675,9 +14137,10 @@ function matPanel(w){
   if(!m)return emptyMat(w);
   var mid=m.id;
   var ls=linksForMaterial(m);
-  var sel=awardedLink(m);
-  var totals=ls.map(function(l){return {l:l,t:vendorTotal(l),r:revisedTotal(l)};});
-  var low=lowestTotal(mid);
+  var aw=awardInfo(m),sel=aw.link;
+  /* the final price governs: every vendor at his final (after target), original under it */
+  var totals=ls.map(function(l){return {l:l,t:finalTotal(l),o:vendorTotal(l),rv:hasRevised(l)};});
+  var low=lowestTotal(mid),lowI=lowestInfo(mid);
   var priced=totals.filter(function(x){return x.t!=null;}).length;
   var prio=m.priority?stageBadge(m.priority,PRIO_COLOR[m.priority]):'';
   var chips=stageBadge(m.stage||'No stage')+prio+(m.discipline?'<span class="insp-tag">'+esc(m.discipline)+'</span>':'');
@@ -13686,17 +14149,19 @@ function matPanel(w){
   /* price */
   var price;
   if(sel){
-    var ap=awardedPrice(m);
-    price='<div class="insp-money"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+(ap!=null?esc(money(ap))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">not priced</span>')+'</div>'+
-      '<div class="insp-ms">'+esc(venName(sel.vendorId))+(revisedTotal(sel)!=null?' · offer after target price':'')+'</div></div>';
+    var ap=aw.price;
+    price='<div class="insp-money" data-px="award"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+(ap!=null?esc(money(ap))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">not priced</span>')+'</div>'+
+      '<div class="insp-ms">'+esc(venName(sel.vendorId))+(aw.revised?' · final after target price · original '+esc(money(aw.orig)):'')+pxNotTicked(m)+pxBudgetary(aw.budgetary)+'</div></div>';
+  }else if(aw.state==='unlinked'){
+    price='<div class="insp-money" data-px="award"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+pxUnlinked(m)+'</div>'+
+      '<div class="insp-ms">'+(m.awarded?'Awarded to '+esc(m.awarded)+' · ':'')+'not valued</div></div>';
   }else{
-    var lv=totals.filter(function(x){return x.t!=null&&x.t===low;})[0];
-    price='<div class="insp-money"><div class="insp-ml">Lowest offer</div><div class="insp-mv">'+(low!=null?esc(money(low))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">no priced offer</span>')+'</div>'+
-      '<div class="insp-ms">'+(lv?esc(venName(lv.l.vendorId))+' · ':'')+priced+' of '+ls.length+' offer'+(ls.length===1?'':'s')+' priced</div></div>';}
+    price='<div class="insp-money" data-px="lowest"><div class="insp-ml">Lowest offer</div><div class="insp-mv">'+(low!=null?esc(money(low))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">no priced offer</span>')+'</div>'+
+      '<div class="insp-ms">'+(lowI?esc(venName(lowI.l.vendorId))+(lowI.revised?' · final after target':'')+pxPartial(lowI.q,lowI.n)+' · ':'')+priced+' of '+ls.length+' offer'+(ls.length===1?'':'s')+' priced</div></div>';}
   var tg=targetOf(m),bg=budgetOf(m),side=[];
   if(tg!=null)side.push(['Target price',esc(sar(tg))]);
   if(bg!=null)side.push(['Budget',esc(sar(bg))]);
-  if(sel&&low!=null)side.push(['Lowest offer',esc(sar(low))]);
+  if((sel||aw.state==='unlinked')&&low!=null)side.push(['Lowest final offer',esc(sar(low))+(lowI?' <span class="insp-muted">'+esc(venName(lowI.l.vendorId))+'</span>':'')]);
   var moneySec=sec('Price',price+(side.length?facts(side):''));
 
   /* key facts */
@@ -13707,7 +14172,7 @@ function matPanel(w){
   var keySec=sec('Key facts',facts([
     ['Engineer',val(m.engineer)],
     ['PO No',val(m.poNo)],
-    ['Awarded vendor',sel?'<span class="insp-link" onclick="openVendor('+sel.vendorId+')">'+esc(venName(sel.vendorId))+'</span>':val(m.awarded)],
+    ['Awarded vendor',sel?'<span class="insp-link" onclick="openVendor('+sel.vendorId+')">'+esc(venName(sel.vendorId))+'</span>'+pxNotTicked(m):val(m.awarded)],
     ['Lead time',leadHtml],
     ['Delivery',val(fmtDate(m.deliveryDate))],
     ['Material approval',apHtml],
@@ -13716,13 +14181,13 @@ function matPanel(w){
   /* offers */
   var oc=(typeof hasOpts==='function'&&hasOpts(mid))?'Option '+esc(optCode(mid,optInForce(mid))):'';
   totals.sort(function(a,b){return (a.t==null)-(b.t==null)||(a.t||0)-(b.t||0);});
-  var offers=ls.length?'<table class="insp-tbl"><thead><tr><th>Vendor</th><th class="r">Total '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
-    totals.map(function(x){var l=x.l,isLow=(x.t!=null&&x.t===low);
+  var offers=ls.length?'<table class="insp-tbl"><thead><tr><th>Vendor</th><th class="r" title="Final total — after the target price where revised">Final '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
+    totals.map(function(x){var l=x.l,isLow=isLowestOffer(l);
       return '<tr class="'+(isYes(l.selected)?'insp-selrow':'')+'" title="Open the comparison sheet" onclick="openCompare('+mid+')">'+
         '<td><span class="insp-link" title="Open the vendor" onclick="event.stopPropagation();openVendor('+l.vendorId+')">'+esc(venName(l.vendorId)||'(vendor)')+'</span><div class="insp-sub">'+offerStatus(l)+'</div></td>'+
         '<td class="r">'+(x.t!=null?'<b>'+esc(money(x.t))+'</b>'+(isLow?'<div><span class="insp-low">lowest</span></div>':''):'<span class="insp-muted">not priced</span>')+
-          (x.r!=null?'<div class="insp-sub">revised '+esc(money(x.r))+'</div>':'')+'</td>'+
-        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+'</td></tr>';}).join('')+
+          (x.rv&&x.o!=null?'<div class="insp-sub">original '+esc(money(x.o))+'</div>':'')+'</td>'+
+        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+(!isYes(l.selected)&&sel===l?'<div class="insp-sub">awarded · not ticked</div>':'')+'</td></tr>';}).join('')+
     '</tbody></table>':'<div class="insp-none">No vendor assigned.</div>';
   var offSec=sec('Offers',offers,(oc?oc+' · ':'')+ls.length+' vendor'+(ls.length===1?'':'s'));
 
@@ -13750,18 +14215,18 @@ function matPanel(w){
 function emptyMat(w){
   var rows=gridRows(w),all=(DB.materials||[]).length;
   var aw=0,awV=0,pr=0,prV=0,tk=0;
-  rows.forEach(function(m){var s=awardedLink(m);
-    if(s){aw++;var p=awardedPrice(m);if(p!=null)awV+=p;}
-    else{var lo=lowestTotal(m.id);if(lo!=null){pr++;prV+=lo;}}
+  rows.forEach(function(m){var v=matValueInfo(m);
+    if(v.kind==='awarded'){aw++;if(v.v!=null)awV+=v.v;}
+    else if(v.kind==='lowest'){pr++;prV+=v.v;}
     tk+=tasksFor(m).filter(function(t){return t.status!=='Closed';}).length;});
   return head('Material','No material selected','',w)+'<div class="insp-scroll">'+
     '<div class="insp-empty">Click a row to see its stages, price, offers, approvals and recent activity here. The Up and Down arrow keys move between rows.</div>'+
     sec('Rows shown',facts([
       ['Materials',rows.length+' of '+all],
-      ['Vendor selected',String(aw)],
+      ['Awarded (vendor resolved)',String(aw)],
       ['Awarded value',aw?esc(sar(awV)):dash()],
-      ['Priced, no vendor selected',String(pr)],
-      ['Sum of lowest offers',pr?esc(sar(prV)):dash()],
+      ['Priced, not awarded',String(pr)],
+      ['Sum of lowest final offers',pr?esc(sar(prV)):dash()],
       ['Open tasks',String(tk)]]))+'</div>';}
 
 /* ---------------------------------------------------------- vendor panel */
@@ -13770,32 +14235,34 @@ function venPanel(w){
   if(!v)return head('Vendor','No vendor selected','',w)+'<div class="insp-scroll"><div class="insp-empty">Click a row to see the materials this vendor quoted, his prices and what he was selected for. The Up and Down arrow keys move between rows.</div></div>';
   var vid=v.id,ls=linksForVendor(v);
   var rows=ls.map(function(l){var m=(DB.materials||[]).find(function(x){return x.id===l.materialId;});
-    return {l:l,m:m,t:vendorTotal(l),r:revisedTotal(l),low:m?lowestTotal(m.id):null};}).filter(function(x){return x.m;});
-  var selN=rows.filter(function(x){return isYes(x.l.selected);});
+    return {l:l,m:m,t:finalTotal(l),o:vendorTotal(l),rv:hasRevised(l),low:m?lowestTotal(m.id):null};}).filter(function(x){return x.m;});
+  /* awarded to him: ticked, or the award text names him (stage Awarded) */
+  var selN=rows.filter(function(x){return awardedLink(x.m)===x.l;});
+  var selTk=selN.filter(function(x){return isYes(x.l.selected);}).length;
   var awV=0,awN=0;selN.forEach(function(x){var p=awardedPrice(x.m);if(p!=null){awV+=p;awN++;}});
   var inN=rows.filter(function(x){return offerIn(x.l);}).length;
   var prN=rows.filter(function(x){return x.t!=null;}).length;
   var slN=rows.filter(function(x){return isYes(x.l.priceShortlisted);}).length;
-  var lowN=rows.filter(function(x){return x.t!=null&&x.t===x.low;}).length;
+  var lowN=rows.filter(function(x){return isLowestOffer(x.l);}).length;
   var chips=(v.shared?'<span class="insp-tag">RFQ shared: '+esc(v.shared)+'</span>':'');
   var h=head('Vendor',esc(v.manufacturer||'(no name)'),chips,w,hiddenNote(w,'vendor'));
   var price='<div class="insp-money"><div class="insp-ml">Awarded value</div><div class="insp-mv">'+(awN?esc(money(awV))+' <span class="insp-cur">'+cur()+'</span>':'<span class="insp-muted">nothing awarded</span>')+'</div>'+
-    '<div class="insp-ms">selected on '+selN.length+' material'+(selN.length===1?'':'s')+'</div></div>';
+    '<div class="insp-ms">selected on '+selTk+' material'+(selTk===1?'':'s')+(selN.length>selTk?' · awarded by name on '+(selN.length-selTk)+' (not ticked)':'')+' · final prices</div></div>';
   var sum=sec('Summary',price+facts([
     ['Materials assigned',String(rows.length)],
     ['Offers received',String(inN)],
     ['Priced',String(prN)],
     ['Lowest offer on',String(lowN)],
     ['Shortlisted',String(slN)],
-    ['Selected',String(selN.length)]]));
+    ['Awarded',String(selN.length)]]));
   rows.sort(function(a,b){return String(a.m.itemNo||'').localeCompare(String(b.m.itemNo||''),undefined,{numeric:true});});
-  var tbl=rows.length?'<table class="insp-tbl"><thead><tr><th>Material</th><th class="r">Total '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
-    rows.map(function(x){var l=x.l,m=x.m,isLow=(x.t!=null&&x.t===x.low);
+  var tbl=rows.length?'<table class="insp-tbl"><thead><tr><th>Material</th><th class="r" title="Final total — after the target price where revised">Final '+cur()+'</th><th title="Technical acceptance">Tech.</th><th title="Shortlisted">Short.</th><th title="Selected vendor">Sel.</th></tr></thead><tbody>'+
+    rows.map(function(x){var l=x.l,m=x.m,isLow=isLowestOffer(l);
       return '<tr class="'+(isYes(l.selected)?'insp-selrow':'')+'" title="Open the comparison sheet for this material" onclick="openCompare('+m.id+')">'+
         '<td><span class="insp-link" title="Open the material" onclick="event.stopPropagation();openMaterial('+m.id+')">'+esc(m.desc||'(material)')+'</span><div class="insp-sub">'+'<span class="insp-nw">'+esc(m.stage||'No stage')+'</span> · '+offerStatus(l)+'</div></td>'+
         '<td class="r">'+(x.t!=null?'<b>'+esc(money(x.t))+'</b>'+(isLow?'<div><span class="insp-low">lowest</span></div>':''):'<span class="insp-muted">not priced</span>')+
-          (x.r!=null?'<div class="insp-sub">revised '+esc(money(x.r))+'</div>':'')+'</td>'+
-        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+'</td></tr>';}).join('')+
+          (x.rv&&x.o!=null?'<div class="insp-sub">original '+esc(money(x.o))+'</div>':'')+'</td>'+
+        '<td>'+ynText(l.techAccept)+'</td><td>'+tick(isYes(l.priceShortlisted))+'</td><td>'+tick(isYes(l.selected))+(!isYes(l.selected)&&awardedLink(m)===l?'<div class="insp-sub">awarded · not ticked</div>':'')+'</td></tr>';}).join('')+
     '</tbody></table>':'<div class="insp-none">No material assigned to this vendor.</div>';
   var offSec=sec('Offers',tbl,rows.length+' material'+(rows.length===1?'':'s'));
   var subs=(DB.submittals||[]).filter(function(s){return s.vendorId===vid;});
@@ -14580,6 +15047,9 @@ function vt(l){return l?trkMemo('vt'+l.id,function(){return vendorTotal(l);}):nu
 function r2links(){return trkMemo('r2set',function(){var s=new Set();
   ((typeof DB!=='undefined'&&DB.crates)||[]).forEach(function(r){if(r&&r.rate2!==''&&r.rate2!=null)s.add(r.linkId);});return s;});}
 function rt(l){if(!l)return null;if(!r2links().has(l.id))return null;return trkMemo('rt'+l.id,function(){return revisedTotal(l);});}
+/* the final price governs (price.js): his revised total after target when he has one, else his original */
+function ft(l){if(!l)return null;if(typeof finalTotal!=='function')return rt(l)!=null?rt(l):vt(l);
+  if(!r2links().has(l.id))return vt(l);return trkMemo('ft'+l.id,function(){return finalTotal(l);});}
 
 function evaluate(m){
   var I=[];
@@ -14588,7 +15058,8 @@ function evaluate(m){
   var si=stageIdx(m),stage=STAGES[si];
   var L=safe(function(){return linksForMaterial(m);},[])||[];
   var R=L.filter(function(l){return safe(function(){return offerIn(l);},false);});
-  var sel=safe(function(){return awardedLink(m);},null);
+  var sel=safe(function(){return awardedLink(m);},null);       /* ticked, or matched by name at stage Awarded */
+  var tick=safe(function(){return typeof awardTickedLink==='function'?awardTickedLink(m):awardedLink(m);},null);
   var shortl=L.filter(function(l){return yes(l.priceShortlisted);});
   /* priced offers are only needed for open materials — computed on first use */
   var _pr=null;function pricedL(){if(!_pr)_pr=L.filter(function(l){var t=vt(l);return t!=null&&t>0;});return _pr;}
@@ -14596,12 +15067,13 @@ function evaluate(m){
   var today=new Date();
 
   /* ============ DANGER : the record contradicts itself ============ */
-  if(si===6&&!sel){
+  if(si===6&&!tick){
     if(L.length){
       var nm=str(m.awarded);
-      var hit=nm&&L.some(function(l){return str(venName(l.vendorId)).toLowerCase()===nm.toLowerCase();});
+      var nk=typeof pxNormName==='function'?pxNormName:function(x){return str(x).toLowerCase();};
+      var hit=nm&&L.find(function(l){return nk(venName(l.vendorId))===nk(nm);});
       add('awarded-no-vendor','danger','Awarded — no vendor ticked','offers','Procurement',
-        (nm?'Awarded to '+nm+(hit?'':' (not among the linked vendors)')+'. ':'')+'Tick Selected on the winning offer.',0);}
+        (nm?'Awarded to '+nm+(hit?' = '+venName(hit.vendorId)+(ft(hit)!=null?', valued at his final '+money(ft(hit)):''):' (not among the linked vendors — not valued)')+'. ':'')+'Tick Selected on the winning offer.',0);}
     else add('awarded-no-link','danger','Awarded — no vendor linked','offers','Procurement',
         (str(m.awarded)?'Awarded to '+str(m.awarded)+', but no vendor is linked to this material.':'No vendor is linked to this material.'),0);}
   if(sel&&str(sel.techAccept).toLowerCase()==='no')
@@ -14708,11 +15180,13 @@ function evaluate(m){
               'Revised offers received from all '+plural(shortl.length,'shortlisted vendor')+'.',35);}
         else if(si===5&&pricedL().length)add('select-vendor','info','Select vendor','offers','Management','',35);}
       if(!sel){
-        var low=null,lowT=null;
-        pricedL().forEach(function(l){var t=vt(l);if(lowT==null||t<lowT){lowT=t;low=l;}});
+        /* on final prices: the cheapest offer of all is one the engineers rejected */
+        var low=null,lowT=null,okL=null,okT=null;
+        pricedL().forEach(function(l){var t=ft(l);if(t==null||!(t>0))return;if(lowT==null||t<lowT){lowT=t;low=l;}
+          if(str(l.techAccept).toLowerCase()!=='no'&&(okT==null||t<okT)){okT=t;okL=l;}});
         if(low&&str(low.techAccept).toLowerCase()==='no')
           add('lowest-rejected','info','Lowest offer technically rejected','evaluation','Engineering',
-            venName(low.vendorId)+' ('+money(lowT)+') is marked not technically accepted.',40);
+            venName(low.vendorId)+' ('+money(lowT)+') is marked not technically accepted'+(okL?'; lowest accepted: '+venName(okL.vendorId)+' '+money(okT):'')+'.',40);
         var bud=R.filter(isBudgetary);
         if(bud.length&&bud.length===R.length)
           add('budgetary-only','info','Budgetary offers only','offers','Procurement',plural(bud.length,'offer')+' marked Budgetary.',41);}}}
@@ -14765,6 +15239,7 @@ window.trkNextReset=reset;
 window.trkMemo=trkMemo;
 window.trkVendorTotal=vt;      /* memoised vendorTotal(l) (option in force) */
 window.trkRevisedTotal=rt;     /* memoised revisedTotal(l) */
+window.trkFinalTotal=ft;       /* memoised finalTotal(l) — the governing price (price.js) */
 window.TRK_NEXT_TONES=['danger','warn','info','ok','done'];
 /* every code the engine can return, in severity order, with a generic group name (for "by issue" lists) */
 window.TRK_NEXT_CODES={
@@ -14973,10 +15448,11 @@ function rows(){
   if(_dbRef!==DB){_dbRef=DB;S.cache=null;}
   if(S.cache&&S.cacheSig===sig)return S.cache;
   var out=(DB.materials||[]).slice().sort(cmpItem).map(function(m){
-    var nx=nextOf(m),sel=awardedLink(m),val=null,vk='';
-    if(sel){val=awardedPrice(m);vk='Awarded';}
-    else{val=lowestTotal(m.id);vk=val!=null?'Lowest offer':'';}
-    return {m:m,id:m.id,nx:nx,at:stageIdx(m),val:val,vk:vk,sel:sel,need:needs(nx),mine:mine(m)};});
+    /* the final price governs (price.js): awarded vendor's final price; never the lowest bidder for an
+       awarded material; else the lowest final offer (technically rejected offers left out) */
+    var nx=nextOf(m),mv=safe(function(){return matValueInfo(m);},null)||{kind:'none',v:null},sel=mv.kind==='awarded'?mv.link:null,val=mv.v,vk='';
+    if(mv.kind==='awarded')vk='Awarded';else if(mv.kind==='unlinked')vk='Awarded — vendor not linked/ticked';else if(val!=null)vk='Lowest offer';
+    return {m:m,id:m.id,nx:nx,at:stageIdx(m),val:val,vk:vk,sel:sel,mv:mv,need:needs(nx),mine:mine(m)};});
   S.cache=out;S.cacheSig=sig;return out;}
 function rowOfId(id){return rows().find(function(r){return r.id===id;})||null;}
 
@@ -15007,6 +15483,7 @@ function visibleRows(){
     if(S.quick==='action'&&!r.need)return false;
     if(S.quick==='mine'&&!r.mine)return false;
     if(S.stage&&STAGES[r.at]!==S.stage)return false;
+    if(S.drill&&S.drill.ids.indexOf(r.id)<0)return false;
     return true;});}
 function groups(list){
   if(S.group==='none')return [{key:'',label:'',rows:list}];
@@ -15028,7 +15505,9 @@ function segBar(at,cls){
   return h+'</span>';}
 function rowHtml(r){
   var m=r.m,nx=r.nx||{},sel=(r.id===S.mid);
-  var val=r.val!=null?'<span class="wb-rv'+(r.vk==='Awarded'?' aw':'')+'" title="'+e_(r.vk+': '+sar(r.val))+'">'+e_(compact(r.val))+'</span>':'';
+  var mv=r.mv||{};
+  var val=r.val!=null?'<span class="wb-rv'+(r.vk==='Awarded'?' aw':'')+'" title="'+e_(r.vk+': '+sar(r.val)+(mv.ticked===false?' (not ticked)':'')+(mv.partial?' · '+mv.q+' of '+mv.n+' lines priced':''))+'">'+e_(compact(r.val))+'</span>'
+    :(mv.kind==='unlinked'?'<span class="wb-rv" title="Awarded — vendor not linked/ticked">—</span>':'');
   return '<div class="wb-row'+(sel?' sel':'')+'" role="option" aria-selected="'+sel+'" data-id="'+r.id+'" '+
     'title="'+e_((m.itemNo?m.itemNo+'. ':'')+(m.desc||'')+' — '+STAGES[r.at])+'">'+
     '<div class="wb-r1"><span class="wb-rno">'+e_(m.itemNo||'')+'</span><span class="wb-rd">'+e_(m.desc||'(no description)')+'</span>'+val+'</div>'+
@@ -15060,7 +15539,8 @@ function filtersHtml(){
     DS.order.map(function(k){return '<option value="'+e_(k)+'"'+(S.disc===k?' selected':'')+'>'+e_(DS.label[k])+'</option>';}).join('')+'</select>';
   var grp='<select class="wb-sel" data-act="group" aria-label="Group by">'+[['stage','Group: stage'],['discipline','Group: discipline'],['none','No grouping']].map(function(o){
     return '<option value="'+o[0]+'"'+(S.group===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
-  return '<div class="wb-quick">'+q('all','All',b.length)+q('action','Needs action',nA)+q('mine','Mine',nM)+'</div>'+st+
+  var dr=S.drill?'<div class="px-drill-bar" data-px="wbdrill">Showing: <b>'+e_(S.drill.label)+'</b> · '+S.drill.ids.length+'<button data-act="drillx">Show all</button></div>':'';
+  return '<div class="wb-quick">'+q('all','All',b.length)+q('action','Needs action',nA)+q('mine','Mine',nM)+'</div>'+st+dr+
     '<div class="wb-lopts">'+disc+grp+'</div>';}
 
 /* ------------------------------------------------------------ editable value */
@@ -15141,7 +15621,7 @@ function summaryHtml(m){
   var F=[
     ['PR No',ed('materials',m.id,'prNo',e_(m.prNo),can)],
     ['PO No',ed('materials',m.id,'poNo',e_(m.poNo),can)],
-    ['Awarded vendor',sel?'<a class="wb-a" data-act="vendor" data-v="'+sel.vendorId+'">'+e_(venName(sel.vendorId))+'</a>':ed('materials',m.id,'awarded',e_(m.awarded),can)],
+    ['Awarded vendor',sel?'<a class="wb-a" data-act="vendor" data-v="'+sel.vendorId+'">'+e_(venName(sel.vendorId))+'</a>'+pxNotTicked(m):ed('materials',m.id,'awarded',e_(m.awarded),can)],
     ['Lead time',ed('materials',m.id,'leadTime',leadDisp,can)],
     ['Delivery date',ed('materials',m.id,'deliveryDate',dateDisp(m.deliveryDate),can)],
     ['Planned PO',ed('materials',m.id,'plannedPO',dateDisp(m.plannedPO),can)],
@@ -15154,11 +15634,13 @@ function summaryHtml(m){
   if(safe(function(){return hasOpts(m.id);},false))
     F.push(['Option in force',ed('materials',m.id,'optId',e_(optLabel(m.id,optInForce(m.id))),can)]);
   /* the money line: awarded, or lowest offer */
-  var money1;
-  if(sel){var ap=awardedPrice(m);
-    money1=['Awarded value',ap!=null?'<span class="wb-num">'+e_(money(ap))+'</span> <span class="wb-cur">'+cur()+'</span>':'<span class="wb-muted">not priced</span>'];}
-  else{var lo=lowestTotal(m.id);
-    money1=['Lowest offer',lo!=null?'<span class="wb-num">'+e_(money(lo))+'</span> <span class="wb-cur">'+cur()+'</span>':'<span class="wb-muted">no priced offer</span>'];}
+  var money1,aw=awardInfo(m);
+  if(sel){var ap=aw.price;
+    money1=['Awarded value',(ap!=null?'<span class="wb-num">'+e_(money(ap))+'</span> <span class="wb-cur">'+cur()+'</span>':'<span class="wb-muted">not priced</span>')+
+      (aw.revised?' <span class="wb-muted">final after target · original '+e_(money(aw.orig))+'</span>':'')+pxBudgetary(aw.budgetary)];}
+  else if(aw.state==='unlinked'){money1=['Awarded value',pxUnlinked(m)];}
+  else{var lo=lowestInfo(m.id);
+    money1=['Lowest offer',lo?'<span class="wb-num">'+e_(money(lo.t))+'</span> <span class="wb-cur">'+cur()+'</span> <span class="wb-muted">'+e_(venName(lo.l.vendorId))+(lo.revised?' · final after target':'')+'</span>'+pxPartial(lo.q,lo.n):'<span class="wb-muted">no priced offer</span>'];}
   F.splice(2,0,money1);
   var grid_='<dl class="wb-facts">'+F.map(function(f){return '<div class="wb-f"><dt>'+e_(f[0])+'</dt><dd>'+f[1]+'</dd></div>';}).join('')+
     '<div class="wb-f wide"><dt>Notes</dt><dd>'+ed('materials',m.id,'notes',e_(m.notes),can,'wb-pre')+'</dd></div></dl>';
@@ -15166,12 +15648,15 @@ function summaryHtml(m){
 
 /* ------------------------------------------------------------ section: offers */
 function offerCardHtml(l,low,canSel,hasCrit){
-  var t=vendorTotal(l),rv=revisedTotal(l),isSel=yes(l.selected),isLow=(t!=null&&low!=null&&t===low);
-  var tags=(isLow?'<span class="wb-flag low">Lowest</span>':'')+(isSel?'<span class="wb-flag sel">Selected</span>':'');
+  /* headline = his FINAL price (after target); the original is the secondary line */
+  var t=finalTotal(l),o=vendorTotal(l),rv=hasRevised(l),isSel=yes(l.selected),isLow=isLowestOffer(l);
+  var m0=matById(l.materialId),awN=!isSel&&!!m0&&awardedLink(m0)===l;
+  var tags=(isLow?'<span class="wb-flag low">Lowest</span>':'')+(isSel?'<span class="wb-flag sel">Selected</span>':'')+(awN?'<span class="wb-flag sel">Awarded</span><span class="px-nt">not ticked</span>':'');
   var price=t!=null?'<span class="wb-pv">'+e_(money(t))+'</span><span class="wb-pc">'+cur()+'</span>':'<span class="wb-pv none">Not priced</span>';
   var subs=[];
-  if(rv!=null){var cut=(t!=null&&t>0)?Math.round(((t-rv)/t)*1000)/10:null;
-    subs.push('Revised <b class="wb-num">'+e_(money(rv))+'</b>'+(cut?' <span class="'+(cut>0?'wb-good':'wb-warn')+'">'+(cut>0?'−':'+')+Math.abs(cut)+'%</span>':''));}
+  if(rv&&o!=null){var cut=(o>0&&t!=null)?Math.round(((o-t)/o)*1000)/10:null;
+    subs.push('Final after target'+(cut?' <span class="'+(cut>0?'wb-good':'wb-warn')+'">'+(cut>0?'−':'+')+Math.abs(cut)+'%</span>':'')+' · original <span class="wb-num">'+e_(money(o))+'</span>');}
+  var pl=safe(function(){return pricedLines(l);},null);if(pl&&o!=null&&pl.n>0&&pl.q<pl.n)subs.push(pxPartial(pl.q,pl.n));
   if(safe(function(){return isFx(l);},false))subs.push('Quoted in '+e_(curOf(l))+' at '+e_(String(fxOf(l)))+' '+cur()+'/'+e_(curOf(l)));
   if(safe(function(){return hasCharges(l);},false))subs.push(t!=null?'Includes '+e_(chargeText(l))+' to site':'<span class="wb-muted">Charges '+e_(chargeText(l))+' entered, no rates</span>');
   var cs=compSummary(l);
@@ -15209,7 +15694,8 @@ function optionsHtml(m){
       :'<button class="wb-opt" data-act="opt" data-o="'+o.id+'" title="Make option '+e_(o.code||'')+' the one in force — every total follows it">'+e_(lbl)+extra+'</button>';}).join('')+'</div>';}
 function offersHtml(m){
   var ls=linksForMaterial(m),low=lowestTotal(m.id),canSel=CAN.cmp(),hasCrit=safe(function(){return critList().length>0;},false);
-  var list=ls.map(function(l){return {l:l,t:vendorTotal(l),s:yes(l.selected)};});
+  var aL=awardedLink(m);
+  var list=ls.map(function(l){return {l:l,t:finalTotal(l),s:yes(l.selected)||aL===l};});
   list.sort(function(a,b){return (b.s-a.s)||((a.t==null)-(b.t==null))||((a.t||0)-(b.t||0))||String(venName(a.l.vendorId)).localeCompare(String(venName(b.l.vendorId)));});
   var priced=list.filter(function(x){return x.t!=null;}).length;
   var inN=ls.filter(offerIn).length;
@@ -15266,15 +15752,17 @@ function comparisonHtml(m){
     var bq=safe(function(){return boqCurrent(m.id);},[])||[];
     return secWrap('comparison','Comparison','',acts,'<div class="wb-empty">'+(bq.length?'No vendor has priced the bill yet ('+bq.length+' line'+(bq.length===1?'':'s')+').':'No bill of quantities yet.')+'</div>');}
   var its=boqOf(m.id,rev),par=markParents(its);
-  var V=ls.map(function(l){return {l:l,t:totalForRev(l,rev)};}).filter(function(x){return x.t!=null;});
-  V.sort(function(a,b){return a.t-b.t;});
+  /* the line grid stays at the quoted rates; the totals carry the FINAL price under the original */
+  var V=ls.map(function(l){return {l:l,t:totalForRev(l,rev),f:safe(function(){return finalForRev(l,rev);},null),rj:/^no$/i.test(str(l.techAccept))};}).filter(function(x){return x.t!=null;});
+  V.sort(function(a,b){return (a.f==null?a.t:a.f)-(b.f==null?b.t:b.f);});
   var skipped=ls.filter(function(l){return lastPricedRev(l)!=null;}).length-V.length;
   var pw=pageWidth();
   var maxV=Math.max(2,Math.floor((pw-360)/118));
   var hidden=V.length>maxV?V.length-maxV:0;
   V=V.slice(0,maxV);
   var all=!!S.showAll[m.id],shown=all?its:its.slice(0,LINES);
-  var lowT=V.length?V[0].t:null;
+  var okF=V.filter(function(x){return !x.rj&&x.f!=null;}).map(function(x){return x.f;});
+  var lowF=okF.length?Math.min.apply(null,okF):null;
   var cells=function(i){
     if(par.has(i.id))return V.map(function(){return '<td></td>';}).join('');
     var vals=V.map(function(x){var a=amountOf(x.l,i,rev);return a==null?null:toSAR(a,x.l);});
@@ -15289,10 +15777,13 @@ function comparisonHtml(m){
       '<td class="r c-q">'+(hd?'':'<span class="wb-num">'+e_(i.qty||'')+'</span>')+'</td><td class="c-u">'+(hd?'':e_(i.unit||''))+'</td>'+cells(i)+'</tr>';}).join('');
   var foot='';
   if(anyCh)foot+='<tr class="sub"><td></td><td>Goods</td><td></td><td></td>'+V.map(function(x){var g=goodsSAR(x.l,rev);return '<td class="r">'+(g==null?nil():'<span class="wb-num">'+e_(money(g))+'</span>')+'</td>';}).join('')+'</tr>';
-  foot+='<tr class="tot"><td></td><td>Total '+cur()+(anyCh?' incl. charges':'')+'</td><td></td><td></td>'+V.map(function(x){
-    return '<td class="r'+(x.t===lowT&&V.length>1?' lo':'')+'"><b class="wb-num">'+e_(money(x.t))+'</b></td>';}).join('')+'</tr>';
+  foot+='<tr class="sub"><td></td><td>Total — original '+cur()+(anyCh?' incl. charges':'')+'</td><td></td><td></td>'+V.map(function(x){
+    return '<td class="r"><span class="wb-num">'+e_(money(x.t))+'</span></td>';}).join('')+'</tr>';
+  foot+='<tr class="tot" data-px="final-row"><td></td><td>FINAL total '+cur()+' — after target</td><td></td><td></td>'+V.map(function(x){
+    var lo=x.f!=null&&lowF!=null&&!x.rj&&Math.abs(x.f-lowF)<0.005&&V.length>1;
+    return '<td class="r'+(lo?' lo':'')+(x.rj?' px-rj':'')+'"'+(x.rj?' title="Technically rejected — never ranked lowest"':'')+'><b class="wb-num">'+(x.f==null?nil():e_(money(x.f)))+'</b></td>';}).join('')+'</tr>';
   var opt=safe(function(){return hasOpts(m.id);},false)?' · option '+e_(optCode(m.id,optInForce(m.id))):'';
-  var meta='RFQ '+e_(revLabel(m.id,rev))+opt+' · '+its.length+' line'+(its.length===1?'':'s')+' · amounts in '+cur()+' (qty × rate)';
+  var meta='RFQ '+e_(revLabel(m.id,rev))+opt+' · '+its.length+' line'+(its.length===1?'':'s')+' · amounts in '+cur()+' (qty × quoted rate)';
   var more=its.length>LINES?'<button class="wb-lnk" data-act="alllines">'+(all?'Show the first '+LINES+' lines':'Show all '+its.length+' lines')+'</button>':'';
   var notes=[hidden?hidden+' more vendor'+(hidden===1?'':'s')+' on the comparison sheet':'',skipped>0?skipped+' vendor'+(skipped===1?'':'s')+' priced an earlier revision only':''].filter(Boolean).join(' · ');
   return secWrap('comparison','Comparison',meta,acts,
@@ -15362,7 +15853,7 @@ function poHtml(m){
     '<div class="wb-f"><dt>PO No</dt><dd>'+ed('materials',m.id,'poNo',e_(m.poNo),can)+'</dd></div>'+
     '<div class="wb-f"><dt>Planned PO</dt><dd>'+ed('materials',m.id,'plannedPO',dateDisp(m.plannedPO),can)+'</dd></div>'+
     '<div class="wb-f"><dt>Delivery date</dt><dd>'+ed('materials',m.id,'deliveryDate',dateDisp(m.deliveryDate),can)+'</dd></div>'+
-    '<div class="wb-f"><dt>Selected vendor</dt><dd>'+(sel?'<a class="wb-a" data-act="vendor" data-v="'+sel.vendorId+'">'+e_(venName(sel.vendorId))+'</a>':'<span class="wb-muted">none selected</span>')+'</dd></div></dl>';
+    '<div class="wb-f"><dt>Selected vendor</dt><dd>'+(sel?'<a class="wb-a" data-act="vendor" data-v="'+sel.vendorId+'">'+e_(venName(sel.vendorId))+'</a>'+pxNotTicked(m):'<span class="wb-muted">none selected</span>')+'</dd></div></dl>';
   var tbl=ls.length?'<div class="wb-tw"><table class="wb-t fx"><thead><tr><th>Vendor</th><th class="w-ref">PO ref</th><th class="w-dt">Draft sent</th><th class="w-dt" title="Vendor comments on the draft received">Received</th><th class="w-st">Status</th><th class="w-dt">Agreed</th><th class="r w-cm">Comments</th><th class="w-op"></th></tr></thead><tbody>'+
     ls.map(function(l){var s=poSummary(l);
       return '<tr><td title="'+e_(venName(l.vendorId)+(yes(l.selected)?' — selected vendor':''))+'">'+(yes(l.selected)?'<span class="wb-dot" style="--c:var(--good);margin-right:7px"></span>':'')+e_(venName(l.vendorId))+'</td>'+
@@ -15432,7 +15923,7 @@ function overviewHtml(notFound){
   var cnt=STAGES.map(function(){return 0;});R.forEach(function(r){cnt[r.at]++;});
   var TR={danger:0,warn:1,info:2,ok:3,done:4};
   var act=R.filter(function(r){return r.need;}).sort(function(a,b){return ((TR[a.nx.tone]||0)-(TR[b.nx.tone]||0))||cmpItem(a.m,b.m);});
-  var aw=0,awN=0,lo=0,loN=0;R.forEach(function(r){if(r.sel&&r.val!=null){aw+=r.val;awN++;}else if(!r.sel&&r.val!=null){lo+=r.val;loN++;}});
+  var aw=0,awN=0,lo=0,loN=0;R.forEach(function(r){var k=r.mv&&r.mv.kind;if(k==='awarded'&&r.val!=null){aw+=r.val;awN++;}else if(k==='lowest'&&r.val!=null){lo+=r.val;loN++;}});
   var bar='<div class="wb-ovbar">'+STAGES.map(function(s,i){if(!cnt[i])return '';
     return '<button class="wb-ovseg" data-act="stagef" data-s="'+e_(s)+'" style="--c:'+(STAGE_COLOR[s]||'var(--muted)')+';flex:'+cnt[i]+'" title="'+e_(s)+' — '+cnt[i]+'"></button>';}).join('')+'</div>';
   var legend='<div class="wb-ovlg">'+STAGES.map(function(s,i){
@@ -15443,7 +15934,7 @@ function overviewHtml(notFound){
   return '<div class="wb-ov">'+
     (notFound?'<div class="wb-note">That material no longer exists — it may have been deleted.</div>':'')+
     '<h1 class="wb-ovh">Materials</h1><p class="wb-ovp">'+n+' materials · '+act.length+' need action'+
-      (awN?' · awarded '+e_(compact(aw))+' '+cur()+' on '+awN:'')+(loN?' · lowest offers '+e_(compact(lo))+' '+cur()+' on '+loN:'')+'</p>'+
+      (awN?' · awarded '+e_(compact(aw))+' '+cur()+' on '+awN:'')+(loN?' · lowest final offers '+e_(compact(lo))+' '+cur()+' on '+loN:'')+'</p>'+
     '<div class="wb-ovsec"><div class="wb-ovk">By stage</div>'+bar+legend+'</div>'+
     (act.length?'<div class="wb-ovsec"><div class="wb-ovk">Needs action'+(act.length>8?' · first 8 of '+act.length:'')+'</div><ol class="wb-ovlist">'+top+'</ol></div>':'')+
     '<p class="wb-ovhint">Pick a material on the left, or press <kbd>J</kbd> to start with the first one in the list.</p></div>';}
@@ -15503,7 +15994,7 @@ function setHeadVar(){var p=pageEl();if(!p)return;var h=p.querySelector('.wb-hea
 /* list: rebuilt only when the data, the filters or the selection changes */
 function paintList(force){
   var el=listEl();if(!el)return;
-  var sig=S.cacheSig+'|'+S.q+'|'+S.quick+'|'+S.stage+'|'+S.disc+'|'+S.group;
+  var sig=S.cacheSig+'|'+S.q+'|'+S.quick+'|'+S.stage+'|'+S.disc+'|'+S.group+'|'+(S.drill?S.drill.label+':'+S.drill.ids.join(','):'');
   var cnt=S.root.querySelector('.wb-lcount');
   if(force||sig!==S.listSig){
     var st=el.scrollTop,fa=D.activeElement,fk=null,wasVis=selVisible();
@@ -15727,7 +16218,8 @@ function onClick(e){
     case 'stagef':{var s=t.getAttribute('data-s');S.stage=S.stage===s?'':s;
       if(S.root.classList.contains('wb-rail')&&S.stage){setPref('rail',false);layoutClasses();}
       paintList(true);break;}
-    case 'clearf':S.q='';S.quick='all';S.stage='';S.disc='';var qi=S.root.querySelector('.wb-q-in');if(qi)qi.value='';paintList(true);break;
+    case 'drillx':S.drill=null;paintList(true);break;
+    case 'clearf':S.q='';S.quick='all';S.stage='';S.disc='';S.drill=null;var qi=S.root.querySelector('.wb-q-in');if(qi)qi.value='';paintList(true);break;
     case 'new':newMaterial();break;
     case 'prev':move(-1);break;
     case 'next':move(1);break;
@@ -15859,7 +16351,14 @@ W.WB={
   rows:function(){return rows();},visible:function(){return S.order.slice();},
   move:move,pick:pick,goSec:goSec,sync:function(){if(S.host)sync(S.host,tv()&&tv().route);},
   needs:needs,nextOf:nextOf,
-  _paintPage:paintPage};
+  _paintPage:paintPage,
+  /* a dashboard figure opens the list with exactly the materials it counts (price.js / dash.js) */
+  drill:function(label,ids){S.q='';S.quick='all';S.stage='';S.disc='';S.drill={label:String(label||''),ids:(ids||[]).slice()};S.listSig='';
+    var qi=S.root&&S.root.querySelector('.wb-q-in');if(qi)qi.value='';
+    var T=tv();if(T&&typeof T.go==='function')T.go('materials');if(S.host)try{paintList(true);}catch(e){}},
+  clearDrill:function(){S.drill=null;S.listSig='';}};
+/* the plain Materials entry in the sidebar shows every material */
+if(typeof W.tvNav==='function'&&!W.tvNav.__wb){var _tn=W.tvNav;W.tvNav=function(id){if(id==='materials')S.drill=null;return _tn.apply(this,arguments);};W.tvNav.__wb=true;}
 
 var registered=false;
 function register(){
@@ -15936,17 +16435,22 @@ function rTotal(l){return typeof window.trkRevisedTotal==='function'?window.trkR
 function lowOf(mid){return memo('lt'+mid,function(){return lowestTotal(mid);});}
 function lowRevOf(mid){return memo('lr'+mid,function(){return lowestRevised(mid);});}
 function awPrice(m){return memo('ap'+m.id,function(){return awardedPrice(m);});}
+/* the governing (final) price of an offer: revised after target where given, else original (price.js) */
+function fTotal(l){return typeof window.trkFinalTotal==='function'?window.trkFinalTotal(l):safe(function(){return finalTotal(l);},null);}
+function isLow(l){return safe(function(){return isLowestOffer(l);},false);}
+function awLinkOf(m){return memo('al'+m.id,function(){return awardedLink(m);});}
 function received(l){return safe(function(){return offerIn(l);},false);}
 function notCompliant(l){if(S(l.techAccept).toLowerCase()==='no')return true;var s=safe(function(){return compSummary(l);},null);return !!(s&&s.bad);}
-/* value of a material: the awarded price, else the lower of lowest offer / lowest revised (dash.js rule) */
+/* value of a material (price.js): the awarded vendor's final price (ticked, or matched by name at
+   stage Awarded); an awarded material with no resolvable vendor has no value — never the lowest
+   bidder; otherwise the lowest final offer, technically rejected offers left out */
 function matValue(m){
-  var sel=safe(function(){return awardedLink(m);},null);
-  if(sel){var a=awPrice(m);return {v:a,kind:'Awarded'};}
-  /* dashboard rule: an awarded material is only valued through its selected vendor */
-  if(stIdx(m)===6)return {v:null,kind:'Awarded',noSel:true};
-  var lo=lowOf(m.id),lr=lowRevOf(m.id);
-  var b=[lo,lr].filter(function(x){return x!=null;});
-  return {v:b.length?Math.min.apply(null,b):null,kind:'Lowest'};}
+  return memo('mv'+m.id,function(){
+    var v=matValueInfo(m);
+    if(v.kind==='awarded')return {v:v.v,kind:'Awarded',ticked:!!v.ticked,budgetary:!!v.budgetary,link:v.link};
+    if(v.kind==='unlinked')return {v:null,kind:'Awarded',noSel:true};
+    if(v.kind==='lowest')return {v:v.v,kind:'Lowest',partial:!!v.partial,q:v.q,n:v.n,link:v.link};
+    return {v:null,kind:'Lowest'};})||{v:null,kind:'Lowest'};}
 function go(path){if(window.TV&&typeof TV.go==='function')TV.go(path);else location.hash='#/'+path;}
 function matHref(m,sec){return 'materials/'+m.id+(sec?'/'+sec:'');}
 function uniqDiscs(){
@@ -16110,7 +16614,8 @@ function pipeCard(m){
   var qt=L.length?(R+' of '+L.length+' vendors quoted, '+Pn+' priced'):'';
   var tag=(n.tone==='done')?'':toneTag(n.label,n.tone);
   /* awarded without a ticked vendor: no value (the card's next step already says why) */
-  var c2=(val.v!=null||L.length)?'<div class="g-c2"><span class="g-val num" title="'+(val.v!=null?E(val.kind+' '+mon(val.v)+' '+cur()):(val.noSel?'No vendor ticked — not counted in the column total':''))+'">'+(val.v!=null?'<span class="g-mut">'+val.kind+'</span> '+E(compact(val.v)):(val.noSel?'<span class="g-mut">Awarded —</span>':'<span class="g-mut">No price</span>'))+'</span>'+
+  var vt_=val.v!=null?val.kind+' '+mon(val.v)+' '+cur()+(val.link?' — '+vName(val.link.vendorId):'')+(val.kind==='Awarded'&&val.ticked===false?' (not ticked)':'')+(val.budgetary?' · budgetary':'')+(val.partial?' · '+val.q+' of '+val.n+' lines priced':''):(val.noSel?'Awarded — vendor not linked/ticked: not counted in the column total':'');
+  var c2=(val.v!=null||L.length)?'<div class="g-c2"><span class="g-val num" title="'+E(vt_)+'">'+(val.v!=null?'<span class="g-mut">'+val.kind+'</span> '+E(compact(val.v))+(val.kind==='Awarded'&&val.ticked===false?' <span class="px-nt">not ticked</span>':'')+(val.partial?' <span class="px-part">'+val.q+'/'+val.n+'</span>':''):(val.noSel?'<span class="g-mut">Awarded — not linked</span>':'<span class="g-mut">No price</span>'))+'</span>'+
       '<span class="g-q2" title="'+E(qt)+'">'+E(q)+'</span></div>':'';
   return '<a class="g-card g-nav" href="#/'+E(matHref(m))+'" data-go="'+E(matHref(m))+'">'+
     '<div class="g-c1"><span class="g-no">'+E(m.itemNo)+'</span><span class="g-cd" title="'+E(m.desc)+'">'+E(m.desc)+'</span></div>'+
@@ -16126,7 +16631,7 @@ function pipeBoard(){
     var sum=0,any=false,np=0;list.forEach(function(m){var v=matValue(m).v;if(v!=null){sum+=v;any=true;np++;}});
     var st=STAGES[i];
     var cv=any?compact(sum)+' '+cur()+(np<list.length?' · '+np+' of '+list.length+' priced':''):'No priced offers';
-    var ct=any?mon(sum)+' '+cur()+(np<list.length?' — priced on '+np+' of '+list.length+(i===6?' (awarded value counts selected vendors only)':''):''):'';
+    var ct=any?mon(sum)+' '+cur()+(np<list.length?' — priced on '+np+' of '+list.length+(i===6?' (awarded value = the awarded vendors\u2019 final prices; awarded with no linked vendor not counted)':''):''):'';
     return '<section class="g-col"><header class="g-colh"><div class="g-ch1">'+dot(stageColor(st))+'<span class="g-cn" title="'+E(st)+'">'+E(st)+'</span><span class="g-cc num">'+list.length+'</span></div>'+
       '<div class="g-cv" title="'+E(ct)+'">'+E(cv)+'</div></header>'+
       '<div class="g-cards" data-gs="col'+i+'">'+(list.length?list.map(pipeCard).join(''):'<div class="g-cempty">None</div>')+'</div></section>';}).join('')+'</div>';}
@@ -16156,8 +16661,8 @@ function venStats(v){
     if(received(l))rec++;
     var t=vTotal(l);if(t!=null&&t>0)pr++;
     if(yes(l.priceShortlisted))sh++;
-    if(yes(l.selected)){sel++;var m=(db().materials||[]).find(function(x){return x.id===l.materialId;});
-      var a=m?awPrice(m):null;if(a!=null){aw+=a;awN++;}}});
+    var m=(db().materials||[]).find(function(x){return x.id===l.materialId;});
+    if(m&&awLinkOf(m)===l){sel++;var a=awPrice(m);if(a!=null){aw+=a;awN++;}}});
   var subs=(db().submittals||[]).filter(function(s){return s.vendorId===v.id;}).length;
   return {links:ls.length,mats:mats,rec:rec,pr:pr,sh:sh,sel:sel,aw:awN?aw:null,subs:subs};}
 var VCOLS=[['name','Vendor',0],['mats','Materials',1],['rec','Offers in',1],['pr','Priced',1],['sh','Shortlisted',1],['sel','Selected',1],['aw','Awarded value ('+'SAR'+')',1],['subs','Submittals',1]];
@@ -16229,18 +16734,18 @@ function venPage(v){
   /* materials this vendor quoted */
   h+='<section class="g-sec"><h2>Materials <span class="g-mut num">'+rows.length+'</span></h2>';
   if(!rows.length)h+='<div class="g-empty sm">No materials assigned to this vendor.</div>';
-  else h+='<div class="g-tblwrap2"><table class="g-tbl g-mt"><thead><tr><th class="num">#</th><th>Material</th><th>Stage</th><th>Offer status</th><th>Received</th><th class="num">Offer ('+cur()+')</th><th class="num">Revised ('+cur()+')</th><th>Technical</th><th>Shortlisted</th><th>Selected</th></tr></thead><tbody>'+
-    rows.map(function(x){var l=x.l,m=x.m,t=vTotal(l),rv=rTotal(l),low=lowOf(m.id);
+  else h+='<div class="g-tblwrap2"><table class="g-tbl g-mt"><thead><tr><th class="num">#</th><th>Material</th><th>Stage</th><th>Offer status</th><th>Received</th><th class="num" title="Final total — after the target price where revised">Final ('+cur()+')</th><th class="num">Original ('+cur()+')</th><th>Technical</th><th>Shortlisted</th><th>Selected</th></tr></thead><tbody>'+
+    rows.map(function(x){var l=x.l,m=x.m,t=fTotal(l),rv=rTotal(l),o=vTotal(l),lw=isLow(l),awd=awLinkOf(m)===l;
       var rec=received(l),qd=S(l.quoteDate);
       var cs=safe(function(){return compSummary(l);},null);
       var tech=S(l.techAccept).toLowerCase()==='yes'?'Accepted':S(l.techAccept).toLowerCase()==='no'?'<span class="g-bad">Not accepted</span>':(cs&&cs.bad?'<span class="g-bad">Not compliant</span>':'<span class="g-mut">—</span>');
       return '<tr class="g-nav" tabindex="0" data-go="'+E(matHref(m,'offers'))+'"><td class="num g-mut">'+E(m.itemNo)+'</td><td class="g-mn">'+E(m.desc)+'</td><td>'+stageTag(m)+'</td>'+
         '<td>'+(S(l.offerStatus)?E(l.offerStatus):'<span class="g-mut">—</span>')+'</td>'+
         '<td>'+(qd?E(fdate(qd)):(rec?'Yes':'<span class="g-mut">No</span>'))+'</td>'+
-        '<td class="num">'+(t!=null?E(mon(t))+(low!=null&&t===low&&t>0?' <span class="g-low">lowest</span>':''):'<span class="g-mut">—</span>')+'</td>'+
-        '<td class="num">'+(rv!=null?E(mon(rv)):'<span class="g-mut">—</span>')+'</td>'+
+        '<td class="num">'+(t!=null?E(mon(t))+(lw?' <span class="g-low">lowest</span>'+safe(function(){var p=pricedLines(l);return pxPartial(p.q,p.n);},''):''):'<span class="g-mut">—</span>')+'</td>'+
+        '<td class="num">'+(rv!=null&&o!=null?E(mon(o)):'<span class="g-mut">—</span>')+'</td>'+
         '<td>'+tech+'</td><td>'+(yes(l.priceShortlisted)?'Yes':'<span class="g-mut">—</span>')+'</td>'+
-        '<td>'+(yes(l.selected)?'<span class="g-sel1">Selected</span>':'<span class="g-mut">—</span>')+'</td></tr>';}).join('')+'</tbody></table></div>';
+        '<td>'+(yes(l.selected)?'<span class="g-sel1">Selected</span>':(awd?'<span class="g-sel1">Awarded</span> <span class="px-nt">not ticked</span>':'<span class="g-mut">—</span>'))+'</td></tr>';}).join('')+'</tbody></table></div>';
   h+='</section>';
   /* submittals linked to this vendor */
   var subs=(db().submittals||[]).filter(function(x){return x.vendorId===v.id;});
@@ -16269,13 +16774,17 @@ function venPage(v){
 /* ================================================================= MATRIX */
 function mxDefault(){var o=uniqDiscs().slice().sort(function(a,b){return b.n-a.n;});return o.length?(o[0].d||'~'):'*';}
 function mxCell(l,low){
-  var t=vTotal(l),sel=yes(l.selected),sh=yes(l.priceShortlisted),bad=notCompliant(l),rec=received(l);
+  var t=fTotal(l),o=vTotal(l),sel=yes(l.selected),sh=yes(l.priceShortlisted),bad=notCompliant(l),rec=received(l);
   var cls='g-x',mark='',txt,tip=[];
-  if(t!=null&&t>0){txt=compact(t);tip.push('Offer '+mon(t)+' '+cur());if(low!=null&&t===low){cls+=' low';tip.push('lowest');}}
+  var rv=rTotal(l);
+  if(t!=null&&t>0){txt=compact(t);tip.push((rv!=null?'Final (after target) ':'Offer ')+mon(t)+' '+cur());if(isLow(l)){cls+=' low';tip.push('lowest');}
+    var pl=safe(function(){return pricedLines(l);},null);if(pl&&pl.n>0&&pl.q<pl.n)tip.push(pl.q+' of '+pl.n+' lines priced');}
   else if(rec){txt='Offer';tip.push('Offer received, not priced');}
   else {txt='RFQ';cls+=' asg';tip.push('Assigned, no offer yet');}
-  var rv=rTotal(l);if(rv!=null)tip.push('Revised '+mon(rv)+' '+cur());
+  if(rv!=null&&o!=null)tip.push('Original '+mon(o)+' '+cur());
+  var am=sel?null:(db().materials||[]).find(function(x){return x.id===l.materialId;}),awd=!!(am&&awLinkOf(am)===l);
   if(sel){cls+=' sel';mark=dot('var(--good)');tip.push('Selected');}
+  else if(awd){cls+=' sel';mark=dot('var(--good)');tip.push('Awarded (not ticked)');}
   else if(bad){cls+=' bad';mark=dot('var(--critical)');tip.push(S(l.techAccept).toLowerCase()==='no'?'Not technically accepted':'Not compliant');}
   else if(sh){cls+=' sh';mark=dot('var(--info,#2f76d2)');tip.push('Shortlisted');}
   return '<td class="'+cls+'" data-go="materials/'+l.materialId+'/offers" title="'+E(vName(l.vendorId)+' — '+tip.join(' · '))+'">'+mark+'<span>'+E(txt)+'</span></td>';}
@@ -16482,6 +16991,11 @@ function rTotal(l){return typeof W.trkRevisedTotal==='function'?safe(function(){
 function memo(k,f){return typeof W.trkMemo==='function'?W.trkMemo('m3'+k,f):safe(f,null);}
 function lowOf(mid){return memo('lt'+mid,function(){return lowestTotal(mid);});}
 function lowRevOf(mid){return memo('lr'+mid,function(){return lowestRevised(mid);});}
+/* the governing (final) price — revised after target where given, else original (price.js) */
+function fTotal(l){return typeof W.trkFinalTotal==='function'?safe(function(){return W.trkFinalTotal(l);},null):safe(function(){return finalTotal(l);},null);}
+function isLowL(l){return !!safe(function(){return isLowestOffer(l);},false);}
+function awLink(m){return memo('al'+m.id,function(){return awardedLink(m);});}
+function rejected(l){return /^no$/i.test(str(l&&l.techAccept));}
 function linksOf(m){return safe(function(){return linksForMaterial(m);},[])||[];}
 function stageColor(s){try{return STAGE_COLOR[s]||'var(--muted)';}catch(e){return 'var(--muted)';}}
 function dot(c){return '<i class="m3-dot" style="--c:'+c+'"></i>';}
@@ -16506,14 +17020,15 @@ function actionable(i){return !!i&&(i.tone==='danger'||i.tone==='warn'||i.tone==
 function mine(m){var u=user();if(!u)return false;
   if(typeof W.trkIsMine==='function')return !!safe(function(){return W.trkIsMine(m,u);},false);
   var e=str(m.engineer).toLowerCase();return !!e&&(e===str(u.name).toLowerCase()||e===str(u.username).toLowerCase());}
-/* value of a material: awarded price, else the lower of lowest offer / lowest revised (dash.js rule) */
+/* value of a material (price.js): the awarded vendor's final price; an awarded material with no
+   resolvable vendor has no value (never the lowest bidder); else the lowest final offer */
 function matValue(m){
   if(W.G3&&typeof W.G3.matValue==='function'){var r=safe(function(){return W.G3.matValue(m);},null);if(r)return r;}
-  var sel=safe(function(){return awardedLink(m);},null);
-  if(sel)return {v:safe(function(){return awardedPrice(m);},null),kind:'Awarded'};
-  if(stageIdx(m)===6)return {v:null,kind:'Awarded',noSel:true};
-  var b=[lowOf(m.id),lowRevOf(m.id)].filter(function(x){return x!=null;});
-  return {v:b.length?Math.min.apply(null,b):null,kind:'Lowest'};}
+  var v=safe(function(){return matValueInfo(m);},null)||{kind:'none'};
+  if(v.kind==='awarded')return {v:v.v,kind:'Awarded',ticked:!!v.ticked,budgetary:!!v.budgetary,link:v.link};
+  if(v.kind==='unlinked')return {v:null,kind:'Awarded',noSel:true};
+  if(v.kind==='lowest')return {v:v.v,kind:'Lowest',partial:!!v.partial,q:v.q,n:v.n,link:v.link};
+  return {v:null,kind:'Lowest'};}
 function toneLine(nx,more,cls){nx=nx||{};
   return '<span class="m3-nx t-'+e_(nx.tone||'ok')+(cls?' '+cls:'')+'">'+dot(TONE_VAR[nx.tone]||'var(--muted)')+'<span class="m3-nxl">'+e_(nx.label||'')+'</span>'+
     (more?'<span class="m3-plus">+'+more+'</span>':'')+'</span>';}
@@ -16656,7 +17171,7 @@ function renderLegacy(r){
   var L=LEGACY[r.view],id=r.parts.length?Number(r.parts[0]):null;
   var mv=(id!=null&&!isNaN(id)&&L[1])?L[1]:L[0];
   var fresh=S.legacyPath!==r.path;
-  try{MOB.view=mv;MOB.id=(mv===L[1])?id:null;if(fresh){MOB.q='';MOB.f='';}MOB.stack=[];}catch(e){}
+  try{MOB.view=mv;MOB.id=(mv===L[1])?id:null;if(fresh){MOB.q='';MOB.f='';MOB.pxDrill=null;}MOB.stack=[];}catch(e){}
   var title={alerts:'Alerts',tasks:'Tasks',task:'Task',subs:'Material approvals',sub:'Material approval',feed:'Updates',projects:'Projects'}[mv]||'';
   var sub='';
   if(mv==='task'){var x=(db().tasks||[]).find(function(y){return y.id===id;});title=x?str(x.taskDesc)||'Task':'Task';sub=x?e_(x.engineer||''):'';}
@@ -16777,9 +17292,8 @@ var VIEW_INBOX={
 function matRows(){
   return memo('rows',function(){
     return (db().materials||[]).slice().sort(byItem).map(function(m){
-      var nx=nextOf(m),sel=safe(function(){return awardedLink(m);},null),val=null,vk='';
-      if(sel){val=memo('ap'+m.id,function(){return awardedPrice(m);});vk='Awarded';}else{val=lowOf(m.id);vk=val!=null?'Lowest':'';}
-      return {m:m,id:m.id,nx:nx,at:stageIdx(m),val:val,vk:vk,need:needs(nx),mine:mine(m)};});})||[];}
+      var nx=nextOf(m),mv=matValue(m),val=mv.v,vk=mv.kind==='Awarded'?'Awarded':(val!=null?'Lowest':'');
+      return {m:m,id:m.id,nx:nx,at:stageIdx(m),val:val,vk:vk,mv:mv,need:needs(nx),mine:mine(m)};});})||[];}
 function discKey(v){return str(v).toLowerCase();}
 function discList(rows){
   var lab={},order=[],seen={};
@@ -16798,11 +17312,14 @@ function matVisible(base){
     if(S.mats.quick==='action'&&!r.need)return false;
     if(S.mats.quick==='mine'&&!r.mine)return false;
     if(S.mats.stage&&STAGES[r.at]!==S.mats.stage)return false;
+    if(S.mats.drill&&S.mats.drill.ids.indexOf(r.id)<0)return false;
     return true;});}
 function matRow(r,ids){
   var m=r.m;ids.push(m.id);
   var path='materials/'+m.id;
-  var val=r.val!=null?'<span class="m3-rv'+(r.vk==='Awarded'?' aw':'')+'">'+e_(compact(r.val))+'</span>':'';
+  var mv=r.mv||{};
+  var val=r.val!=null?'<span class="m3-rv'+(r.vk==='Awarded'?' aw':'')+'" title="'+e_((r.vk==='Awarded'?'Awarded':'Lowest final offer')+' '+mon(r.val)+' '+cur()+(mv.ticked===false?' (not ticked)':'')+(mv.partial?' · '+mv.q+' of '+mv.n+' lines priced':''))+'">'+e_(compact(r.val))+'</span>'
+    :(mv.noSel?'<span class="m3-rv" title="Awarded — vendor not linked/ticked">—</span>':'');
   return '<a class="m3-row m3-mrow" href="#/'+path+'" data-go="'+path+'" data-ctx="mats" data-lp="materials:'+m.id+'" data-lplabel="'+e_(m.desc||'')+'">'+
     '<span class="m3-no">'+e_(m.itemNo)+'</span>'+
     '<span class="m3-rb"><span class="m3-r1"><span class="m3-rt1">'+e_(m.desc||'(no description)')+'</span>'+val+'</span>'+
@@ -16814,7 +17331,7 @@ var VIEW_MATS={
       '<label class="m3-search">'+ic('m3_search',17)+'<input type="search" data-a="mq" placeholder="Search materials" autocomplete="off" enterkeyhint="search" aria-label="Search materials" value="'+e_(S.mats.q)+'"></label>'+
       '<div class="m3-segc" data-p="quick" role="group" aria-label="Show"></div>'+
       '<div class="m3-stf" data-p="stages" role="group" aria-label="Filter by stage"></div>'+
-      '<div class="m3-stn" data-p="stn"></div>'+
+      '<div class="m3-stn" data-p="stn"></div><div data-p="drill"></div>'+
       '<div class="m3-selw"><select class="m3-sel" data-a="disc" aria-label="Discipline"></select></div></div>'+
       '<div data-p="list"></div>';},
   paint:function(el){
@@ -16829,6 +17346,7 @@ var VIEW_MATS={
         '<i></i><b>'+n+'</b></button>';}).join('');
     el.querySelector('[data-p=stn]').innerHTML=S.mats.stage?dot(stageColor(S.mats.stage))+'<span>'+e_(S.mats.stage)+'</span><button type="button" class="m3-lnk" data-a="stage" data-s="'+e_(S.mats.stage)+'">Show all stages</button>':
       '';
+    var dz=el.querySelector('[data-p=drill]');if(dz)dz.innerHTML=S.mats.drill?'<div class="px-drill-bar" data-px="m3drill">Showing: <b>'+e_(S.mats.drill.label)+'</b> · '+S.mats.drill.ids.length+'<button type="button" data-a="mdrillx">Show all</button></div>':'';
     var DS=discList(matRows()),sel=el.querySelector('[data-a=disc]');
     var oh='<option value="">All disciplines</option>'+DS.order.map(function(k){return '<option value="'+e_(k)+'"'+(S.mats.disc===k?' selected':'')+'>'+e_(DS.label[k])+'</option>';}).join('');
     if(sel.__h!==oh){sel.innerHTML=oh;sel.__h=oh;}sel.value=S.mats.disc;
@@ -16838,7 +17356,7 @@ var VIEW_MATS={
     var h=order.map(function(k){
       return '<section class="m3-grp"><div class="m3-gh">'+dot(stageColor(k))+'<span class="m3-ght">'+e_(k)+'</span><span class="m3-ghn">'+map[k].length+'</span></div>'+
         '<div class="m3-list">'+map[k].map(function(r){return matRow(r,ids);}).join('')+'</div></section>';}).join('');
-    var anyF=!!(S.mats.q||S.mats.stage||S.mats.disc||S.mats.quick!=='all');
+    var anyF=!!(S.mats.q||S.mats.stage||S.mats.disc||S.mats.quick!=='all'||S.mats.drill);
     if(!matRows().length)h='<div class="m3-empty">No materials in this project yet.</div>';
     else if(!vis.length&&!anyF)h='<div class="m3-empty">No materials to show.</div>';
     else if(!vis.length)h='<div class="m3-empty">No material matches'+(S.mats.q?' “'+e_(S.mats.q)+'”':' these filters')+'.<br><button type="button" class="m3-lnk" data-a="mclear">Clear filters</button></div>';
@@ -16909,11 +17427,15 @@ function summaryHtml(m){
   rows.push(edRow('Priority',prio?'<span class="m3-pr">'+dot(safe(function(){return PRIO_COLOR[prio];},'')||'var(--muted)')+e_(prio)+'</span>':'','materials',m.id,'priority'));
   rows.push(edRow('Responsible engineer',e_(m.engineer),'materials',m.id,'engineer'));
   rows.push(edRow('Discipline',e_(m.discipline)));
-  if(sel){var ap=safe(function(){return awardedPrice(m);},null);
-    rows.push(edRow('Awarded value',ap!=null?sar(ap):'<span class="m3-mut">not priced</span>'));
-    rows.push(goRow('Awarded vendor',e_(vName(sel.vendorId)),'vendors/'+sel.vendorId));}
-  else{var lo=lowOf(m.id);
-    rows.push(edRow('Lowest offer',lo!=null?sar(lo):'<span class="m3-mut">no priced offer</span>'));
+  var aw=safe(function(){return awardInfo(m);},null)||{state:'none'};
+  if(sel){var ap=aw.price;
+    rows.push(edRow('Awarded value',(ap!=null?sar(ap):'<span class="m3-mut">not priced</span>')+(aw.revised?'<span class="m3-fks">final after target · original '+e_(mon(aw.orig))+'</span>':'')+(aw.budgetary?' <span class="px-bud">budgetary</span>':'')));
+    rows.push(goRow('Awarded vendor',e_(vName(sel.vendorId))+(aw.state==='name'?' <span class="px-nt">not ticked</span>':''),'vendors/'+sel.vendorId));}
+  else if(aw.state==='unlinked'){
+    rows.push(edRow('Awarded value','<span class="px-unl">Awarded — vendor not linked/ticked</span>'));
+    if(str(m.awarded))rows.push(edRow('Awarded to',e_(m.awarded)));}
+  else{var lo=safe(function(){return lowestInfo(m.id);},null);
+    rows.push(edRow('Lowest offer',lo?sar(lo.t)+'<span class="m3-fks">'+e_(vName(lo.l.vendorId))+(lo.revised?' · final after target':'')+(lo.partial?' · '+lo.q+' of '+lo.n+' lines':'')+'</span>':'<span class="m3-mut">no priced offer</span>'));
     if(str(m.awarded))rows.push(edRow('Awarded to',e_(m.awarded)));}
   rows.push(edRow('PR No',e_(m.prNo)));
   rows.push(edRow('PO No',e_(m.poNo),'materials',m.id,'poNo'));
@@ -16958,11 +17480,14 @@ function rfqHtml(m){
   return secWrap('rfq',rr.length?rr.length+' revision'+(rr.length===1?'':'s'):'',facts+revs);}
 
 function offerCard(l,low,hasCrit){
-  var t=vTotal(l),rv=rTotal(l),isSel=yes(l.selected),isLow=(t!=null&&low!=null&&t===low);
-  var flags=(isSel?'<span class="m3-flag sel">Selected</span>':'')+(isLow?'<span class="m3-flag low">Lowest</span>':'');
+  /* headline = his final price (after target); the original is the secondary line */
+  var t=fTotal(l),o=vTotal(l),rv=rTotal(l),isSel=yes(l.selected),isLow=isLowL(l);
+  var m0=matById(l.materialId),awN=!isSel&&!!m0&&awLink(m0)===l;
+  var flags=(isSel?'<span class="m3-flag sel">Selected</span>':'')+(awN?'<span class="m3-flag sel">Awarded</span><span class="px-nt">not ticked</span>':'')+(isLow?'<span class="m3-flag low">Lowest</span>':'');
   var subs=[];
-  if(rv!=null){var cut=(t!=null&&t>0)?Math.round(((t-rv)/t)*1000)/10:null;
-    subs.push('Revised <b class="m3-num">'+e_(mon(rv))+'</b>'+(cut?' <span class="'+(cut>0?'m3-good':'m3-warn')+'">'+(cut>0?'−':'+')+Math.abs(cut)+'%</span>':''));}
+  if(rv!=null&&o!=null){var cut=(o>0&&t!=null)?Math.round(((o-t)/o)*1000)/10:null;
+    subs.push('Final after target'+(cut?' <span class="'+(cut>0?'m3-good':'m3-warn')+'">'+(cut>0?'−':'+')+Math.abs(cut)+'%</span>':'')+' · original <span class="m3-num">'+e_(mon(o))+'</span>');}
+  var pl=safe(function(){return pricedLines(l);},null);if(pl&&pl.n>0&&pl.q<pl.n&&o!=null)subs.push('<span class="px-part">'+pl.q+' of '+pl.n+' lines</span>');
   if(safe(function(){return isFx(l);},false))subs.push('Quoted in '+e_(curOf(l))+' at '+e_(String(fxOf(l))));
   if(safe(function(){return hasCharges(l);},false))subs.push(t!=null?'Includes '+e_(chargeText(l))+' to site':'Charges '+e_(chargeText(l))+' entered, no rates');
   var cs=safe(function(){return compSummary(l);},null)||{n:0};
@@ -16993,7 +17518,8 @@ function offerCard(l,low,hasCrit){
     '</article>';}
 function offersHtml(m){
   var ls=linksOf(m),low=lowOf(m.id),hasCrit=safe(function(){return critList().length>0;},false);
-  var list=ls.map(function(l){return {l:l,t:vTotal(l),s:yes(l.selected)};});
+  var aL=awLink(m);
+  var list=ls.map(function(l){return {l:l,t:fTotal(l),s:yes(l.selected)||aL===l};});
   list.sort(function(a,b){return (b.s-a.s)||((a.t==null)-(b.t==null))||((a.t||0)-(b.t||0))||String(vName(a.l.vendorId)).localeCompare(String(vName(b.l.vendorId)));});
   var priced=list.filter(function(x){return x.t!=null;}).length,inN=ls.filter(function(l){return safe(function(){return offerIn(l);},false);}).length;
   var meta=ls.length?ls.length+' vendor'+(ls.length===1?'':'s')+' · '+inN+' received · '+priced+' priced':'';
@@ -17024,14 +17550,16 @@ function comparisonHtml(m){
   if(rev==null){var bq=safe(function(){return boqCurrent(m.id);},[])||[];
     return secWrap('comparison','',empty(bq.length?'No vendor has priced the bill yet ('+bq.length+' line'+(bq.length===1?'':'s')+').':'No bill of quantities yet.'));}
   var its=safe(function(){return boqOf(m.id,rev);},[])||[],par=safe(function(){return markParents(its);},new Set());
-  var V=ls.map(function(l){return {l:l,t:safe(function(){return totalForRev(l,rev);},null)};}).filter(function(x){return x.t!=null;});
+  /* totals at this revision on the FINAL price (revised after target where given); rejected vendors are never the lowest */
+  var V=ls.map(function(l){return {l:l,t:safe(function(){return finalForRev(l,rev);},null),o:safe(function(){return totalForRev(l,rev);},null),rj:rejected(l)};}).filter(function(x){return x.t!=null;});
   V.sort(function(a,b){return a.t-b.t;});
-  var lowT=V.length?V[0].t:null;
+  var okV=V.filter(function(x){return !x.rj;}),lowT=okV.length?okV[0].t:null,lowL=okV.length?okV[0].l:null;
   var skipped=ls.filter(function(l){return safe(function(){return lastPricedRev(l);},null)!=null;}).length-V.length;
   var tots='<div class="m3-sub">Totals · '+cur()+(V.some(function(x){return safe(function(){return hasCharges(x.l);},false);})?' incl. charges':'')+'</div><div class="m3-card m3-list2">'+V.map(function(x,i){
-    var d=lowT>0&&i>0?Math.round((x.t-lowT)/lowT*1000)/10:null;
+    var isLo=x.l===lowL,d=(lowT>0&&!isLo)?Math.round((x.t-lowT)/lowT*1000)/10:null;
     return '<div class="m3-li m3-tot"><div class="m3-li1"><span class="m3-rk">'+(i+1)+'</span><a class="m3-a" href="#/vendors/'+x.l.vendorId+'" data-go="vendors/'+x.l.vendorId+'">'+e_(vName(x.l.vendorId))+'</a>'+
-      '<span class="m3-lir"><b class="m3-num">'+e_(mon(x.t))+'</b>'+(i===0&&V.length>1?'<span class="m3-flag low">Lowest</span>':(d!=null?'<span class="m3-dlt">+'+d+'%</span>':''))+'</span></div></div>';}).join('')+'</div>';
+      '<span class="m3-lir"><b class="m3-num">'+e_(mon(x.t))+'</b>'+(isLo&&V.length>1?'<span class="m3-flag low">Lowest</span>':(d!=null?'<span class="m3-dlt">'+(d>=0?'+':'')+d+'%</span>':''))+'</span></div>'+
+      ((x.o!=null&&Math.abs(x.o-x.t)>=0.005)||x.rj?'<div class="m3-li2">'+(x.o!=null&&Math.abs(x.o-x.t)>=0.005?'final after target · original '+e_(mon(x.o)):'')+(x.rj?'<span class="m3-bad"> tech. rejected</span>':'')+'</div>':'')+'</div>';}).join('')+'</div>';
   var all=!!S.showAll[m.id],lines=its.filter(function(i){return !par.has(i.id);}),shown=all?its:its.slice(0,14);
   var open=S.cmpOpen[m.id]||{};
   var lh=shown.map(function(i){
@@ -17051,7 +17579,7 @@ function comparisonHtml(m){
   var opt=safe(function(){return hasOpts(m.id);},false)?' · option '+e_(optCode(m.id,optInForce(m.id))):'';
   var meta='RFQ '+e_(safe(function(){return revLabel(m.id,rev);},rev))+opt+' · '+lines.length+' line'+(lines.length===1?'':'s');
   var note=skipped>0?'<div class="m3-foot">'+skipped+' vendor'+(skipped===1?'':'s')+' priced an earlier revision only.</div>':'';
-  return secWrap('comparison',meta,tots+'<div class="m3-sub">Lowest per line · '+cur()+' (qty × rate)</div><div class="m3-card m3-cls">'+lh+'</div>'+more+note);}
+  return secWrap('comparison',meta,tots+'<div class="m3-sub">Lowest per line · '+cur()+' (qty × quoted rate)</div><div class="m3-card m3-cls">'+lh+'</div>'+more+note);}
 
 function poHtml(m){
   var sel=safe(function(){return awardedLink(m);},null);
@@ -17061,7 +17589,7 @@ function poHtml(m){
     edRow('PO No',e_(m.poNo),'materials',m.id,'poNo')+
     edRow('Planned PO',e_(fdate(m.plannedPO)),'materials',m.id,'plannedPO')+
     edRow('Delivery',e_(fdate(m.deliveryDate)),'materials',m.id,'deliveryDate')+
-    (sel?goRow('Selected vendor',e_(vName(sel.vendorId)),'vendors/'+sel.vendorId):edRow('Selected vendor','<span class="m3-mut">none selected</span>'))+'</div>';
+    (sel?goRow('Selected vendor',e_(vName(sel.vendorId))+(yes(sel.selected)?'':' <span class="px-nt">not ticked</span>'),'vendors/'+sel.vendorId):edRow('Selected vendor','<span class="m3-mut">none selected</span>'))+'</div>';
   var dr=ls.length?'<div class="m3-sub">Draft PO</div><div class="m3-card m3-list2">'+ls.map(function(l){var s=safe(function(){return poSummary(l);},null)||{st:'',color:'',n:0};
     var bits=[str(l.poRef)?'Ref '+e_(l.poRef):'',l.poSent?'sent '+e_(fdate(l.poSent)):'',l.poRcv?'comments in '+e_(fdate(l.poRcv)):'',l.poAgreed?'agreed '+e_(fdate(l.poAgreed)):'',
       s.n?s.ag+' / '+s.n+' comments agreed'+(s.open?' · <span class="m3-warn">'+s.open+' open</span>':''):''].filter(Boolean);
@@ -17233,7 +17761,7 @@ function venStats(v){
   if(W.G3&&typeof W.G3.venStats==='function'){var r=safe(function(){return W.G3.venStats(v);},null);if(r)return r;}
   var ls=(db().links||[]).filter(function(l){return l.vendorId===v.id;}),mats={},rec=0,pr=0,sh=0,sel=0,aw=0,awN=0;
   ls.forEach(function(l){mats[l.materialId]=1;if(safe(function(){return offerIn(l);},false))rec++;var t=vTotal(l);if(t!=null&&t>0)pr++;
-    if(yes(l.priceShortlisted))sh++;if(yes(l.selected)){sel++;var m=matById(l.materialId);var a=m?safe(function(){return awardedPrice(m);},null):null;if(a!=null){aw+=a;awN++;}}});
+    if(yes(l.priceShortlisted))sh++;var m=matById(l.materialId);if(m&&awLink(m)===l){sel++;var a=safe(function(){return awardedPrice(m);},null);if(a!=null){aw+=a;awN++;}}});
   return {links:ls.length,mats:Object.keys(mats).length,rec:rec,pr:pr,sh:sh,sel:sel,aw:awN?aw:null,
     subs:(db().submittals||[]).filter(function(s){return s.vendorId===v.id;}).length};}
 function venList(){
@@ -17279,14 +17807,14 @@ function paintVendor(el,id){
   var h='<div class="m3-pad"><div class="m3-vfacts">'+facts.map(function(f){return '<div><b'+(f[0]==='SAR awarded'&&s.aw!=null?' title="'+e_(mon(s.aw)+' '+cur())+'"':'')+'>'+e_(f[1])+'</b><span>'+e_(f[0]==='SAR awarded'?cur()+' awarded':f[0])+'</span></div>';}).join('')+'</div>'+
     (str(v.shared)||str(v.notes)?'<div class="m3-card m3-flist">'+(str(v.shared)?edRow('RFQ shared',e_(v.shared)):'')+(str(v.notes)?edRow('Notes',e_(v.notes),null,null,null,{cls:'wrap'}):'')+'</div>':'')+'</div>';
   h+='<section class="m3-sec"><div class="m3-sh"><h2>Materials quoted</h2><span class="m3-shm">'+rows.length+'</span></div>';
-  h+=rows.length?'<div class="m3-card m3-list2">'+rows.map(function(x){var l=x.l,m=x.m,t=vTotal(l),rv=rTotal(l),low=lowOf(m.id);
+  h+=rows.length?'<div class="m3-card m3-list2">'+rows.map(function(x){var l=x.l,m=x.m,t=fTotal(l),rv=rTotal(l),o=vTotal(l),awN=!yes(l.selected)&&awLink(m)===l;
     var st=str(l.offerStatus)||(safe(function(){return offerIn(l);},false)?'Received':'No offer yet');
-    var bits=[e_(st),l.quoteDate?'received '+e_(fdate(l.quoteDate)):'',rv!=null?'revised '+e_(compact(rv)):'',yes(l.priceShortlisted)?'shortlisted':''].filter(Boolean);
+    var bits=[e_(st),l.quoteDate?'received '+e_(fdate(l.quoteDate)):'',rv!=null&&o!=null?'final after target · original '+e_(compact(o)):'',yes(l.priceShortlisted)?'shortlisted':''].filter(Boolean);
     var path='materials/'+m.id+'/offers';
     return '<a class="m3-li go" href="#/'+path+'" data-go="'+path+'" data-ctx="ven"><div class="m3-li1"><span class="m3-no sm">'+e_(m.itemNo)+'</span><span class="m3-lit">'+e_(m.desc)+'</span>'+
       '<span class="m3-lir">'+(t!=null?'<b class="m3-num">'+e_(compact(t))+'</b>':'<span class="m3-mut">not priced</span>')+'</span></div>'+
       '<div class="m3-li2 ind">'+stageTag(STAGES[stageIdx(m)])+'<span class="m3-sep">·</span>'+bits.join('<span class="m3-sep">·</span>')+
-        (yes(l.selected)?'<span class="m3-flag sel">Selected</span>':'')+(t!=null&&low!=null&&t===low&&t>0?'<span class="m3-flag low">Lowest</span>':'')+'</div></a>';}).join('')+'</div>'
+        (yes(l.selected)?'<span class="m3-flag sel">Selected</span>':(awN?'<span class="m3-flag sel">Awarded</span><span class="px-nt">not ticked</span>':''))+(isLowL(l)?'<span class="m3-flag low">Lowest</span>':'')+'</div></a>';}).join('')+'</div>'
     :empty('No materials assigned to this vendor.');
   h+='</section>';
   var subs=(db().submittals||[]).filter(function(x){return x.vendorId===id;});
@@ -17364,13 +17892,14 @@ function sheet(title,acts){
 function offerMenu(id){
   var l=linkById(id);if(!l)return;
   var priced=vTotal(l)!=null,acts=[['Open the vendor',function(){go('vendors/'+l.vendorId);}]];
+  var fin=fTotal(l),orig=vTotal(l);
   if(priced){
     if(typeof pdfVendorOffer==='function')acts.push(['His price analysis (PDF)',function(){pdfVendorOffer(id);}]);
     if(typeof govSheet==='function'){acts.push(['Price clarification (PDF)',function(){govSheet(l.materialId,id,'pdf');}]);
       acts.push(['Price clarification (Excel)',function(){govSheet(l.materialId,id,'xlsx');}]);}}
   acts.push(['Record the offer date',function(){mobEdit('links',id,'quoteDate','Offer received — '+vName(l.vendorId));}]);
   if(canG('rfqs')&&typeof confirmDelete==='function')acts.push(['Remove from '+(safe(function(){return matName(l.materialId);},'')||'this material'),function(){confirmDelete('links',id);},1]);
-  return sheet(vName(l.vendorId)+(priced?' — '+mon(vTotal(l))+' '+cur():''),acts);}
+  return sheet(vName(l.vendorId)+(priced?' — '+mon(fin)+' '+cur()+(orig!=null&&fin!=null&&Math.abs(orig-fin)>=0.005?' (original '+mon(orig)+')':''):''),acts);}
 
 /* ------------------------------------------------------------ events */
 function onClick(e){
@@ -17384,7 +17913,7 @@ function onClick(e){
     e.preventDefault();
     var ctx=t.getAttribute('data-ctx');
     if(ctx&&S.lists[ctx])S.order=S.lists[ctx].slice();
-    if(t.hasAttribute('data-stage')){S.mats.stage=t.getAttribute('data-stage');S.mats.quick='all';S.mats.q='';S.mats.disc='';}
+    if(t.hasAttribute('data-stage')){S.mats.stage=t.getAttribute('data-stage');S.mats.quick='all';S.mats.q='';S.mats.disc='';S.mats.drill=null;}
     go(t.getAttribute('data-go'));return;}
   var g=function(k){return t.getAttribute(k);};
   switch(a){
@@ -17395,7 +17924,10 @@ function onClick(e){
   e.preventDefault();
   switch(a){
     case 'tab':{var v=g('data-v');var r=S.route||{};
-      if(TAB_OF[r.view]===v&&r.view===v&&!r.parts.length){if(S.scr&&!S.legacy)try{S.scr.scrollTo({top:0,behavior:'smooth'});}catch(x){S.scr.scrollTop=0;}else if(S.slot)S.slot.scrollTop=0;return;}
+      /* the plain Materials tab never keeps a filter set by a dashboard figure */
+      var hadF=v==='materials'&&!!(S.mats.q||S.mats.stage||S.mats.disc||S.mats.quick!=='all'||S.mats.drill);
+      if(v==='materials')clearMats();
+      if(TAB_OF[r.view]===v&&r.view===v&&!r.parts.length){if(hadF){render();return;}if(S.scr&&!S.legacy)try{S.scr.scrollTo({top:0,behavior:'smooth'});}catch(x){S.scr.scrollTop=0;}else if(S.slot)S.slot.scrollTop=0;return;}
       go(v);return;}
     case 'back':back();return;
     case 'ctr':{var c=g('data-v');S.inbox.ctr=(c&&S.inbox.ctr!==c)?c:'';render();if(S.scr&&!c)S.scr.scrollTop=0;return;}
@@ -17403,7 +17935,8 @@ function onClick(e){
     case 'noted':S.inbox.noted=!S.inbox.noted;render();return;
     case 'quick':S.mats.quick=g('data-k');render();return;
     case 'stage':{var s=g('data-s');S.mats.stage=S.mats.stage===s?'':s;render();return;}
-    case 'mclear':S.mats.q='';S.mats.quick='all';S.mats.stage='';S.mats.disc='';var qi=S.scr.querySelector('[data-a=mq]');if(qi)qi.value='';render();return;
+    case 'mdrillx':S.mats.drill=null;render();return;
+    case 'mclear':S.mats.q='';S.mats.quick='all';S.mats.stage='';S.mats.disc='';S.mats.drill=null;var qi=S.scr.querySelector('[data-a=mq]');if(qi)qi.value='';render();return;
     case 'vall':S.vens.all=!S.vens.all;render();return;
     case 'sec':{var sec=g('data-sec');if(!S._mat||SECS.indexOf(sec)<0)return;jump(sec,true);S.urlSec=sec==='summary'?null:sec;
       setHash('materials/'+S._mat.id+(S.urlSec?'/'+S.urlSec:''),'replace');return;}
@@ -17451,15 +17984,18 @@ wrap('mobRenderBody',function(o){return function(){
   if(mobileOn()&&user()){var r=phoneRoute();if(r&&LEGACY[r.view]&&S.legacy)return o.apply(this,arguments);render();return;}
   return o.apply(this,arguments);};});
 ORIG.mobRenderBody=ORIG.mobRenderBody||null;
-wrap('mobGo',function(o){return function(view,id){if(on()){go(routeOfMob(view,id));return;}return o.apply(this,arguments);};});
+wrap('mobGo',function(o){return function(view,id){if(on()){if(view==='mats')clearMats();go(routeOfMob(view,id));return;}return o.apply(this,arguments);};});
 wrap('mobTab',function(o){return function(v){
   if(on()){
     if(v==='home'){land();return;}
     go(routeOfMob(v,null));return;}
   return o.apply(this,arguments);};});
 wrap('mobBack',function(o){return function(){if(on()){back();return;}return o.apply(this,arguments);};});
-wrap('mobStage',function(o){return function(st){if(on()){S.mats.stage=st||'';S.mats.quick='all';S.mats.q='';go('materials');return;}return o.apply(this,arguments);};});
-wrap('db2MobStage',function(o){return function(i){if(on()){S.mats.stage=(i>=0&&i<STAGES.length)?STAGES[i]:'';S.mats.quick='all';S.mats.q='';go('materials');return;}return o.apply(this,arguments);};});
+wrap('mobStage',function(o){return function(st){if(on()){clearMats();S.mats.stage=st||'';go('materials');return;}return o.apply(this,arguments);};});
+wrap('db2MobStage',function(o){return function(i){if(on()){clearMats();S.mats.stage=(i>=0&&i<STAGES.length)?STAGES[i]:'';go('materials');return;}return o.apply(this,arguments);};});
+/* a dashboard figure opens the list with exactly the materials it counts (and nothing else set) */
+function clearMats(){S.mats.q='';S.mats.quick='all';S.mats.stage='';S.mats.disc='';S.mats.drill=null;}
+function drillMats(label,ids){clearMats();S.mats.drill={label:String(label||''),ids:(ids||[]).slice()};go('materials');}
 wrap('mobPick',function(o){return function(pid){if(on()){openProject(pid);rep('inbox');return;}return o.apply(this,arguments);};});
 wrap('showProjects',function(o){return function(){if(on()){go('projects');return;}return o.apply(this,arguments);};});
 /* ids belong to a project: another project starts on Needs action */
@@ -17490,7 +18026,7 @@ wrap('appLogout',function(o){return function(){
     resetState();}
   S.key=null;S.order=null;syncClass();return r;};});
 function resetState(){
-  S.inbox={ctr:'',noted:false,mine:false};S.mats={q:'',quick:'all',stage:'',disc:''};S.vens={q:'',all:false,sort:'mats'};
+  S.inbox={ctr:'',noted:false,mine:false};S.mats={q:'',quick:'all',stage:'',disc:'',drill:null};S.vens={q:'',all:false,sort:'mats'};
   S.scrolls={};S.order=null;S.prefKey=null;S.val=null;S.tip={};S.showAll={};S.cmpOpen={};S.legacyPath=null;S.lists={};}
 /* ---- layout choice on this device ---- */
 var LAYOUT_KEY='trk_ws_m3_layout';
@@ -17529,7 +18065,8 @@ if(on())safe(function(){render();});
 
 /* public surface for tests */
 W.M3={layoutPref:layoutPref,phoneBtn:phoneBtn,resetState:resetState,state:S,render:render,go:go,replace:rep,back:back,route:function(){return S.route;},views:VIEWS,
-  inboxModel:inboxModel,ctxOrder:ctxOrder,moveMat:moveMat,jump:jump,routeOfMob:routeOfMob,phoneRoute:phoneRoute,orig:ORIG};
+  inboxModel:inboxModel,ctxOrder:ctxOrder,moveMat:moveMat,jump:jump,routeOfMob:routeOfMob,phoneRoute:phoneRoute,orig:ORIG,
+  drill:drillMats,clearMats:clearMats};
 })();
 
 </script>
