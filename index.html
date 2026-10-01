@@ -9504,7 +9504,9 @@ function mobEdit(tbl,id,key,label){
   const st='width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;border:1px solid var(--ring);background:var(--field);color:var(--ink);font:inherit;font-size:16px';
   let field;
   if(typeof spec==='function'||Array.isArray(spec)){
-    const opts=(Array.isArray(spec)?spec:spec(row))||[];
+    const opts=((Array.isArray(spec)?spec:spec(row))||[]).slice();
+    /* keep the value already stored (e.g. "Abdullah / Kareem") so saving untouched never blanks it */
+    if(v&&!opts.some(o=>String(Array.isArray(o)?o[0]:o)===v))opts.unshift([v,v]);
     field=`<select id="mev" style="${st}">${opts.map(o=>{
       const val=Array.isArray(o)?o[0]:o,lab=Array.isArray(o)?o[1]:o;
       return `<option value="${esc(val)}" ${String(val)===v?'selected':''}>${esc(String(lab||'')||'— none —')}</option>`;}).join('')}</select>`;
@@ -9524,7 +9526,7 @@ function mobEdit(tbl,id,key,label){
   else field=`<input id="mev" type="text" value="${esc(v)}" style="${st}">`;
   msgBox(label||(typeof FIELD_LABELS!=='undefined'&&FIELD_LABELS[key])||key,'✎',field,
     [['Cancel',null,''],['Save',()=>{
-      _setCell(tbl,id,key,coerceVal(tbl,key,_dlg.mev));refreshData();},'primary']]);}
+      const nv=coerceVal(tbl,key,_dlg.mev);if(String(nv==null?'':nv)!==v)_setCell(tbl,id,key,nv);refreshData();},'primary']]);}
 /* ---- the frame ---- */
 function mobRender(){
   if(!MOBILE)return;
