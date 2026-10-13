@@ -14395,6 +14395,148 @@ try{windows.forEach(function(w){compact(w);if(gOf(w))paint(w);});}catch(e){}
 })();
 
 </script>
+<script id="pdf-file-js">
+/* Phone reports as real PDF files.
+   On a phone the app used to print reports from a hidden frame. iPhone Safari prints the whole
+   page instead of the frame, so "Export PDF" printed the screen. On phones every report is now
+   built as a PDF file (jsPDF + autoTable) and handed to the share sheet / download, inside the tap. */
+(function(){
+if(window.__pdfFile)return;window.__pdfFile=1;
+var LIBS=window.TRK_PDF_LIBS||['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'];
+function isPhone(){
+  var ua=navigator.userAgent||'',ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  return ios||document.body.classList.contains('mobile')||(window.matchMedia&&matchMedia('(pointer:coarse)').matches&&(window.innerWidth||0)<900);}
+var loading=null;
+function ready(){return !!(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable);}
+function load(){
+  if(ready())return Promise.resolve();
+  if(loading)return loading;
+  loading=LIBS.reduce(function(p,src){return p.then(function(){return new Promise(function(ok,bad){
+    var s=document.createElement('script');s.src=src;s.async=false;s.onload=ok;s.onerror=function(){loading=null;bad(new Error('load '+src));};
+    document.head.appendChild(s);});});},Promise.resolve());
+  return loading;}
+window.trkPdfPreload=load;
+/* fetch the writer early on phones so the PDF can be made synchronously inside the tap */
+function warm(){if(isPhone())load().catch(function(){});}
+document.addEventListener('touchstart',warm,{once:true,passive:true});
+setTimeout(warm,1500);
+
+var NAVY=[18,48,79],LINE=[195,206,217],HEADBG=[238,242,246],ZEBRA=[247,249,251];
+function txt(el){return String(el?(el.textContent||''):'').replace(/\s+/g,' ').trim();}
+function fileName(t){return (String(t||'Report').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,90)||'Report')+'.pdf';}
+function clean(s){return String(s==null?'':s).replace(/[−]/g,'-').replace(/[✓✔]/g,'Yes').replace(/[✕✖✗]/g,'x')
+  .replace(/[★☆]/g,'*').replace(/[^\x00-\xff–—‘’“”•…€™ŒœŠšŸŽžƒˆ˜†‡‰‹›]/g,'');}
+
+/* build the document: title block, figure boxes, table — same content as the printed report */
+function build(title,head,cardsHTML,tableHTML,cols,extra,after){
+  var J=window.jspdf.jsPDF,land=cols>6;
+  var doc=new J({orientation:land?'landscape':'portrait',unit:'pt',format:'a4'});
+  var W=doc.internal.pageSize.getWidth(),M=24,y=M+6;
+  var when=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor.apply(doc,NAVY);
+  var tl=doc.splitTextToSize(clean(title||'Report'),W-2*M-150);doc.text(tl,M,y);
+  doc.setFontSize(7.6);doc.text('AWPT Material Tracker',W-M,y,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setTextColor(85);doc.text('printed '+clean(when),W-M,y+10,{align:'right'});
+  y+=tl.length*14;
+  if(head){var hl=doc.splitTextToSize(clean(head),W-2*M-150);doc.text(hl,M,y);y+=hl.length*9;}
+  y=Math.max(y,M+26);doc.setDrawColor.apply(doc,NAVY);doc.setLineWidth(2);doc.line(M,y,W-M,y);y+=10;
+  /* figure boxes */
+  var box=document.createElement('div');box.innerHTML=cardsHTML||'';
+  var cards=[].slice.call(box.querySelectorAll('.rk'));
+  if(cards.length){
+    var gap=4,bw=(W-2*M-gap*(cards.length-1))/cards.length,bh=0,lay=[];
+    cards.forEach(function(c){var k=clean(txt(c.querySelector('.k'))),v=clean(txt(c.querySelector('.v')));
+      var lines=[].slice.call(c.querySelectorAll('table.fig tr')).map(function(r){return [clean(txt(r.cells[0])),clean(txt(r.cells[1]))];});
+      var h=12+(v?14:0)+lines.length*8.5+4;bh=Math.max(bh,h);lay.push([k,v,lines]);});
+    lay.forEach(function(L,i){var x=M+i*(bw+gap);doc.setDrawColor.apply(doc,LINE);doc.setLineWidth(.4);doc.roundedRect(x,y,bw,bh,2,2);
+      doc.setFontSize(6.2);doc.setTextColor(107);doc.text(doc.splitTextToSize(L[0].toUpperCase(),bw-6)[0]||'',x+bw/2,y+9,{align:'center'});
+      var yy=y+12;if(L[1]){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor.apply(doc,NAVY);doc.text(L[1],x+bw/2,yy+10,{align:'center'});doc.setFont('helvetica','normal');yy+=14;}
+      doc.setFontSize(6.3);L[2].forEach(function(r){doc.setTextColor(85);doc.text(r[0],x+3,yy+6);doc.setTextColor(0);doc.text(r[1],x+bw-3,yy+6,{align:'right'});yy+=8.5;});});
+    y+=bh+8;}
+  if(extra){doc.setFontSize(8);doc.setTextColor(40);var el=doc.splitTextToSize(clean(extra),W-2*M);doc.text(el,M,y+6);y+=el.length*10+6;}
+  /* the table */
+  var holder=document.createElement('div');holder.style.cssText='position:absolute;left:-99999px;top:0';
+  holder.innerHTML=tableHTML||'';document.body.appendChild(holder);
+  var tb=holder.querySelector('table');
+  if(tb){
+    var dense=(tb.rows.length>30||cols>10);
+    doc.autoTable({html:tb,startY:y,margin:{left:M,right:M,bottom:22},theme:'grid',useCss:false,
+      styles:{font:'helvetica',fontSize:dense?6.6:7.4,cellPadding:dense?2:2.6,lineColor:LINE,lineWidth:.4,textColor:20,overflow:'linebreak',valign:'top'},
+      headStyles:{fillColor:HEADBG,textColor:NAVY,fontStyle:'bold',fontSize:dense?6:6.6},
+      footStyles:{fillColor:HEADBG,textColor:0,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:ZEBRA},
+      didParseCell:function(d){
+        var raw=d.cell.raw;d.cell.text=(d.cell.text||[]).map(clean);
+        if(raw&&raw.classList){
+          if(raw.classList.contains('num')||/^[\s\-+]?[\d,]+(\.\d+)?\s*%?$/.test(txt(raw)))d.cell.styles.halign='right';
+          if(raw.classList.contains('anlow')){d.cell.styles.textColor=[10,125,60];d.cell.styles.fontStyle='bold';d.cell.styles.fillColor=[233,248,239];}
+          if(raw.classList.contains('anwarm')){d.cell.styles.textColor=[180,83,9];}
+          if(raw.classList.contains('anhot')){d.cell.styles.textColor=[185,28,28];d.cell.styles.fontStyle='bold';}
+          if(/grand total|final total/i.test(txt(raw))&&d.section==='body')d.cell.styles.fontStyle='bold';}},
+      didDrawPage:function(){var n=doc.internal.getNumberOfPages(),H=doc.internal.pageSize.getHeight();
+        doc.setFontSize(6.5);doc.setTextColor(120);doc.text(clean(title||''),M,H-10);doc.text('Page '+n,W-M,H-10,{align:'right'});}});}
+  holder.remove();
+  if(after&&after.length){var H=doc.internal.pageSize.getHeight(),yy=(doc.lastAutoTable&&doc.lastAutoTable.finalY||y)+18;
+    if(yy+after.length*30>H-30){doc.addPage();yy=M+10;}
+    doc.setFontSize(7.6);doc.setTextColor(60);
+    after.forEach(function(t,i){if(i===0){doc.text(clean(t),M,yy);yy+=26;return;}
+      doc.setDrawColor(150);doc.setLineWidth(.5);doc.line(M,yy,M+200,yy);doc.text(clean(t),M,yy+9);yy+=28;});}
+  return doc;}
+
+function deliver(doc,title){
+  var name=fileName(title),blob=doc.output('blob');
+  var file=null;try{file=new File([blob],name,{type:'application/pdf'});}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+    navigator.share({files:[file],title:name.replace(/\.pdf$/,'')}).catch(function(e){if(e&&e.name!=='AbortError')save(blob,name);});return;}
+  save(blob,name);}
+function save(blob,name){
+  var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},120000);
+  if(typeof toast==='function')toast('PDF saved — '+name);}
+
+function makePdf(title,head,cards,tableHTML,cols,extra,after){
+  var go=function(){try{deliver(build(title,head,cards,tableHTML,cols,extra,after),title);}
+    catch(e){if(typeof toast==='function')toast('Could not make the PDF: '+(e&&e.message||e));}};
+  if(ready()){go();return true;}
+  if(typeof toast==='function')toast('Preparing the PDF…');
+  load().then(go).catch(function(){if(typeof toast==='function')toast('The PDF writer could not load — check the connection and press it again');});
+  return true;}
+window.trkMakePdf=makePdf;
+
+/* 1. reports printed from the page (comparison PDF, vendor price analysis, any table when no window) */
+var origInPage=window._printInPage;
+if(typeof origInPage==='function'){
+  window._printInPage=function(title,head,cards,tableHTML,cols){
+    if(isPhone())return makePdf(title,head,cards,tableHTML,cols);
+    return origInPage.apply(this,arguments);};}
+/* 2. table reports: on a phone never open a print tab — go straight to the PDF file */
+var origTable=window.tablePDF;
+if(typeof origTable==='function'){
+  window.tablePDF=function(){
+    if(!isPhone())return origTable.apply(this,arguments);
+    var wo=window.open;window.open=function(){return null;};
+    try{return origTable.apply(this,arguments);}finally{window.open=wo;}};}
+/* 3. documents written into a new window (price clarification sheet): on a phone, catch what is
+      written and turn it into the same PDF file */
+var origGov=window.govSheet;
+if(typeof origGov==='function'){
+  window.govSheet=function(mid,linkId,how){
+    if(how==='xlsx'||!isPhone())return origGov.apply(this,arguments);
+    var buf='',wo=window.open;
+    var fake={document:{write:function(s){buf+=s;},close:function(){}},focus:function(){},print:function(){},close:function(){}};
+    window.open=function(){return fake;};
+    try{origGov.apply(this,arguments);}finally{window.open=wo;}
+    if(!buf)return;
+    var d=new DOMParser().parseFromString(buf,'text/html');
+    var t=d.querySelector('h1'),sub=d.querySelector('.sub'),ask=d.querySelector('.ask'),tb=d.querySelector('table');
+    var sig=d.querySelector('.sig');
+    var after=[];if(sig){var first=sig.firstChild&&sig.firstChild.nodeType===3?String(sig.firstChild.textContent).trim():'';
+      if(first)after.push(first);[].slice.call(sig.querySelectorAll('div')).forEach(function(x){after.push(txt(x));});}
+    return makePdf(txt(t)||'Price clarification',txt(sub),'',tb?tb.outerHTML:'',tb&&tb.rows[0]?tb.rows[0].cells.length:8,ask?txt(ask):'',after);};}
+})();
+
+</script>
 <script id="tv-views-js">
 /* ================= VIEWS (Engineer D, round 3) — the view host window.TV =================
    Workbench trial page: views instead of windows. Loads after the round-1/2 modules
